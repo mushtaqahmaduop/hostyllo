@@ -1,16 +1,19 @@
 {
-  "name": "@hostyllo/api",
+  "name": "@hostyllo/web",
   "version": "1.0.0",
-  "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
   },
   "dependencies": {
-    "fastify": "^4.28.0",
-    "@fastify/cors": "^9.0.1",
-    "@supabase/supabase-js": "^2.45.0",
-    "ioredis": "^5.4.1",
-    "@sentry/node": "^8.0.0"
+    "next": "14.2.5",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10",
+    "postcss": "^8",
+    "tailwindcss": "^3"
   }
 }
