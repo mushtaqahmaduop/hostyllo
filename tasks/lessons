@@ -1,0 +1,4 @@
+# HOSTYLLO — Lessons Log
+
+## Session 1 — June 2026
+- LESSON: Run pnpm install only after workspace config files exist → prevents duplicate node_modules

@@ -2,11 +2,14 @@
   "name": "hostyllo",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
-    "dev:api": "cd apps/api && node index.js",
-    "dev:web": "cd apps/web && npm run dev"
-  }
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "2.9.16"
+  },
+  "packageManager": "pnpm@11.1.1"
 }
