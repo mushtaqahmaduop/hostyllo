@@ -6,7 +6,7 @@ const app = Fastify({ logger: true })
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 app.register(require('@fastify/cors'), {
-  origi: '*', // tighten this in production
+  orign: '*', // tighten this in production
 })
 
 // ─── Clients ─────────────────────────────────────────────────────────────────
