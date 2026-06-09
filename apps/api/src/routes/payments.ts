@@ -96,7 +96,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
           admission_fee: { type: 'number', minimum: 0, default: 0 },
           concession:   { type: 'number', minimum: 0, default: 0 },
           paid:         { type: 'number', minimum: 0 },
-          payment_method: { type: 'string' },
+          payment_method: { type: 'string', enum: ['cash', 'jazzcash', 'easypaisa', 'bank', 'other'] },
           payment_date: { type: 'string' },
           notes:        { type: 'string' },
         },
