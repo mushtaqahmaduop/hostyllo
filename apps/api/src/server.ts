@@ -12,9 +12,13 @@ import { dashboardRoutes } from './routes/dashboard.js';
 const app = Fastify({ logger: true });
 
 await app.register(helmet);
-await app.register(cors, { origin: '*', credentials: true });
-await app.register(cookie, { secret: 'hostyllo-cookie-secret' });
-
+await app.register(cors, {
+  origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  credentials: true,
+});
+await app.register(cookie, {
+  secret: process.env.COOKIE_SECRET ?? 'hostyllo-cookie-secret',
+});
 // Routes
 app.register(authRoutes, { prefix: '/api/v1/auth' });
 app.register(studentRoutes, { prefix: '/api/v1/students' });
