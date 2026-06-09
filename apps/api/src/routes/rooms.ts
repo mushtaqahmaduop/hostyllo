@@ -36,7 +36,7 @@ export async function roomsRoutes(app: FastifyInstance) {
           r.is_active as "isActive",
           r.created_at as "createdAt",
           COUNT(b.id) FILTER (WHERE b.status = 'occupied') as "occupiedBeds",
-          COUNT(b.id) FILTER (WHERE b.status = 'available') as "freeBeds",
+          COUNT(b.id) FILTER (WHERE b.status = 'vacant') as "freeBeds",
           json_agg(
             json_build_object(
               'bedId', b.id,
@@ -59,7 +59,7 @@ export async function roomsRoutes(app: FastifyInstance) {
           COUNT(DISTINCT r.id) as "totalRooms",
           COUNT(b.id) as "totalBeds",
           COUNT(b.id) FILTER (WHERE b.status = 'occupied') as "occupiedBeds",
-          COUNT(b.id) FILTER (WHERE b.status = 'available') as "freeBeds"
+          COUNT(b.id) FILTER (WHERE b.status = 'vacant') as "freeBeds"
         FROM public.rooms r
         LEFT JOIN public.beds b ON b.room_id = r.id
         WHERE r.hostel_id = current_setting('app.hostel_id')::uuid AND r.deleted_at IS NULL
@@ -133,7 +133,7 @@ export async function roomsRoutes(app: FastifyInstance) {
         for (const bed of body.beds) {
           await db.query(`
             INSERT INTO public.beds (hostel_id, room_id, label, status)
-            VALUES (current_setting('app.hostel_id')::uuid, $1, $2, 'available')
+            VALUES (current_setting('app.hostel_id')::uuid, $1, $2, 'vacant')
           `, [roomId, bed.label]);
         }
       } else {
@@ -142,7 +142,7 @@ export async function roomsRoutes(app: FastifyInstance) {
           const label = String.fromCharCode(65 + i); // A, B, C...
           await db.query(`
             INSERT INTO public.beds (hostel_id, room_id, label, status)
-            VALUES (current_setting('app.hostel_id')::uuid, $1, $2, 'available')
+            VALUES (current_setting('app.hostel_id')::uuid, $1, $2, 'vacant')
           `, [roomId, label]);
         }
       }
@@ -336,7 +336,7 @@ export async function roomsRoutes(app: FastifyInstance) {
     const { studentId, toRoomId, toBedId, newMonthlyFee, notes } = request.body as any;
 
     const result = await withTenant(request.hostelId, async (db) => {
-      // Check target bed is available
+      // Check target bed is vacant
       const bed = await db.query(`
         SELECT status FROM public.beds
         WHERE id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid
@@ -368,7 +368,7 @@ export async function roomsRoutes(app: FastifyInstance) {
 
       // Free old bed
       await db.query(`
-        UPDATE public.beds SET status = 'available', updated_at = NOW()
+        UPDATE public.beds SET status = 'vacant', updated_at = NOW()
         WHERE id = $1
       `, [oldBedId]);
 
