@@ -9,6 +9,10 @@ import { roomsRoutes } from './routes/rooms.js';
 import { paymentsRoutes } from './routes/payments.js';
 import { expensesRoutes } from './routes/expenses.js';
 import { dashboardRoutes } from './routes/dashboard.js';
+import './workers/auto-cancel.js';
+import './workers/pdf-receipts.js';
+import './workers/rent-generate.js';
+
 const app = Fastify({ logger: true });
 
 await app.register(helmet);
