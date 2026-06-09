@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { withTenant } from '../lib/db';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { withTenant } from '../lib/db.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 export async function dashboardRoutes(app: FastifyInstance) {
 

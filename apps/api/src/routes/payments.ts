@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
-import { withTenant } from '../lib/db';
-import { requireAuth, requireRole } from '../middleware/auth';
+import { withTenant } from '../lib/db.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 
 function calculateUnpaid(rent: number, admissionFee: number, concession: number, paid: number) {
   const totalDue = rent + admissionFee - concession;
