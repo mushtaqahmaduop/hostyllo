@@ -1,0 +1,9 @@
+# HOSTYLLO — Session Tasks
+
+## Current Session — Phase 1 Week 1
+- [ ] Monorepo structure ✅
+- [ ] packages/config/eslint-plugin-hostyllo
+- [ ] packages/db/src/withTenant.ts
+- [ ] packages/db/src/paymentService.ts
+- [ ] packages/db/src/__tests__/paymentService.test.ts
+- [ ] Migration 001 — hostels, users tables + RLS

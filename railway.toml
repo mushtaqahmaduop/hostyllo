@@ -1,0 +1,9 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install && pnpm --filter @hostyllo/api build"
+
+[deploy]
+startCommand = "cd apps/api && node dist/server.js"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"

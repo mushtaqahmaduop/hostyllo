@@ -1,0 +1,6 @@
+{
+  "name": "@hostyllo/config",
+  "version": "1.0.0",
+  "private": true,
+  "main": "eslint-plugin-hostyllo/index.js"
+}
