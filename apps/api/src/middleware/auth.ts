@@ -1,5 +1,14 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { verifyToken } from '../lib/jwt.js';
+import { redis } from '../lib/redis.js';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    userId: string;
+    hostelId: string;
+    userRole: string;
+  }
+}
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const authHeader = request.headers.authorization;
@@ -10,8 +19,15 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
   const token = authHeader.slice(7);
   try {
     const payload = await verifyToken(token) as any;
+
+    // Check jti blocklist — token may have been invalidated by logout or password reset
+    const blocked = await redis.exists(`blocklist:${payload.jti}`);
+    if (blocked) {
+      return reply.code(401).send({ success: false, code: 'UNAUTHORIZED', message: 'Token revoked' });
+    }
+
+    request.userId   = payload.sub;
     request.hostelId = payload.hostelId;
-    request.userId = payload.sub;
     request.userRole = payload.role;
   } catch {
     return reply.code(401).send({ success: false, code: 'UNAUTHORIZED', message: 'Invalid token' });

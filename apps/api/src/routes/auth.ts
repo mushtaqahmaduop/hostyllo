@@ -34,30 +34,42 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ success: false, code: 'AUTH_001', message: 'Email and password required' });
     }
 
-    // Find user
+    // Find user — fetch all fields needed for response + MFA check
     const result = await pool.query(
-      `SELECT u.*, h.id as hostel_id FROM public.users u
-       JOIN public.hostels h ON h.id = u.hostel_id
+      `SELECT u.id, u.hostel_id, u.role, u.email, u.password_hash,
+              u.totp_enabled, u.display_name, u.theme, u.language,
+              u.is_active
+       FROM public.users u
        WHERE u.email = $1 AND u.deleted_at IS NULL AND u.is_active = true
        LIMIT 1`,
       [email.toLowerCase()]
     );
 
-    
     const user = result.rows[0];
     if (!user) {
+      // Constant-time dummy compare — prevent user enumeration via timing
+      await bcrypt.compare(password, '$2b$12$invalidhashpadding000000000000000');
       return reply.code(401).send({ success: false, code: 'AUTH_002', message: 'Invalid credentials' });
     }
 
     // Verify password
     const valid = await bcrypt.compare(password, user.password_hash);
-    
-
     if (!valid) {
       return reply.code(401).send({ success: false, code: 'AUTH_002', message: 'Invalid credentials' });
     }
 
-    // Generate tokens
+    // MFA branch — PRD SEC-06
+    // If TOTP enabled: do NOT issue tokens, return short-lived mfaToken instead
+    if (user.totp_enabled) {
+      const mfaToken = randomUUID();
+      await redis.set(`mfa:${mfaToken}`, user.id, 60 * 5); // 5 min TTL
+      return reply.send({
+        success: true,
+        data: { requiresMfa: true, mfaToken },
+      });
+    }
+
+    // No MFA — issue tokens
     const jti = randomUUID();
     const refreshJti = randomUUID();
 
@@ -80,7 +92,7 @@ export async function authRoutes(app: FastifyInstance) {
     // Update last login
     await pool.query('UPDATE public.users SET last_login_at = NOW() WHERE id = $1', [user.id]);
 
-    // Set httpOnly cookie for refresh token
+    // Set httpOnly cookie
     reply.setCookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -94,11 +106,13 @@ export async function authRoutes(app: FastifyInstance) {
       data: {
         accessToken,
         user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          hostelId: user.hostel_id,
+          userId:      user.id,
+          email:       user.email,
+          role:        user.role,
+          hostelId:    user.hostel_id,
+          displayName: user.display_name ?? null,
+          theme:       user.theme ?? 'dark',
+          language:    user.language ?? 'en',
         },
       },
     });
@@ -156,17 +170,30 @@ export async function authRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: { accessToken } });
   });
 
-  // POST /api/v1/auth/logout
+ // POST /api/v1/auth/logout
   app.post('/logout', async (request, reply) => {
+    // Blocklist the access token jti (15 min — matches access token expiry)
+    const authHeader = request.headers.authorization;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const payload = await verifyToken(authHeader.slice(7)) as any;
+        await redis.set(`blocklist:${payload.jti}`, '1', 60 * 15);
+      } catch {
+        // Already invalid — fine
+      }
+    }
+
+    // Invalidate refresh token
     const refreshToken = request.cookies?.refreshToken;
     if (refreshToken) {
       try {
         const payload = await verifyToken(refreshToken) as any;
         await redis.del(`refresh:${payload.jti}`);
       } catch {
-        // Token already invalid — that's fine
+        // Already invalid — fine
       }
     }
+
     reply.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
     return reply.send({ success: true, data: null });
   });
@@ -193,11 +220,13 @@ export async function authRoutes(app: FastifyInstance) {
 
     await redis.set(`otp:${userId}`, otp, 60 * 15);
 
-    console.log(`OTP for ${email}: ${otp}`); // Dev only
+    // TODO: remove before first real client
+    console.log(`OTP for ${email}: ${otp}`);
 
     return reply.send({ success: true, data: { message: 'If this email exists, an OTP has been sent' } });
   });
-// POST /api/v1/auth/totp/setup
+
+  // POST /api/v1/auth/totp/setup
   app.post('/totp/setup', {
     preHandler: [requireAuth],
   }, async (request, reply) => {
@@ -236,30 +265,37 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: 'mfaToken and code required' });
     }
 
+    // Validate mfaToken from Redis — one-time use
     const userId = await redis.get(`mfa:${mfaToken}`);
     if (!userId) {
       return reply.code(401).send({ success: false, code: 'AUTH_INVALID_MFA_TOKEN', message: 'MFA token expired or invalid' });
     }
 
+    // Fetch user + extra fields for response
     const userResult = await pool.query(
-      'SELECT id, email, role, hostel_id, totp_secret_enc FROM public.users WHERE id = $1 AND deleted_at IS NULL',
+      `SELECT id, hostel_id, role, email, totp_secret_enc, display_name, theme, language
+       FROM public.users
+       WHERE id = $1 AND deleted_at IS NULL`,
       [userId]
     );
 
     const user = userResult.rows[0];
     if (!user) return reply.code(401).send({ success: false, code: 'AUTH_INVALID_MFA_TOKEN', message: 'MFA token expired or invalid' });
 
+    // Verify TOTP code
     const secret = decryptSecret(user.totp_secret_enc);
     const result = verifySync({ token: code, secret });
-    const valid = result.valid;
-
-    if (!valid) {
+    if (!result.valid) {
       return reply.code(401).send({ success: false, code: 'AUTH_INVALID_TOTP_CODE', message: 'Invalid TOTP code' });
     }
 
+    // Consume mfaToken — one-time use enforced
     await redis.del(`mfa:${mfaToken}`);
+
+    // Mark TOTP as confirmed (first verify enables it)
     await pool.query('UPDATE public.users SET totp_enabled = true WHERE id = $1', [user.id]);
 
+    // Issue tokens
     const jti = randomUUID();
     const refreshJti = randomUUID();
 
@@ -281,14 +317,16 @@ export async function authRoutes(app: FastifyInstance) {
       success: true,
       data: {
         accessToken,
-        user: { id: user.id, email: user.email, role: user.role, hostelId: user.hostel_id },
+        user: {
+          userId:      user.id,
+          email:       user.email,
+          role:        user.role,
+          hostelId:    user.hostel_id,
+          displayName: user.display_name ?? null,
+          theme:       user.theme ?? 'dark',
+          language:    user.language ?? 'en',
+        },
       },
     });
   });
 }
-
-
-
-
-
-
