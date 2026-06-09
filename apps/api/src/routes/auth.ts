@@ -1,9 +1,28 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { generateSecret, generateURI, verifySync } from 'otplib';
 import { pool } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js';
+import { requireAuth } from '../middleware/auth.js';
+
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY ?? '', 'hex');
+
+function encryptSecret(plaintext: string): string {
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  return iv.toString('hex') + ':' + encrypted.toString('hex');
+}
+
+function decryptSecret(ciphertext: string): string {
+  const [ivHex, encHex] = ciphertext.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const enc = Buffer.from(encHex, 'hex');
+  const decipher = createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+}
 
 export async function authRoutes(app: FastifyInstance) {
 
@@ -178,4 +197,98 @@ export async function authRoutes(app: FastifyInstance) {
 
     return reply.send({ success: true, data: { message: 'If this email exists, an OTP has been sent' } });
   });
+// POST /api/v1/auth/totp/setup
+  app.post('/totp/setup', {
+    preHandler: [requireAuth],
+  }, async (request, reply) => {
+    const userId = request.userId;
+    const userResult = await pool.query(
+      'SELECT email, totp_enabled FROM public.users WHERE id = $1 AND deleted_at IS NULL',
+      [userId]
+    );
+
+    const user = userResult.rows[0];
+    if (!user) return reply.code(404).send({ success: false, code: 'NOT_FOUND', message: 'User not found' });
+    if (user.totp_enabled) return reply.code(409).send({ success: false, code: 'AUTH_TOTP_ALREADY_ENABLED', message: 'TOTP already enabled' });
+
+    const secret = generateSecret();
+    const otpAuthUri = generateURI({ issuer: 'HOSTYLLO', label: user.email, secret });
+    const encrypted = encryptSecret(secret);
+
+    await pool.query(
+      'UPDATE public.users SET totp_secret_enc = $1, totp_enabled = false WHERE id = $2',
+      [encrypted, userId]
+    );
+
+    const backupCodes = Array.from({ length: 8 }, () =>
+      randomUUID().replace(/-/g, '').slice(0, 8)
+    );
+    await redis.set(`totp_backup:${userId}`, JSON.stringify(backupCodes), 60 * 10);
+
+    return reply.send({ success: true, data: { otpAuthUri, backupCodes } });
+  });
+
+  // POST /api/v1/auth/totp/verify
+  app.post('/totp/verify', async (request, reply) => {
+    const { mfaToken, code } = request.body as { mfaToken: string; code: string };
+
+    if (!mfaToken || !code) {
+      return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: 'mfaToken and code required' });
+    }
+
+    const userId = await redis.get(`mfa:${mfaToken}`);
+    if (!userId) {
+      return reply.code(401).send({ success: false, code: 'AUTH_INVALID_MFA_TOKEN', message: 'MFA token expired or invalid' });
+    }
+
+    const userResult = await pool.query(
+      'SELECT id, email, role, hostel_id, totp_secret_enc FROM public.users WHERE id = $1 AND deleted_at IS NULL',
+      [userId]
+    );
+
+    const user = userResult.rows[0];
+    if (!user) return reply.code(401).send({ success: false, code: 'AUTH_INVALID_MFA_TOKEN', message: 'MFA token expired or invalid' });
+
+    const secret = decryptSecret(user.totp_secret_enc);
+    const result = verifySync({ token: code, secret });
+    const valid = result.valid;
+
+    if (!valid) {
+      return reply.code(401).send({ success: false, code: 'AUTH_INVALID_TOTP_CODE', message: 'Invalid TOTP code' });
+    }
+
+    await redis.del(`mfa:${mfaToken}`);
+    await pool.query('UPDATE public.users SET totp_enabled = true WHERE id = $1', [user.id]);
+
+    const jti = randomUUID();
+    const refreshJti = randomUUID();
+
+    const accessToken = await signAccessToken({ sub: user.id, hostelId: user.hostel_id, role: user.role, jti });
+    const refreshToken = await signRefreshToken({ sub: user.id, hostelId: user.hostel_id, jti: refreshJti });
+
+    await redis.set(`refresh:${refreshJti}`, user.id, 60 * 60 * 24 * 7);
+    await pool.query('UPDATE public.users SET last_login_at = NOW() WHERE id = $1', [user.id]);
+
+    reply.setCookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/api/v1/auth/refresh',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return reply.send({
+      success: true,
+      data: {
+        accessToken,
+        user: { id: user.id, email: user.email, role: user.role, hostelId: user.hostel_id },
+      },
+    });
+  });
 }
+
+
+
+
+
+
