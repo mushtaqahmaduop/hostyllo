@@ -114,20 +114,24 @@ export async function authRoutes(app: FastifyInstance) {
       path: '/api/v1/auth/refresh',
       maxAge: 60 * 60 * 24 * 7,
     });
-      accessToken,
-    user: {
-      userId:      user.id,
-      email:       user.email,
-      role:        user.role,
-      hostelId:    user.hostel_id,
-      displayName: user.display_name ?? null,
-      theme:       user.theme ?? 'dark',
-      language:    user.language ?? 'en',
-    },
-  },
-    
-      role:        user.role,
-      hostelId:    user.hostel_id,
+     return reply.send({
+      success: true,
+      data: {
+        accessToken,
+        user: {
+          userId:      user.id,
+          email:       user.email,
+          role:        user.role,
+          hostelId:    user.hostel_id,
+          displayName: user.display_name ?? null,
+          theme:       user.theme ?? 'dark',
+          language:    user.language ?? 'en',
+        },
+      },
+    });
+  });
+
+  // POST /api/v1/auth/refresh
   // POST /api/v1/auth/refresh
   app.post('/refresh', async (request, reply) => {
     const refreshToken = request.cookies?.refreshToken;
