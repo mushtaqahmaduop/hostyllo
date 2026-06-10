@@ -2,26 +2,77 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, Develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, Develop]
   workflow_dispatch:
 
 jobs:
-  ci:
-    name: Lint and Test
+  lint-typecheck:
+    name: Lint & Typecheck
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v3
         with:
-          node-version: 24
+          version: 11
 
-      - name: Lint
-        run: echo "Lint placeholder"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-      - name: Tests
-        run: echo "Tests placeholder"
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint (ESLint + hostyllo/* rules)
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm --filter @hostyllo/api exec tsc --noEmit
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Payment formula tests (14 — all must pass)
+        run: pnpm --filter @hostyllo/db exec vitest run src/__tests__/paymentService.test.ts --reporter=verbose
+
+      - name: All unit tests
+        run: pnpm run test
+
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: No .env files tracked
+        run: |
+          git ls-files | grep -E "^\.env$|\.env$" | grep -v ".env.example" && exit 1 || echo "Clean"
+
+      - name: No hardcoded secrets in source
+        run: |
+          FOUND=$(grep -rn \
+            --include="*.ts" --include="*.js" \
+            -E "(SUPABASE_SERVICE_KEY|JWT_PRIVATE_KEY|ENCRYPTION_KEY|COOKIE_SECRET|RESEND_API_KEY)\s*=\s*['\"][A-Za-z0-9+/]{20}" \
+            apps/ packages/ || true)
+          if [ -n "$FOUND" ]; then echo "SECRETS IN SOURCE:"; echo "$FOUND"; exit 1; fi
+          echo "Clean"

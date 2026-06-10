@@ -40,7 +40,11 @@ export const redis = {
     }
     return count;
   },
+  async expire(key: string, seconds: number) {
+    return redisCommand(['EXPIRE', key, String(seconds)]);
+  },
   async ping(): Promise<string> {
     return redisCommand(['PING']) as Promise<string>;
   },
 };
+

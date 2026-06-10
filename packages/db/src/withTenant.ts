@@ -2,7 +2,7 @@ import pg from 'pg';
 const { Pool } = pg;
 
 const pool = new Pool({
-  connectionString: process.env.SUPABASE_URL,
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
   max: 10,
 });
@@ -14,7 +14,7 @@ export async function withTenant<T>(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('SELECT set_config($1, $2, true)', ['app.hostel_id', hostelId]);
+    await client.query(`SELECT set_config('app.hostel_id', $1, true)`, [hostelId]);
     const result = await queryFn(client);
     await client.query('COMMIT');
     return result;

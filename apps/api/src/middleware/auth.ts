@@ -20,7 +20,6 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
   try {
     const payload = await verifyToken(token) as any;
 
-    // Check jti blocklist — token may have been invalidated by logout or password reset
     const blocked = await redis.exists(`blocklist:${payload.jti}`);
     if (blocked) {
       return reply.code(401).send({ success: false, code: 'UNAUTHORIZED', message: 'Token revoked' });

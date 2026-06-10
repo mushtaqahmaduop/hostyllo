@@ -2,13 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
-function calculateUnpaid(rent: number, admissionFee: number, concession: number, paid: number) {
-  const totalDue = rent + admissionFee - concession;
-  const unpaid = Math.max(0, totalDue - paid);
-  const status = paid >= totalDue ? 'paid' : paid > 0 ? 'partial' : 'pending';
-  return { totalDue, unpaid, status };
-}
-
+// DELETE the local function, ADD this at the top
+import { calculateUnpaid } from '@hostyllo/db';
 export async function paymentsRoutes(app: FastifyInstance) {
 
   // GET /payments
@@ -147,6 +142,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
       const { totalDue, unpaid, status } = calculateUnpaid(
         body.rent,
         body.admission_fee ?? 0,
+        body.extra_charges ?? [],
         body.concession ?? 0,
         body.paid
       );
@@ -389,7 +385,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
       // Owner: full edit
       const p = payment.rows[0];
       const newPaid = body.paid ?? p.paid;
-      const { totalDue, unpaid, status } = calculateUnpaid(p.rent, p.admission_fee, p.concession, newPaid);
+      const { totalDue, unpaid, status } = calculateUnpaid(p.rent, p.admission_fee, [], p.concession, newPaid);
 
       await db.query(`
         UPDATE public.payments
@@ -478,7 +474,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
         const receiptResult = await db.query(`SELECT get_next_receipt_number(current_setting('app.hostel_id')::uuid) as receipt_number`);
         const receiptNumber = receiptResult.rows[0].receipt_number;
 
-        const { totalDue } = calculateUnpaid(s.monthly_fee, 0, 0, 0);
+        const { totalDue } = calculateUnpaid(s.monthly_fee, 0, [], 0, 0);
 
         const r = await db.query(`
           INSERT INTO public.payments (
@@ -545,3 +541,6 @@ export async function paymentsRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: result });
   });
 }
+
+
+
