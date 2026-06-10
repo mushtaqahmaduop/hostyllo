@@ -12,8 +12,6 @@ import { dashboardRoutes } from './routes/dashboard.js';
 import './workers/auto-cancel.js';
 import './workers/pdf-receipts.js';
 import './workers/rent-generate.js';
-import './workers/billing-sync.js';
-import './workers/email-send.js';
 const app = Fastify({ logger: true });
 
 await app.register(helmet);
@@ -23,9 +21,11 @@ await app.register(cors, {
 });
 await app.register(cookie, {
   secret: process.env.COOKIE_SECRET ?? 'hostyllo-cookie-secret',
+});
 // Routes
 app.register(authRoutes, { prefix: '/api/v1/auth' });
 app.register(studentRoutes, { prefix: '/api/v1/students' });
+
 app.register(roomsRoutes, { prefix: '/api/v1' });
 app.register(paymentsRoutes, { prefix: '/api/v1' });
 app.register(expensesRoutes, { prefix: '/api/v1' });
@@ -33,6 +33,8 @@ app.register(dashboardRoutes, { prefix: '/api/v1' });
 // Health check
 app.get('/api/v1/health', async () => {
   return { success: true, data: { db: 'ok', redis: 'ok', version: '1.0.0' } };
+});
+
 const port = Number(process.env.PORT) || 3001;
 await app.listen({ port, host: '0.0.0.0' });
 console.log(`API running on port ${port}`);

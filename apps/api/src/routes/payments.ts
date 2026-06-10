@@ -2,13 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
-function calculateUnpaid(rent: number, admissionFee: number, concession: number, paid: number) {
-  const totalDue = rent + admissionFee - concession;
-  const unpaid = Math.max(0, totalDue - paid);
-  const status = paid >= totalDue ? 'paid' : paid > 0 ? 'partial' : 'pending';
-  return { totalDue, unpaid, status };
-}
-
+// DELETE the local function, ADD this at the top
+import { calculateUnpaid } from '@hostyllo/db';
 export async function paymentsRoutes(app: FastifyInstance) {
 
   // GET /payments

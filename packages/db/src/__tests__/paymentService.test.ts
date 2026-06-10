@@ -89,13 +89,12 @@ describe('calculateUnpaid — 14 required tests', () => {
     expect(r.unpaid).toBe(0);
   });
 
-  // 13. Concession + extra charges
+ // 13. Concession + extra charges
   it('concession and extras interact correctly', () => {
     const r = calculateUnpaid(5000, 0, [1000], 500, 0);
     expect(r.totalDue).toBe(5500);
     expect(r.unpaid).toBe(5500);
   });
-
   // 14. Large values (no float drift)
   it('handles large PKR amounts without float drift', () => {
     const r = calculateUnpaid(50000, 10000, [5000, 3000], 2000, 30000);
