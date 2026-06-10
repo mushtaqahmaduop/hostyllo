@@ -10,18 +10,34 @@ import { requireAuth } from '../middleware/auth.js';
 // ─── Encryption key — validated at startup in server.ts ──────────────────────
 const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
 
+// AES-256-GCM: authenticated encryption — prevents bit-flip attacks on TOTP secrets
+// Format: iv(12 bytes hex) : authTag(16 bytes hex) : ciphertext(hex)
 function encryptSecret(plaintext: string): string {
-  const iv = randomBytes(16);
-  const cipher = createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  const iv = randomBytes(12); // GCM standard: 96-bit IV
+  const cipher = createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+  const authTag = cipher.getAuthTag();
+  return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted.toString('hex');
 }
 
 function decryptSecret(ciphertext: string): string {
-  const [ivHex, encHex] = ciphertext.split(':');
+  const parts = ciphertext.split(':');
+  if (parts.length === 2) {
+    // Legacy CBC format — decrypt old records, they will be re-encrypted on next TOTP use
+    const [ivHex, encHex] = parts;
+    const iv = Buffer.from(ivHex, 'hex');
+    const enc = Buffer.from(encHex, 'hex');
+    const { createDecipheriv: _d } = require('crypto');
+    const decipher = _d('aes-256-cbc', ENCRYPTION_KEY, iv);
+    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  }
+  // GCM format
+  const [ivHex, authTagHex, encHex] = parts;
   const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
   const enc = Buffer.from(encHex, 'hex');
-  const decipher = createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  const decipher = createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+  decipher.setAuthTag(authTag);
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
 }
 
