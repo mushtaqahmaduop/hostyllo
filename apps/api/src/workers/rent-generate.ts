@@ -5,13 +5,14 @@ import { moveToDLQ } from './dlq.js';
 
 interface RentGenerateJob {
   hostelId: string;
-  monthLabel: string;
+  monthLabel: string; // "YYYY-MM" e.g. "2026-06"
 }
 
 async function generateMonthlyRent(hostelId: string, monthLabel: string): Promise<void> {
+  const monthDate = `${monthLabel}-01`;
+
   const { rows: students } = await pool.query(
-    `SELECT s.id, s.hostel_id, s.rent_pkr, s.admission_fee_pkr,
-            s.room_id, s.bed_id
+    `SELECT s.id, s.hostel_id, s.monthly_fee, s.admission_fee, s.room_id
      FROM public.students s
      WHERE s.hostel_id = $1
        AND s.status = 'active'
@@ -28,25 +29,26 @@ async function generateMonthlyRent(hostelId: string, monthLabel: string): Promis
   let skipped = 0;
 
   for (const student of students) {
+    const receiptResult = await pool.query(
+      `SELECT get_next_receipt_number($1) as receipt_number`,
+      [hostelId]
+    );
+    const receiptNumber = receiptResult.rows[0].receipt_number;
+    const totalDue = student.monthly_fee;
+
     const result = await pool.query(
       `INSERT INTO public.payments
-         (hostel_id, student_id, room_id, bed_id, rent_pkr, total_due,
-          amount_paid, unpaid, status, month_label, due_date, receipt_number)
+         (hostel_id, student_id, room_id, month, rent, admission_fee,
+          concession, total_due, paid, unpaid, status, receipt_number)
        VALUES
-         ($1, $2, $3, $4, $5, $5,
-          0, $5, 'pending', $6,
-          (DATE_TRUNC('month', NOW()) + INTERVAL '1 month - 1 day')::DATE,
-          get_next_receipt_number($1))
-       ON CONFLICT (hostel_id, student_id, month_label) DO NOTHING
+         ($1, $2, $3, $4, $5, 0, 0, $5, 0, $5, 'pending', $6)
+       ON CONFLICT DO NOTHING
        RETURNING id`,
-      [student.hostel_id, student.id, student.room_id, student.bed_id, student.rent_pkr, monthLabel]
+      [student.hostel_id, student.id, student.room_id, monthDate, totalDue, receiptNumber]
     );
 
-    if (result.rowCount && result.rowCount > 0) {
-      created++;
-    } else {
-      skipped++;
-    }
+    if (result.rowCount && result.rowCount > 0) created++;
+    else skipped++;
   }
 
   console.log(`[rent-generate] Hostel ${hostelId} month ${monthLabel}: ${created} created, ${skipped} skipped`);
@@ -58,24 +60,11 @@ const worker = new Worker(
     console.log(`[rent-generate] Processing job ${job.id}`);
     await generateMonthlyRent(job.data.hostelId, job.data.monthLabel);
   },
-  {
-    connection: bullmqRedis,
-    concurrency: 2,
-  }
+  { connection: bullmqRedis, concurrency: 2 }
 );
 
-// INVARIANT
-worker.on('failed', (job, err) => {
-  console.error(`[rent-generate] Job ${job?.id} failed:`, err.message);
-  moveToDLQ(job, err);
-});
-
-worker.on('completed', (job) => {
-  console.log(`[rent-generate] Job ${job.id} completed`);
-});
-
-worker.on('error', (err) => {
-  console.error('[rent-generate] Worker error:', err);
-});
+worker.on('failed', (job, err) => { console.error(`[rent-generate] Job ${job?.id} failed:`, err.message); moveToDLQ(job, err); });
+worker.on('completed', (job) => { console.log(`[rent-generate] Job ${job.id} completed`); });
+worker.on('error', (err) => { console.error('[rent-generate] Worker error:', err); });
 
 export { worker as rentGenerateWorker };
