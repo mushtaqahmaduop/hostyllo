@@ -1,6 +1,6 @@
 // Upstash Redis via HTTP REST API — no TCP connection needed
 const baseUrl = process.env.UPSTASH_REDIS_REST_URL!;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN!;
+const token   = process.env.UPSTASH_REDIS_REST_TOKEN!;
 
 async function redisCommand(command: string[]) {
   const res = await fetch(`${baseUrl}`, {
@@ -11,7 +11,8 @@ async function redisCommand(command: string[]) {
     },
     body: JSON.stringify(command),
   });
-  const data = await res.json() as { result: unknown };
+  const data = await res.json() as { result: unknown; error?: string };
+  if (data.error) throw new Error(`Redis error: ${data.error}`);
   return data.result;
 }
 
@@ -30,5 +31,16 @@ export const redis = {
   },
   async exists(key: string) {
     return redisCommand(['EXISTS', key]) as Promise<number>;
+  },
+  /** Increment a counter; sets expiry on first increment only */
+  async incr(key: string, exSeconds?: number): Promise<number> {
+    const count = await redisCommand(['INCR', key]) as number;
+    if (count === 1 && exSeconds) {
+      await redisCommand(['EXPIRE', key, String(exSeconds)]);
+    }
+    return count;
+  },
+  async ping(): Promise<string> {
+    return redisCommand(['PING']) as Promise<string>;
   },
 };
