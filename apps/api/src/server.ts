@@ -1,5 +1,16 @@
 import 'dotenv/config';
+import * as Sentry from '@sentry/node';
 import Fastify from 'fastify';
+
+// ── Sentry — init before anything else ───────────────────────────────────────
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV ?? 'development',
+    tracesSampleRate: 0.2,
+  });
+}
+// ─────────────────────────────────────────────────────────────────────────────
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
@@ -41,6 +52,19 @@ const app = Fastify({
 app.setErrorHandler((error, request, reply) => {
   app.log.error(error);
   const isProd = process.env.NODE_ENV === 'production';
+
+  // Capture unhandled 5xx in Sentry
+  if (!error.statusCode || error.statusCode >= 500) {
+    Sentry.captureException(error, {
+      extra: {
+        url: request.url,
+        method: request.method,
+        hostelId: (request as any).hostelId,
+        userId: (request as any).userId,
+      },
+    });
+  }
+
   return reply.code(error.statusCode ?? 500).send({
     success: false,
     code: 'INTERNAL_SERVER_ERROR',
@@ -140,3 +164,21 @@ app.log.info('✅ Database connected');
 const port = Number(process.env.PORT) || 3001;
 await app.listen({ port, host: '0.0.0.0' });
 app.log.info(`🚀 API running on port ${port}`);
+
+// ── Graceful shutdown ─────────────────────────────────────────────────────────
+const shutdown = async (signal: string) => {
+  app.log.info({ signal }, 'Shutdown signal received — draining...');
+  try {
+    await app.close();
+    await pool.end();
+    await Sentry.close(2000);
+    app.log.info('✅ Graceful shutdown complete');
+    process.exit(0);
+  } catch (err) {
+    app.log.error({ err }, 'Error during shutdown');
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
