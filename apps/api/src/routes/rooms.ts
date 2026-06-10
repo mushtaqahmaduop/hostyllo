@@ -333,7 +333,7 @@ export async function roomsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { studentId, toRoomId, toBedId, newMonthlyFee, notes } = request.body as any;
+    const { studentId, toRoomId, toBedId, newMonthlyFee, notes: _notes } = request.body as any;
 
     const result = await withTenant(request.hostelId, async (db) => {
       // Check target bed is vacant
@@ -480,3 +480,4 @@ export async function roomsRoutes(app: FastifyInstance) {
     return reply.send({ success: true, data: result });
   });
 }
+
