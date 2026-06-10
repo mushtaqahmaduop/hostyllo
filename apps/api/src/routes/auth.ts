@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
 import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
-import { generateSecret, generateURI, verifySync } from 'otplib';
+import { generateSecret, generateURI, authenticator } from 'otplib';
 import { pool } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js';
@@ -13,7 +13,7 @@ const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
 // AES-256-GCM: authenticated encryption — prevents bit-flip attacks on TOTP secrets
 // Format: iv(12 bytes hex) : authTag(16 bytes hex) : ciphertext(hex)
 function encryptSecret(plaintext: string): string {
-  const iv = randomBytes(12); // GCM standard: 96-bit IV
+  const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
   const authTag = cipher.getAuthTag();
@@ -22,16 +22,9 @@ function encryptSecret(plaintext: string): string {
 
 function decryptSecret(ciphertext: string): string {
   const parts = ciphertext.split(':');
-  if (parts.length === 2) {
-    // Legacy CBC format — decrypt old records, they will be re-encrypted on next TOTP use
-    const [ivHex, encHex] = parts;
-    const iv = Buffer.from(ivHex, 'hex');
-    const enc = Buffer.from(encHex, 'hex');
-    const { createDecipheriv: _d } = require('crypto');
-    const decipher = _d('aes-256-cbc', ENCRYPTION_KEY, iv);
-    return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
+  if (parts.length !== 3) {
+    throw new Error('Invalid ciphertext format — expected GCM (iv:authTag:enc)');
   }
-  // GCM format
   const [ivHex, authTagHex, encHex] = parts;
   const iv = Buffer.from(ivHex, 'hex');
   const authTag = Buffer.from(authTagHex, 'hex');
@@ -43,13 +36,14 @@ function decryptSecret(ciphertext: string): string {
 
 // ─── OTP rate limiting ────────────────────────────────────────────────────────
 const OTP_MAX_ATTEMPTS = 5;
-const OTP_WINDOW_SECONDS = 15 * 60; // 15 min
+const OTP_WINDOW_SECONDS = 15 * 60;
 
 async function checkOtpRateLimit(userId: string): Promise<boolean> {
   const key = `otp_attempts:${userId}`;
   const attempts = await redis.get(key);
   if (attempts && parseInt(attempts) >= OTP_MAX_ATTEMPTS) return false;
-  await redis.incr(key, OTP_WINDOW_SECONDS);
+  await redis.incr(key);
+  await redis.expire(key, OTP_WINDOW_SECONDS);
   return true;
 }
 
@@ -114,7 +108,8 @@ export async function authRoutes(app: FastifyInstance) {
       path: '/api/v1/auth/refresh',
       maxAge: 60 * 60 * 24 * 7,
     });
-     return reply.send({
+
+    return reply.send({
       success: true,
       data: {
         accessToken,
@@ -131,7 +126,6 @@ export async function authRoutes(app: FastifyInstance) {
     });
   });
 
-  // POST /api/v1/auth/refresh
   // POST /api/v1/auth/refresh
   app.post('/refresh', async (request, reply) => {
     const refreshToken = request.cookies?.refreshToken;
@@ -153,19 +147,29 @@ export async function authRoutes(app: FastifyInstance) {
 
     await redis.del(`refresh:${payload.jti}`);
 
+    // Re-query user to get current role — never trust stale token payload
+    const userRow = await pool.query(
+      'SELECT role, hostel_id FROM public.users WHERE id = $1 AND deleted_at IS NULL AND is_active = true',
+      [payload.sub]
+    );
+    if (!userRow.rows[0]) {
+      return reply.code(401).send({ success: false, code: 'AUTH_005', message: 'User not found' });
+    }
+    const { role, hostel_id } = userRow.rows[0];
+
     const newJti = randomUUID();
     const newRefreshJti = randomUUID();
 
     const accessToken = await signAccessToken({
       sub: payload.sub as string,
-      hostelId: payload.hostelId as string,
-      role: payload.role as string,
+      hostelId: hostel_id,
+      role,
       jti: newJti,
     });
 
     const newRefreshToken = await signRefreshToken({
       sub: payload.sub as string,
-      hostelId: payload.hostelId as string,
+      hostelId: hostel_id,
       jti: newRefreshJti,
     });
 
@@ -228,14 +232,12 @@ export async function authRoutes(app: FastifyInstance) {
       [email.toLowerCase()]
     );
 
-    // Always return same response to prevent user enumeration
     if (!result.rows[0]) {
       return reply.send({ success: true, data: { message: 'If this email exists, an OTP has been sent' } });
     }
 
     const userId = result.rows[0].id;
 
-    // Rate limit OTP requests
     const allowed = await checkOtpRateLimit(userId);
     if (!allowed) {
       return reply.code(429).send({ success: false, code: 'RATE_LIMIT', message: 'Too many OTP requests. Try again in 15 minutes.' });
@@ -245,7 +247,6 @@ export async function authRoutes(app: FastifyInstance) {
     await redis.set(`otp:${userId}`, otp, 60 * 15);
 
     // TODO: integrate WhatsApp 360dialog or email delivery — Day 1 of production
-    // OTP is NOT logged; delivery channel pending integration
     app.log.info({ userId, event: 'otp_generated' }, 'OTP generated for password reset');
 
     return reply.send({ success: true, data: { message: 'If this email exists, an OTP has been sent' } });
@@ -274,12 +275,10 @@ export async function authRoutes(app: FastifyInstance) {
       [encrypted, userId]
     );
 
-    // Generate backup codes — 16 hex chars (8 bytes entropy) per code
     const backupCodes = Array.from({ length: 8 }, () =>
       randomBytes(8).toString('hex').toUpperCase()
     );
 
-    // Store hashed backup codes in DB (not in Redis with 10-min TTL)
     const hashedCodes = await Promise.all(
       backupCodes.map(c => bcrypt.hash(c, 10))
     );
@@ -320,15 +319,16 @@ export async function authRoutes(app: FastifyInstance) {
     );
 
     const user = userResult.rows[0];
-    if (!user) return reply.code(401).send({ success: false, code: 'AUTH_INVALID_MFA_TOKEN', message: 'MFA token expired or invalid' });
+    if (!user || !user.totp_secret_enc) {
+      return reply.code(401).send({ success: false, code: 'AUTH_INVALID_MFA_TOKEN', message: 'MFA token expired or invalid' });
+    }
 
     const secret = decryptSecret(user.totp_secret_enc);
-    const result = verifySync({ token: code, secret });
-    if (!result.valid) {
+    const isValid = authenticator.verify({ token: code, secret });
+    if (!isValid) {
       return reply.code(401).send({ success: false, code: 'AUTH_INVALID_TOTP_CODE', message: 'Invalid TOTP code' });
     }
 
-    // Consume mfaToken — one-time use
     await redis.del(`mfa:${mfaToken}`);
     await pool.query('UPDATE public.users SET totp_enabled = true WHERE id = $1', [user.id]);
 
