@@ -318,6 +318,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
         FROM public.payments
         WHERE hostel_id = current_setting('app.hostel_id')::uuid
           AND date_trunc('month', month) = date_trunc('month', $1::date)
+          AND status != 'void'
       `, [monthDate]);
 
       return { month: monthDate, ...data.rows[0] };
@@ -548,20 +549,36 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
     const result = await withTenant(request.hostelId, async (db) => {
       const students = await db.query(`
-        SELECT id, room_id, monthly_fee, admission_fee FROM public.students
+        SELECT id, room_id, monthly_fee FROM public.students
         WHERE hostel_id = current_setting('app.hostel_id')::uuid
           AND status = 'active' AND deleted_at IS NULL
       `);
+
+      // Find students already billed this month FIRST, so skips don't burn
+      // receipt numbers (get_next_receipt_number increments even when the
+      // insert conflicts, leaving gaps in the receipt sequence)
+      const existing = await db.query(`
+        SELECT student_id FROM public.payments
+        WHERE hostel_id = current_setting('app.hostel_id')::uuid
+          AND date_trunc('month', month) = date_trunc('month', $1::date)
+          AND status != 'void' AND deleted_at IS NULL
+      `, [monthDate]);
+      const alreadyBilled = new Set(existing.rows.map((r: { student_id: string }) => r.student_id));
 
       let generated = 0;
       let skipped = 0;
 
       for (const s of students.rows) {
+        if (alreadyBilled.has(s.id)) { skipped++; continue; }
+
         const receiptResult = await db.query(`SELECT get_next_receipt_number(current_setting('app.hostel_id')::uuid) as receipt_number`);
         const receiptNumber = receiptResult.rows[0].receipt_number;
 
-        const { totalDue } = calculateUnpaid(s.monthly_fee, 0, [], 0, 0);
+        // pg returns NUMERIC as strings — coerce before doing math
+        const { totalDue } = calculateUnpaid(Number(s.monthly_fee), 0, [], 0, 0);
 
+        // Explicit conflict target (uq_payments_student_month, migration 008)
+        // as a race-condition backstop for the pre-check above
         const r = await db.query(`
           INSERT INTO public.payments (
             hostel_id, student_id, room_id, month, rent, admission_fee,
@@ -570,12 +587,18 @@ export async function paymentsRoutes(app: FastifyInstance) {
           VALUES (
             current_setting('app.hostel_id')::uuid, $1, $2, $3, $4, 0, 0, $5, 0, $5, 'pending', $6
           )
-          ON CONFLICT DO NOTHING
-        `, [s.id, s.room_id, monthDate, s.monthly_fee, totalDue, receiptNumber]);
+          ON CONFLICT (hostel_id, student_id, month) WHERE status != 'void' AND deleted_at IS NULL DO NOTHING
+        `, [s.id, s.room_id, monthDate, Number(s.monthly_fee), totalDue, receiptNumber]);
 
         if ((r.rowCount ?? 0) > 0) generated++;
         else skipped++;
       }
+
+      // INVARIANT-5: immutable audit trail on every payment mutation
+      await db.query(`
+        INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, new_data)
+        VALUES (current_setting('app.hostel_id')::uuid, $1, 'payments_generated', 'payment', NULL, $2::jsonb)
+      `, [request.userId, JSON.stringify({ month: monthDate, generated, skipped })]);
 
       return { generated, skipped, month: monthDate };
     });

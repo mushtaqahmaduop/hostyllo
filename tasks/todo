@@ -19,12 +19,16 @@
 ## 0.5 NEW bugs discovered during the fix (not yet fixed)
 - [x] FIXED 2026-07-22: `workers/billing-sync.ts` (5×) + `workers/email-send.ts` (1×) audit_log
       INSERTs used a nonexistent `metadata` column → remapped to `new_data` (schema-correct)
-- [ ] `POST /payments/generate-monthly`: calls `get_next_receipt_number()` BEFORE the insert,
-      so skipped students burn receipt numbers → gaps in receipt sequence; also verify its
-      `ON CONFLICT DO NOTHING` actually matches a unique constraint (else re-run = duplicates)
-- [ ] `GET /payments/summary`: does not exclude `status = 'void'` → voided payments count in revenue
-- [ ] `routes/auth.ts:4`: pre-existing typecheck error — `otplib` has no exported `authenticator`
-      (module/typings mismatch; tsc fails on it)
+- [x] FIXED 2026-07-22: `generate-monthly` (route + rent-generate worker) — confirmed the
+      `ON CONFLICT DO NOTHING` matched NO constraint (only UNIQUE was idempotency_key = NULL)
+      → re-runs would duplicate every student's rent. Added migration 008
+      (`uq_payments_student_month` partial unique index), explicit conflict targets,
+      pre-check that skips already-billed students WITHOUT burning receipt numbers,
+      `Number()` coercion on monthly_fee (string concat → 10× rent), and an audit row
+      for bulk generation. ⚠️ Migration 008 must be applied to any live DB.
+- [x] FIXED 2026-07-22: `GET /payments/summary` now excludes `status = 'void'`
+- [x] FIXED 2026-07-22: `auth.ts` migrated to otplib v13 API (`verify({token,secret})` →
+      `{valid}`, awaited) — tsc now fully clean (exit 0)
 
 ## 1. Missing Phase 1 endpoints (tables already exist in migrations)
 - [ ] Operations: cancellations (+confirm/+restore), maintenance, complaints, checkin, notices (mig 004)

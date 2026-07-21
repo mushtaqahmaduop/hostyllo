@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
 import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
-import { generateSecret, generateURI, authenticator } from 'otplib';
+import { generateSecret, generateURI, verify as verifyTotp } from 'otplib';
 import { pool } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js';
@@ -324,7 +324,7 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     const secret = decryptSecret(user.totp_secret_enc);
-    const isValid = authenticator.verify({ token: code, secret });
+    const { valid: isValid } = await verifyTotp({ token: code, secret });
     if (!isValid) {
       return reply.code(401).send({ success: false, code: 'AUTH_INVALID_TOTP_CODE', message: 'Invalid TOTP code' });
     }
