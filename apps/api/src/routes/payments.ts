@@ -1,9 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
-
-// DELETE the local function, ADD this at the top
 import { calculateUnpaid } from '@hostyllo/db';
+
 export async function paymentsRoutes(app: FastifyInstance) {
 
   // GET /payments
@@ -91,6 +90,19 @@ export async function paymentsRoutes(app: FastifyInstance) {
           admission_fee: { type: 'number', minimum: 0, default: 0 },
           concession:   { type: 'number', minimum: 0, default: 0 },
           paid:         { type: 'number', minimum: 0 },
+          extra_charges: {
+            type: 'array',
+            maxItems: 20,
+            items: {
+              type: 'object',
+              required: ['label', 'amount'],
+              properties: {
+                label:  { type: 'string', minLength: 1, maxLength: 100 },
+                amount: { type: 'number', minimum: 0 },
+              },
+              additionalProperties: false,
+            },
+          },
           payment_method: { type: 'string', enum: ['cash', 'jazzcash', 'easypaisa', 'bank', 'other'] },
           payment_date: { type: 'string' },
           notes:        { type: 'string' },
@@ -139,10 +151,12 @@ export async function paymentsRoutes(app: FastifyInstance) {
       const receiptResult = await db.query(`SELECT get_next_receipt_number(current_setting('app.hostel_id')::uuid) as receipt_number`);
       const receiptNumber = receiptResult.rows[0].receipt_number;
 
+      const extraCharges: { label: string; amount: number }[] = body.extra_charges ?? [];
+
       const { totalDue, unpaid, status } = calculateUnpaid(
         body.rent,
         body.admission_fee ?? 0,
-        body.extra_charges ?? [],
+        extraCharges.map((c) => c.amount),
         body.concession ?? 0,
         body.paid
       );
@@ -176,6 +190,33 @@ export async function paymentsRoutes(app: FastifyInstance) {
         idempotencyKey,
         request.userId,
       ]);
+
+      const paymentId = payment.rows[0].id;
+
+      for (const charge of extraCharges) {
+        await db.query(`
+          INSERT INTO public.payment_extra_charges (hostel_id, payment_id, label, amount)
+          VALUES (current_setting('app.hostel_id')::uuid, $1, $2, $3)
+        `, [paymentId, charge.label, charge.amount]);
+      }
+
+      // INVARIANT-5: immutable audit trail on every payment mutation
+      await db.query(`
+        INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, new_data)
+        VALUES (current_setting('app.hostel_id')::uuid, $1, 'payment_created', 'payment', $2, $3::jsonb)
+      `, [request.userId, paymentId, JSON.stringify({
+        receipt_number: receiptNumber,
+        student_id: body.studentId,
+        month: body.month,
+        rent: body.rent,
+        admission_fee: body.admission_fee ?? 0,
+        concession: body.concession ?? 0,
+        extra_charges: extraCharges,
+        total_due: totalDue,
+        paid: body.paid,
+        unpaid,
+        status,
+      })]);
 
       return { cached: false, data: payment.rows[0] };
     });
@@ -379,13 +420,33 @@ export async function paymentsRoutes(app: FastifyInstance) {
           SET void_requested_by = $1, void_reason = $2, updated_at = NOW()
           WHERE id = $3
         `, [request.userId, body.voidReason ?? null, id]);
+
+        // INVARIANT-5: immutable audit trail on every payment mutation
+        await db.query(`
+          INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, new_data)
+          VALUES (current_setting('app.hostel_id')::uuid, $1, 'payment_void_requested', 'payment', $2, $3::jsonb)
+        `, [request.userId, id, JSON.stringify({ void_reason: body.voidReason ?? null })]);
+
         return { ok: true };
       }
 
-      // Owner: full edit
+      // Owner: full edit — recalculate with the payment's REAL extra charges
+      // (pg returns NUMERIC as strings, so coerce before doing math)
       const p = payment.rows[0];
-      const newPaid = body.paid ?? p.paid;
-      const { totalDue, unpaid, status } = calculateUnpaid(p.rent, p.admission_fee, [], p.concession, newPaid);
+      const extrasResult = await db.query(`
+        SELECT amount FROM public.payment_extra_charges
+        WHERE payment_id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid
+      `, [id]);
+      const extraAmounts = extrasResult.rows.map((r: { amount: string }) => Number(r.amount));
+
+      const newPaid = body.paid ?? Number(p.paid);
+      const { totalDue, unpaid, status } = calculateUnpaid(
+        Number(p.rent),
+        Number(p.admission_fee),
+        extraAmounts,
+        Number(p.concession),
+        newPaid
+      );
 
       await db.query(`
         UPDATE public.payments
@@ -394,6 +455,15 @@ export async function paymentsRoutes(app: FastifyInstance) {
             updated_at = NOW()
         WHERE id = $6
       `, [newPaid, unpaid, totalDue, status, body.payment_method ?? null, id]);
+
+      // INVARIANT-5: immutable audit trail on every payment mutation
+      await db.query(`
+        INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, old_data, new_data)
+        VALUES (current_setting('app.hostel_id')::uuid, $1, 'payment_updated', 'payment', $2, $3::jsonb, $4::jsonb)
+      `, [request.userId, id,
+        JSON.stringify({ paid: Number(p.paid), status: p.status }),
+        JSON.stringify({ paid: newPaid, unpaid, total_due: totalDue, status, payment_method: body.payment_method ?? null }),
+      ]);
 
       return { ok: true };
     });
@@ -423,10 +493,11 @@ export async function paymentsRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const body = request.body as any;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const payment = await db.query(`
-        SELECT status FROM public.payments
+        SELECT status, receipt_number, void_reason, void_requested_by FROM public.payments
         WHERE id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid AND deleted_at IS NULL
       `, [id]);
 
@@ -436,6 +507,21 @@ export async function paymentsRoutes(app: FastifyInstance) {
       await db.query(`
         UPDATE public.payments SET status = 'void', updated_at = NOW() WHERE id = $1
       `, [id]);
+
+      // INVARIANT-5: immutable audit trail on every payment mutation — records WHO voided
+      const p = payment.rows[0];
+      await db.query(`
+        INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, old_data, new_data)
+        VALUES (current_setting('app.hostel_id')::uuid, $1, 'payment_voided', 'payment', $2, $3::jsonb, $4::jsonb)
+      `, [request.userId, id,
+        JSON.stringify({ status: p.status, receipt_number: p.receipt_number }),
+        JSON.stringify({
+          status: 'void',
+          void_reason: p.void_reason ?? null,
+          void_requested_by: p.void_requested_by ?? null,
+          notes: body?.notes ?? null,
+        }),
+      ]);
 
       return { ok: true };
     });

@@ -4,13 +4,28 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
-## 0. Payment defects — FIX FIRST (blocks new endpoints)
-- [ ] Remove leftover AI comment at `apps/api/src/routes/payments.ts:5`
-- [ ] `POST /payments`: declare `extra_charges` in body schema + persist into `payment_extra_charges`
-      (currently dropped by `additionalProperties:false`, line ~145)
-- [ ] `PATCH /payments/:id`: recalc with real extras, not hardcoded `[]` (line ~388)
-- [ ] `audit_log` INSERT on payment create / edit / void (INVARIANT-5) — mirror `workers/billing-sync.ts`
-- [ ] Tests covering extras persistence + audit writes
+## 0. Payment defects — FIXED 2026-07-22 (14/14 unit tests green)
+- [x] Remove leftover AI comment at `apps/api/src/routes/payments.ts:5`
+- [x] `POST /payments`: `extra_charges` in schema (label+amount, max 20) + persisted into `payment_extra_charges`
+- [x] `PATCH /payments/:id`: recalc with real extras from DB, not hardcoded `[]`
+- [x] `audit_log` INSERT on payment create / edit / void-request / void-confirm (INVARIANT-5)
+- [x] BONUS: `Number()` coercion on NUMERIC columns in PATCH (pg returns strings → `'10000'+500`
+      was string concat = corrupted totals)
+- [x] BONUS: migration 003 CHECK said `'voided'` but all code uses `'void'` → void-confirm would
+      have violated the constraint at runtime. Migration fixed. ⚠️ If a live DB already has the
+      old constraint applied, it needs `ALTER TABLE ... DROP/ADD CONSTRAINT`.
+- [ ] Integration tests covering extras persistence + audit rows (needs live DB — see section 2)
+
+## 0.5 NEW bugs discovered during the fix (not yet fixed)
+- [ ] `workers/billing-sync.ts` + `workers/email-send.ts`: audit_log INSERTs use a `metadata`
+      column that does NOT exist (schema has `old_data`/`new_data`) → every worker audit write
+      will fail at runtime
+- [ ] `POST /payments/generate-monthly`: calls `get_next_receipt_number()` BEFORE the insert,
+      so skipped students burn receipt numbers → gaps in receipt sequence; also verify its
+      `ON CONFLICT DO NOTHING` actually matches a unique constraint (else re-run = duplicates)
+- [ ] `GET /payments/summary`: does not exclude `status = 'void'` → voided payments count in revenue
+- [ ] `routes/auth.ts:4`: pre-existing typecheck error — `otplib` has no exported `authenticator`
+      (module/typings mismatch; tsc fails on it)
 
 ## 1. Missing Phase 1 endpoints (tables already exist in migrations)
 - [ ] Operations: cancellations (+confirm/+restore), maintenance, complaints, checkin, notices (mig 004)

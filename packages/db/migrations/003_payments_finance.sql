@@ -15,7 +15,7 @@ CREATE TABLE payments (
   total_due           NUMERIC(10,2) NOT NULL DEFAULT 0,
   paid                NUMERIC(10,2) NOT NULL DEFAULT 0,
   unpaid              NUMERIC(10,2) NOT NULL DEFAULT 0,
-  status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('paid', 'partial', 'pending', 'voided')),
+  status              TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('paid', 'partial', 'pending', 'void')),
   payment_date        DATE,
   payment_method      TEXT CHECK (payment_method IN ('cash', 'jazzcash', 'easypaisa', 'bank', 'other')),
   receipt_number      TEXT,
