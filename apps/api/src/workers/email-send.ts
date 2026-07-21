@@ -133,7 +133,7 @@ async function sendEmail(job: Job<EmailSendJob>): Promise<void> {
   // Audit log — always, regardless of send method
   await pool.query(
     `INSERT INTO public.audit_log
-       (hostel_id, user_id, action, entity_type, entity_id, metadata)
+       (hostel_id, user_id, action, entity_type, entity_id, new_data)
      VALUES ($1, NULL, 'email_sent', 'email', $1,
              jsonb_build_object('type', $2, 'to', $3, 'subject', $4))`,
     [hostelId, type, to, subject]

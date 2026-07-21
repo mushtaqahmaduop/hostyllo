@@ -55,7 +55,7 @@ async function activatePlan(data: BillingSyncJob): Promise<void> {
     // 3. Immutable audit entry
     await pool.query(
       `INSERT INTO public.audit_log
-         (hostel_id, user_id, action, entity_type, entity_id, metadata)
+         (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, $2, 'plan_activated', 'subscription', $1,
                jsonb_build_object('plan', $3, 'billing_period_days', $4))`,
       [hostelId, triggeredBy ?? null, plan, billingPeriodDays]
@@ -102,7 +102,7 @@ async function expireTrial(data: BillingSyncJob): Promise<void> {
 
     await pool.query(
       `INSERT INTO public.audit_log
-         (hostel_id, user_id, action, entity_type, entity_id, metadata)
+         (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, NULL, 'trial_expired', 'subscription', $1,
                jsonb_build_object('expired_at', NOW()))`,
       [hostelId]
@@ -140,7 +140,7 @@ async function suspendTenant(data: BillingSyncJob): Promise<void> {
 
     await pool.query(
       `INSERT INTO public.audit_log
-         (hostel_id, user_id, action, entity_type, entity_id, metadata)
+         (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, $2, 'tenant_suspended', 'subscription', $1,
                jsonb_build_object('suspended_at', NOW()))`,
       [hostelId, triggeredBy ?? null]
@@ -192,7 +192,7 @@ async function reactivateTenant(data: BillingSyncJob): Promise<void> {
 
     await pool.query(
       `INSERT INTO public.audit_log
-         (hostel_id, user_id, action, entity_type, entity_id, metadata)
+         (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, $2, 'tenant_reactivated', 'subscription', $1,
                jsonb_build_object('plan', $3))`,
       [hostelId, triggeredBy ?? null, plan]
@@ -241,7 +241,7 @@ async function purgePii(data: BillingSyncJob): Promise<void> {
 
     await pool.query(
       `INSERT INTO public.audit_log
-         (hostel_id, user_id, action, entity_type, entity_id, metadata)
+         (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, NULL, 'pii_purged', 'hostel', $1,
                jsonb_build_object('students_anonymised', $2, 'purged_at', NOW()))`,
       [hostelId, rowCount ?? 0]

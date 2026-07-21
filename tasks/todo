@@ -17,9 +17,8 @@
 - [ ] Integration tests covering extras persistence + audit rows (needs live DB — see section 2)
 
 ## 0.5 NEW bugs discovered during the fix (not yet fixed)
-- [ ] `workers/billing-sync.ts` + `workers/email-send.ts`: audit_log INSERTs use a `metadata`
-      column that does NOT exist (schema has `old_data`/`new_data`) → every worker audit write
-      will fail at runtime
+- [x] FIXED 2026-07-22: `workers/billing-sync.ts` (5×) + `workers/email-send.ts` (1×) audit_log
+      INSERTs used a nonexistent `metadata` column → remapped to `new_data` (schema-correct)
 - [ ] `POST /payments/generate-monthly`: calls `get_next_receipt_number()` BEFORE the insert,
       so skipped students burn receipt numbers → gaps in receipt sequence; also verify its
       `ON CONFLICT DO NOTHING` actually matches a unique constraint (else re-run = duplicates)
