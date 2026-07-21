@@ -25,14 +25,35 @@
 
 | Field | Value |
 |-------|-------|
-| **Active Phase** | Phase 0 — Infrastructure Setup |
-| **Overall Progress** | NOT STARTED |
-| **Last Session** | No sessions yet |
-| **Last Completed Task** | None |
-| **Next Task** | Enable Supabase PITR (Phase 0, first item) |
-| **Blocking Issues** | None yet |
+| **Active Phase** | Phase 1 — Cloud API Foundation (in progress, ~65% authored) |
+| **Overall Progress** | Phase 0 config authored (provisioning unverified) · Phase 1 core API + db lib exist |
+| **Last Session** | 2026-07-22 — docs↔code reconciliation (this document) |
+| **Last Completed Task** | Reconciled tracker against actual repo state; 14/14 payment unit tests verified passing |
+| **Next Task** | Fix the 4 open payment defects (see below), then build the missing Phase 1 endpoints (operations, users, settings, audit-log, transfers, fines, student import) |
+| **Blocking Issues** | Phase 0 external provisioning (Supabase PITR, Railway, Upstash, Vercel, branch protection) cannot be verified from the repo — founder must confirm |
 | **Suite Version** | v15.0 |
 | **PRD Authority** | docs/01_MASTER_PRD_v15.md |
+
+---
+
+## ⚠️ RECONCILIATION NOTE (2026-07-22)
+
+This tracker previously declared **"Phase 0 — NOT STARTED, nothing built."** That was false.
+The repo already contains the Phase 1 skeleton (7 migrations, `packages/db` with passing
+payment tests, auth/students/rooms/payments/expenses/dashboard routes, 6 workers, eslint
+invariant plugin, CI + infra config). The checkboxes below have been reconciled against the
+**actual code** as of this date.
+
+**Status legend (reconciled):**
+```
+✅ DONE            — verified complete (Definition of Done met, or test run green)
+🟡 CODE EXISTS     — authored in repo, NOT yet verified against DoD (no live DB / CI / deploy proof)
+⬜ TODO            — not started (no code in repo)
+🐞 EXISTS-BUGGY    — code exists but has a known open defect (see defect list)
+```
+> `🟡` is the honest state of most Phase 1 code: it is written and compiles, but "done" per this
+> tracker's own rule requires tests green in CI, RLS verified live, and cross-tenant isolation
+> proven. Do not upgrade 🟡 → ✅ without running the verification gate.
 
 ---
 
@@ -67,6 +88,13 @@ These have external approval timelines. Must be tracked from Day 1.
 
 **Exit condition: `verify-pitr.sh` exits 0. CI green on empty repo.**
 
+> **Reconciled 2026-07-22:** Infra *config* is authored in the repo — `.github/workflows/ci.yml`,
+> `railway.toml`, `railpack.json`, and `scripts/verify-pitr.sh` all exist (🟡). Everything that
+> requires a live cloud account (Supabase PITR, Railway plan, Upstash, Vercel domains, GitHub
+> branch protection, Sentry, Uptime Robot, secrets) **cannot be verified from the repo** and is
+> left ⬜ pending founder confirmation. If already provisioned, the founder should tick these
+> manually — Claude cannot see external dashboards.
+
 ### Railway
 
 | Task | Status |
@@ -82,7 +110,7 @@ These have external approval timelines. Must be tracked from Day 1.
 |------|:------:|
 | Pro plan — NOT free tier | ⬜ TODO |
 | PITR enabled, 7-day retention confirmed | ⬜ TODO |
-| `./scripts/verify-pitr.sh` exits 0 — **LOGGED WITH TIMESTAMP** | ⬜ TODO |
+| `./scripts/verify-pitr.sh` exits 0 — **LOGGED WITH TIMESTAMP** | 🟡 script authored — needs live Supabase to run |
 | PgBouncer in transaction mode (NOT session mode) | ⬜ TODO |
 
 ### Upstash Redis
@@ -112,7 +140,7 @@ These have external approval timelines. Must be tracked from Day 1.
 
 | Task | Status |
 |------|:------:|
-| GitHub Actions `ci.yml`: `lint-and-typecheck → unit-tests → infra-gates → deploy` | ⬜ TODO |
+| GitHub Actions `ci.yml`: `lint-and-typecheck → unit-tests → infra-gates → deploy` | 🟡 CODE EXISTS (`.github/workflows/ci.yml` authored — green run unverified) |
 | Empty repo: first green CI run confirmed | ⬜ TODO |
 | Sentry project `hostyllo-api` created with PII filter active | ⬜ TODO |
 | Test error thrown → appears in Sentry within 60 seconds | ⬜ TODO |
@@ -138,150 +166,151 @@ These have external approval timelines. Must be tracked from Day 1.
 
 | Gate | Status |
 |------|:------:|
-| All 28 tables with RLS enabled | ⬜ TODO |
-| `verify-pitr.sh` returns exit 0 | ⬜ TODO |
-| All 14 payment unit tests pass in CI | ⬜ TODO |
-| Cross-tenant isolation test passes on every endpoint (JWT A → data B → 404) | ⬜ TODO |
-| `withTenant()` ESLint rule active and blocking violations in CI | ⬜ TODO |
-| `/health` returns `db: ok` and `redis: ok` | ⬜ TODO |
+| All 28 tables with RLS enabled | 🟡 migrations declare RLS — not verified against live DB |
+| `verify-pitr.sh` returns exit 0 | 🟡 script authored — needs live Supabase |
+| All 14 payment unit tests pass in CI | ✅ 14/14 PASS locally (2026-07-22); CI-green still to confirm |
+| Cross-tenant isolation test passes on every endpoint (JWT A → data B → 404) | 🟡 `isolation.test.ts` exists — needs live DB |
+| `withTenant()` ESLint rule active and blocking violations in CI | 🟡 rule authored — verify enforced in ci.yml |
+| `/health` returns `db: ok` and `redis: ok` | 🟡 endpoint exists — verify payload shape |
 | bcrypt rounds ≥ 12 in auth integration test | ⬜ TODO |
-| CNIC encrypted — plaintext `cnic` column must not exist in DB | ⬜ TODO |
-| Soft-delete verified on all list endpoints | ⬜ TODO |
-| Receipt counter atomic function deployed and concurrency-tested | ⬜ TODO |
-| BullMQ DLQ confirmed on all 7 queues | ⬜ TODO |
+| CNIC encrypted — plaintext `cnic` column must not exist in DB | ⬜ TODO (verify encryption in students POST + schema) |
+| Soft-delete verified on all list endpoints | 🟡 `deleted_at IS NULL` filters present — needs test proof |
+| Receipt counter atomic function deployed and concurrency-tested | 🟡 `get_next_receipt_number()` used — concurrency test ⬜ |
+| BullMQ DLQ confirmed on all 7 queues | ⬜ TODO (only 5 real queues exist; 2 are later-phase) |
 | Sentry receiving events | ⬜ TODO |
-| No secrets in git | ⬜ TODO |
+| No secrets in git | ⬜ TODO (run `git log -p \| grep -iE "key\|secret\|password"`) |
 
 ### Monorepo Setup
 
 | Task | Status |
 |------|:------:|
-| `pnpm workspaces` + Turborepo configured | ⬜ TODO |
-| `apps/web`, `apps/api`, `apps/admin`, `packages/db`, `packages/ui`, `packages/config` | ⬜ TODO |
-| `packages/config/eslint-plugin-hostyllo` with both rules | ⬜ TODO |
+| `pnpm workspaces` + Turborepo configured | 🟡 CODE EXISTS (`pnpm-workspace.yaml`, `turbo.json`) |
+| `apps/web`, `apps/api`, `apps/admin`, `packages/db`, `packages/ui`, `packages/config` | 🟡 CODE EXISTS (api populated; web/admin are placeholders) |
+| `packages/config/eslint-plugin-hostyllo` with both rules | 🟡 CODE EXISTS (both `withTenant` + `no-hostel-id-from-request` rules present) |
 
 ### Database — 28 Tables + RLS (Build in Order)
 
 | Task | Status |
 |------|:------:|
-| Migration 001: `hostels`, `users` + RLS | ⬜ TODO |
-| Migration 002: `students`, `rooms`, `beds` + RLS + GIN indexes | ⬜ TODO |
-| Migration 003: `payments`, `payment_extra_charges`, `expenses`, `owner_transfers`, `fines` + RLS | ⬜ TODO |
-| Migration 004: `cancellations`, `room_shifts`, `maintenance_requests`, `complaints`, `checkin_log`, `notices` + RLS | ⬜ TODO |
-| Migration 005: `room_inspections`, `bill_splits` + RLS | ⬜ TODO |
-| Migration 006: `subscriptions`, `audit_log`, `receipt_counter`, `warden_shift_log`, `dlq_jobs` + RLS | ⬜ TODO |
-| Migration 007: `feedback`, `nps_responses`, `onboarding_events`, `referral_payouts`, `api_keys` + RLS | ⬜ TODO |
-| `get_next_receipt_number()` PL/pgSQL function deployed | ⬜ TODO |
-| Dashboard aggregation SQL (single CTE query — not 5 separate SELECTs) | ⬜ TODO |
-| CI check: `SELECT tablename WHERE rowsecurity=false` → fails build if any row returned | ⬜ TODO |
+| Migration 001: `hostels`, `users` + RLS | 🟡 CODE EXISTS (`001_hostels_users.sql`) |
+| Migration 002: `students`, `rooms`, `beds` + RLS + GIN indexes | 🟡 CODE EXISTS (`002_students_rooms.sql`) |
+| Migration 003: `payments`, `payment_extra_charges`, `expenses`, `owner_transfers`, `fines` + RLS | 🟡 CODE EXISTS (`003_payments_finance.sql`) |
+| Migration 004: `cancellations`, `room_shifts`, `maintenance_requests`, `complaints`, `checkin_log`, `notices` + RLS | 🟡 CODE EXISTS (`004_operations.sql`) |
+| Migration 005: `room_inspections`, `bill_splits` + RLS | 🟡 CODE EXISTS (`005_inspections_billsplits.sql`) |
+| Migration 006: `subscriptions`, `audit_log`, `receipt_counter`, `warden_shift_log`, `dlq_jobs` + RLS | 🟡 CODE EXISTS (`006_system_tables.sql`) |
+| Migration 007: `feedback`, `nps_responses`, `onboarding_events`, `referral_payouts`, `api_keys` + RLS | 🟡 CODE EXISTS (`007_product_tables.sql`) |
+| `get_next_receipt_number()` PL/pgSQL function deployed | 🟡 CODE EXISTS (called by payments/rent-generate — deployment unverified) |
+| Dashboard aggregation SQL (single CTE query — not 5 separate SELECTs) | 🟡 CODE EXISTS (`dashboard.ts` — verify single-CTE) |
+| CI check: `SELECT tablename WHERE rowsecurity=false` → fails build if any row returned | ⬜ TODO (verify wired into ci.yml) |
 
 ### packages/db — Core Library
 
 | Task | Status |
 |------|:------:|
-| `withTenant.ts` implementation | ⬜ TODO |
-| TypeScript types generated from schema | ⬜ TODO |
-| `paymentService.ts`: `calculateUnpaid()` ported verbatim from Electron | ⬜ TODO |
-| `paymentService.test.ts`: all 14 test cases passing in CI | ⬜ TODO |
-| `formatters.ts`: `fmtCnic()` + `fmtPhone()` ported verbatim | ⬜ TODO |
+| `withTenant.ts` implementation | 🟡 CODE EXISTS |
+| TypeScript types generated from schema | ⬜ TODO (confirm — no generated types file found) |
+| `paymentService.ts`: `calculateUnpaid()` ported verbatim from Electron | 🟡 CODE EXISTS |
+| `paymentService.test.ts`: all 14 test cases passing in CI | ✅ 14/14 PASS locally (2026-07-22) — CI run still to confirm |
+| `formatters.ts`: `fmtCnic()` + `fmtPhone()` ported verbatim | 🟡 CODE EXISTS (`formatters.ts`) |
 
 ### Authentication Endpoints
 
 | Task | Status |
 |------|:------:|
-| `POST /api/v1/auth/login` (bcrypt 12 rounds, RS256, TOTP check) | ⬜ TODO |
-| `POST /api/v1/auth/refresh` (rolling rotation, jti blocklist) | ⬜ TODO |
-| `POST /api/v1/auth/logout` (invalidate all tokens) | ⬜ TODO |
-| `POST /api/v1/auth/reset-password` (6-digit OTP, 5-attempt limit) | ⬜ TODO |
-| `POST /api/v1/auth/totp/setup` | ⬜ TODO |
-| `POST /api/v1/auth/totp/verify` | ⬜ TODO |
-| JWT middleware: RS256 verify + jti blocklist + role from DB | ⬜ TODO |
-| Rate limit middleware: 10 attempts/15min/IP (Redis `rl:login:{ip}`) | ⬜ TODO |
-| Security headers: CSP + HSTS + X-Frame-Options on every response | ⬜ TODO |
+| `POST /api/v1/auth/login` (bcrypt 12 rounds, RS256, TOTP check) | 🟡 CODE EXISTS |
+| `POST /api/v1/auth/refresh` (rolling rotation, jti blocklist) | 🟡 CODE EXISTS |
+| `POST /api/v1/auth/logout` (invalidate all tokens) | 🟡 CODE EXISTS |
+| `POST /api/v1/auth/reset-password` (6-digit OTP, 5-attempt limit) | 🟡 CODE EXISTS |
+| `POST /api/v1/auth/totp/setup` | 🟡 CODE EXISTS |
+| `POST /api/v1/auth/totp/verify` | 🟡 CODE EXISTS |
+| JWT middleware: RS256 verify + jti blocklist + role from DB | 🟡 CODE EXISTS (`middleware/auth.ts`, `lib/jwt.ts`) |
+| Rate limit middleware: 10 attempts/15min/IP (Redis `rl:login:{ip}`) | ⬜ TODO (verify present in auth flow) |
+| Security headers: CSP + HSTS + X-Frame-Options on every response | 🟡 CODE EXISTS (`helmet` registered in `server.ts` — CSP/HSTS config to verify) |
 
 ### Student Endpoints
 
 | Task | Status |
 |------|:------:|
-| `GET /api/v1/students` (pg_trgm search, < 200ms) | ⬜ TODO |
-| `POST /api/v1/students` (CNIC encrypt, photo validate, bed assignment) | ⬜ TODO |
-| `GET /api/v1/students/:id` | ⬜ TODO |
-| `PATCH /api/v1/students/:id` | ⬜ TODO |
-| `DELETE /api/v1/students/:id` (soft delete) | ⬜ TODO |
-| `POST /api/v1/students/import` (CSV, formula sanitization) | ⬜ TODO |
-| `GET /api/v1/students/search` | ⬜ TODO |
-| Cross-tenant isolation test on every student endpoint | ⬜ TODO |
+| `GET /api/v1/students` (pg_trgm search, < 200ms) | 🟡 CODE EXISTS (perf unverified) |
+| `POST /api/v1/students` (CNIC encrypt, photo validate, bed assignment) | 🟡 CODE EXISTS (verify CNIC encryption) |
+| `GET /api/v1/students/:id` | 🟡 CODE EXISTS |
+| `PATCH /api/v1/students/:id` | 🟡 CODE EXISTS |
+| `DELETE /api/v1/students/:id` (soft delete) | 🟡 CODE EXISTS |
+| `POST /api/v1/students/import` (CSV, formula sanitization) | ⬜ TODO (no import endpoint in `students.ts`) |
+| `GET /api/v1/students/search` | 🟡 CODE EXISTS |
+| Cross-tenant isolation test on every student endpoint | 🟡 `isolation.test.ts` exists — needs live DB to run |
 
 ### Room & Bed Endpoints
 
 | Task | Status |
 |------|:------:|
-| `GET /api/v1/rooms` | ⬜ TODO |
-| `POST /api/v1/rooms` | ⬜ TODO |
-| `PATCH /api/v1/rooms/:id` | ⬜ TODO |
-| `DELETE /api/v1/rooms/:id` (blocked if active occupants → RM_002) | ⬜ TODO |
-| `POST /api/v1/rooms/shift` | ⬜ TODO |
-| Bed CRUD endpoints | ⬜ TODO |
+| `GET /api/v1/rooms` | 🟡 CODE EXISTS |
+| `POST /api/v1/rooms` | 🟡 CODE EXISTS |
+| `PATCH /api/v1/rooms/:id` | 🟡 CODE EXISTS |
+| `DELETE /api/v1/rooms/:id` (blocked if active occupants → RM_002) | 🟡 CODE EXISTS (verify RM_002 guard) |
+| `POST /api/v1/rooms/shift` | 🟡 CODE EXISTS |
+| `PATCH /api/v1/rooms/bulk-fee` (not in original list — extra endpoint) | 🟡 CODE EXISTS |
+| Bed CRUD endpoints | ⬜ TODO (no dedicated bed endpoints found) |
 | Cross-tenant isolation test on every room endpoint | ⬜ TODO |
 
 ### Payment Endpoints
 
 | Task | Status |
 |------|:------:|
-| `GET /api/v1/payments` | ⬜ TODO |
-| `POST /api/v1/payments` (idempotency key, X-Idempotency-Key Redis 24h) | ⬜ TODO |
-| `PATCH /api/v1/payments/:id` | ⬜ TODO |
-| `POST /api/v1/payments/generate-monthly` (idempotent) | ⬜ TODO |
-| `GET /api/v1/payments/defaulters` | ⬜ TODO |
-| `GET /api/v1/payments/summary` | ⬜ TODO |
-| `POST /api/v1/payments/:id/void-request` | ⬜ TODO |
-| `POST /api/v1/payments/:id/send-receipt` | ⬜ TODO |
+| `GET /api/v1/payments` | 🟡 CODE EXISTS |
+| `POST /api/v1/payments` (idempotency key, X-Idempotency-Key Redis 24h) | 🐞 EXISTS-BUGGY (defects 1,2,4 — extra_charges dropped, no audit_log) |
+| `PATCH /api/v1/payments/:id` | 🐞 EXISTS-BUGGY (defect 3 — recalcs with hardcoded `[]` extras; no audit_log) |
+| `POST /api/v1/payments/generate-monthly` (idempotent) | 🟡 CODE EXISTS |
+| `GET /api/v1/payments/defaulters` | 🟡 CODE EXISTS |
+| `GET /api/v1/payments/summary` | 🟡 CODE EXISTS |
+| `POST /api/v1/payments/:id/void-request` | 🟡 CODE EXISTS as `PATCH /:id` (voidRequest) + `POST /:id/void-confirm` — route name differs from tracker; no audit_log on void |
+| `POST /api/v1/payments/:id/send-receipt` | 🟡 CODE EXISTS |
 | Cross-tenant isolation test on every payment endpoint | ⬜ TODO |
 
 ### Finance Endpoints
 
 | Task | Status |
 |------|:------:|
-| `GET/POST/PATCH/DELETE /api/v1/expenses` | ⬜ TODO |
-| `GET/POST/PATCH/DELETE /api/v1/transfers` | ⬜ TODO |
-| `GET/POST/PATCH/DELETE /api/v1/fines` | ⬜ TODO |
+| `GET/POST/PATCH/DELETE /api/v1/expenses` | 🟡 CODE EXISTS (+ `GET /expenses/summary`) |
+| `GET/POST/PATCH/DELETE /api/v1/transfers` | ⬜ TODO (no `transfers` route — table `owner_transfers` exists in migration 003) |
+| `GET/POST/PATCH/DELETE /api/v1/fines` | ⬜ TODO (no `fines` route — table `fines` exists in migration 003) |
 
 ### Operations Endpoints
 
 | Task | Status |
 |------|:------:|
-| `GET/POST/PATCH /api/v1/cancellations` | ⬜ TODO |
+| `GET/POST/PATCH /api/v1/cancellations` | ⬜ TODO (tables exist in migration 004; no route file) |
 | `POST /api/v1/cancellations/:id/confirm` | ⬜ TODO |
 | `POST /api/v1/cancellations/:id/restore` | ⬜ TODO |
-| `GET/POST/PATCH /api/v1/maintenance` | ⬜ TODO |
-| `GET/POST/PATCH /api/v1/complaints` | ⬜ TODO |
-| `GET/POST /api/v1/checkin` | ⬜ TODO |
-| `GET/POST /api/v1/notices` | ⬜ TODO |
+| `GET/POST/PATCH /api/v1/maintenance` | ⬜ TODO (table exists; no route file) |
+| `GET/POST/PATCH /api/v1/complaints` | ⬜ TODO (table exists; no route file) |
+| `GET/POST /api/v1/checkin` | ⬜ TODO (table exists; no route file) |
+| `GET/POST /api/v1/notices` | ⬜ TODO (table exists; no route file) |
 
 ### System Endpoints
 
 | Task | Status |
 |------|:------:|
-| `GET /api/v1/dashboard/stats` (single CTE < 200ms) | ⬜ TODO |
-| `GET /api/v1/dashboard/alerts` | ⬜ TODO |
-| `GET/POST/PATCH/DELETE /api/v1/users` | ⬜ TODO |
-| `GET/PATCH /api/v1/settings/hostel-info` | ⬜ TODO |
-| `GET /api/v1/audit-log` | ⬜ TODO |
-| `GET /api/v1/health` | ⬜ TODO |
+| `GET /api/v1/dashboard/stats` (single CTE < 200ms) | 🟡 CODE EXISTS (verify single-CTE + perf) |
+| `GET /api/v1/dashboard/alerts` | 🟡 CODE EXISTS |
+| `GET/POST/PATCH/DELETE /api/v1/users` | ⬜ TODO (no `users` route file) |
+| `GET/PATCH /api/v1/settings/hostel-info` | ⬜ TODO (no `settings` route file) |
+| `GET /api/v1/audit-log` | ⬜ TODO (audit reads unavailable; workers write to it, no read endpoint) |
+| `GET /api/v1/health` | 🟡 CODE EXISTS (`server.ts` — verify `db: ok` / `redis: ok` payload) |
 
 ### BullMQ Workers (All 7)
 
 | Task | Status |
 |------|:------:|
-| `pdf-receipts` queue + worker (puppeteer → PDF → Supabase Storage) | ⬜ TODO |
-| `whatsapp-notifications` queue + worker | ⬜ TODO |
-| `email-notifications` queue + worker (Resend) | ⬜ TODO |
-| `auto-cancellations` queue + worker (Railway cron nightly) | ⬜ TODO |
-| `rent-generation` queue + worker (Railway cron 1st of month) | ⬜ TODO |
-| `subscription-dunning` queue + worker | ⬜ TODO |
-| `sync-processing` queue + worker | ⬜ TODO |
-| `moveToDLQ()` utility deployed and wired to all 7 workers | ⬜ TODO |
-| Verified: manually trigger DLQ → appears in `dlq_jobs` table | ⬜ TODO |
+| `pdf-receipts` queue + worker (puppeteer → PDF → Supabase Storage) | 🟡 CODE EXISTS (`workers/pdf-receipts.ts`) |
+| `whatsapp-notifications` queue + worker | ⬜ TODO (no worker file — Phase 3 copy-paste tier; full 360dialog is Phase 5) |
+| `email-notifications` queue + worker (Resend) | 🟡 CODE EXISTS (`workers/email-send.ts`) |
+| `auto-cancellations` queue + worker (Railway cron nightly) | 🟡 CODE EXISTS (`workers/auto-cancel.ts`) |
+| `rent-generation` queue + worker (Railway cron 1st of month) | 🟡 CODE EXISTS (`workers/rent-generate.ts`) |
+| `subscription-dunning` queue + worker | 🟡 CODE EXISTS (`workers/billing-sync.ts` — verify it covers dunning) |
+| `sync-processing` queue + worker | ⬜ TODO (Phase 5 offline sync — no worker file) |
+| `moveToDLQ()` utility deployed and wired to all 7 workers | 🟡 CODE EXISTS (`workers/dlq.ts` — verify wired into every worker) |
+| Verified: manually trigger DLQ → appears in `dlq_jobs` table | ⬜ TODO (needs live Redis/DB) |
 
 ---
 
@@ -520,6 +549,9 @@ These have external approval timelines. Must be tracked from Day 1.
 | — | FLOAT rejected for amounts | Floating point errors cause accounting discrepancies | FLOAT — fails financial audit |
 | — | audit_log INSERT only | Tamper evidence destroyed if rows can be updated or deleted | Mutable log — not acceptable for PDPA |
 
+| 2026-07-22 | Tracker reconciled to code; added 🟡/🐞 markers | Doc claimed "nothing built" but Phase 1 was ~65% authored — stale tracker was hiding real work and risking duplicate builds | Trusting the tracker as source-of-truth — falsified by inspection |
+| 2026-07-22 | "Code exists" recorded separately from "Done" | DoD requires CI-green + live RLS + isolation proof, none of which the repo alone can confirm | Marking authored code as ✅ — would overstate readiness |
+
 *Add new rows here as decisions are made during Phase 1+.*
 
 ---
@@ -529,7 +561,18 @@ These have external approval timelines. Must be tracked from Day 1.
 > Record every mistake, correction, or surprising discovery here.
 > Claude Code agents read this at the start of every session.
 
-*No lessons recorded yet. Add here after each work session.*
+- **2026-07-22 — The tracker had drifted ~1 full phase behind the code.** This file claimed
+  "Phase 0, nothing built" while `apps/api` already had auth/students/rooms/payments/expenses/
+  dashboard routes, `packages/db` had passing payment tests, 7 migrations existed, and 6 workers
+  were written. **Lesson:** never trust this tracker over the code — inspect the repo first, then
+  reconcile. The rule "if it's not checked here it does not exist" is dangerous when the file is
+  stale; it caused real work to be invisible.
+- **2026-07-22 — "Code exists" ≠ "Done."** Introduced the 🟡 marker to stop conflating the two.
+  Most Phase 1 code is authored but unverified against the Definition of Done (RLS live, isolation
+  tests green in CI, deployed). Only upgrade 🟡 → ✅ after the verification gate actually runs.
+- **2026-07-22 — 4 payment defects are still open** (leftover comment; `extra_charges` dropped by
+  `additionalProperties:false`; PATCH recalcs with `[]`; no `audit_log` on create/edit/void → breaks
+  INVARIANT-5). Fix these before building the missing endpoints.
 
 ---
 
@@ -539,7 +582,7 @@ These have external approval timelines. Must be tracked from Day 1.
 
 | # | Date | Summary | Ended On |
 |---|------|---------|----------|
-| — | — | No sessions yet | — |
+| 1 | 2026-07-22 | Reconciled this tracker against actual repo state (was 1 phase stale). Verified 14/14 payment unit tests pass. Documented real Phase 1 coverage (~65% authored) and the true remaining backlog. | Docs reconciled; code unchanged |
 
 *Update this table at the end of every session.*
 
@@ -556,7 +599,16 @@ These have external approval timelines. Must be tracked from Day 1.
  Report all of this back before doing anything else."
 ```
 
-**Current next task:** Enable Supabase PITR and run `./scripts/verify-pitr.sh`
+**Current next task (reconciled 2026-07-22):** We are in **Phase 1 (~65% authored)**, not Phase 0.
+In priority order:
+1. **Fix the 4 open payment defects** (leftover comment · `extra_charges` persistence · PATCH
+   real-extras recalc · `audit_log` on create/edit/void) — with tests. Blocks new endpoints.
+2. **Build the missing Phase 1 endpoints:** operations (cancellations, maintenance, complaints,
+   checkin, notices), users CRUD, settings/hostel-info, audit-log GET, transfers, fines, student
+   CSV import.
+3. **Stand up the verification gate** (live Supabase/Redis) so 🟡 items can be proven → ✅:
+   RLS check, isolation tests, health payload, DLQ round-trip.
+4. **Founder to confirm Phase 0 external provisioning** (dashboards Claude can't see).
 
 ---
 

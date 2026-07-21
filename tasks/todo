@@ -1,9 +1,35 @@
 # HOSTYLLO — Session Tasks
 
-## Current Session — Phase 1 Week 1
-- [ ] Monorepo structure ✅
-- [ ] packages/config/eslint-plugin-hostyllo
-- [ ] packages/db/src/withTenant.ts
-- [ ] packages/db/src/paymentService.ts
-- [ ] packages/db/src/__tests__/paymentService.test.ts
-- [ ] Migration 001 — hostels, users tables + RLS
+> Reconciled 2026-07-22. The old "Phase 1 Week 1" list (monorepo, eslint plugin, withTenant,
+> paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
+> Phase 1 backlog below, in priority order.
+
+## 0. Payment defects — FIX FIRST (blocks new endpoints)
+- [ ] Remove leftover AI comment at `apps/api/src/routes/payments.ts:5`
+- [ ] `POST /payments`: declare `extra_charges` in body schema + persist into `payment_extra_charges`
+      (currently dropped by `additionalProperties:false`, line ~145)
+- [ ] `PATCH /payments/:id`: recalc with real extras, not hardcoded `[]` (line ~388)
+- [ ] `audit_log` INSERT on payment create / edit / void (INVARIANT-5) — mirror `workers/billing-sync.ts`
+- [ ] Tests covering extras persistence + audit writes
+
+## 1. Missing Phase 1 endpoints (tables already exist in migrations)
+- [ ] Operations: cancellations (+confirm/+restore), maintenance, complaints, checkin, notices (mig 004)
+- [ ] `transfers` route (`owner_transfers`, mig 003)
+- [ ] `fines` route (`fines`, mig 003)
+- [ ] `users` CRUD route
+- [ ] `settings/hostel-info` GET/PATCH
+- [ ] `audit-log` GET (read endpoint — workers already write)
+- [ ] `students/import` CSV (formula sanitization)
+- [ ] Bed CRUD (confirm required vs. folded into rooms)
+
+## 2. Verification gate (turn 🟡 → ✅)
+- [ ] Live/local Postgres + Redis for integration tests
+- [ ] `isolation.test.ts` green (JWT A → data B → 404 everywhere)
+- [ ] RLS CI check: `SELECT tablename FROM pg_tables WHERE rowsecurity=false` → 0 rows
+- [ ] `/health` returns `db: ok` + `redis: ok`
+- [ ] DLQ round-trip → row in `dlq_jobs`
+- [ ] CNIC encryption verified (no plaintext column)
+
+## 3. Founder-only (external dashboards — Claude can't verify)
+- [ ] Confirm Phase 0: Supabase Pro+PITR, Railway Pro, Upstash `rediss://`, Vercel domains,
+      branch protection, Sentry, Uptime Robot → then tick Phase 0 rows in 09_BUILD_STATE
