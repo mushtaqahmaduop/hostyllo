@@ -236,7 +236,8 @@ These have external approval timelines. Must be tracked from Day 1.
 | `GET /api/v1/students/:id` | 🟡 CODE EXISTS |
 | `PATCH /api/v1/students/:id` | 🟡 CODE EXISTS |
 | `DELETE /api/v1/students/:id` (soft delete) | 🟡 CODE EXISTS |
-| `POST /api/v1/students/import` (CSV, formula sanitization) | ⬜ TODO (no import endpoint in `students.ts`) |
+| `POST /api/v1/students/import` (CSV, formula sanitization) | 🟡 CODE EXISTS (2026-07-22: multipart CSV, preview/confirm, formula-injection strip, trial 30-cap) |
+| `GET /api/v1/students/:id/reveal-cnic` (audited reveal) | 🟡 CODE EXISTS (2026-07-22 — ⚠️ CNIC stored PLAINTEXT, encryption still TODO) |
 | `GET /api/v1/students/search` | 🟡 CODE EXISTS |
 | Cross-tenant isolation test on every student endpoint | 🟡 `isolation.test.ts` exists — needs live DB to run |
 
@@ -250,7 +251,7 @@ These have external approval timelines. Must be tracked from Day 1.
 | `DELETE /api/v1/rooms/:id` (blocked if active occupants → RM_002) | 🟡 CODE EXISTS (verify RM_002 guard) |
 | `POST /api/v1/rooms/shift` | 🟡 CODE EXISTS |
 | `PATCH /api/v1/rooms/bulk-fee` (not in original list — extra endpoint) | 🟡 CODE EXISTS |
-| Bed CRUD endpoints | ⬜ TODO (no dedicated bed endpoints found) |
+| Bed CRUD endpoints | ✅ RESOLVED 2026-07-22: per API spec Module 3, beds are folded into rooms — no separate bed CRUD exists or is required |
 | Cross-tenant isolation test on every room endpoint | ⬜ TODO |
 
 ### Payment Endpoints
@@ -272,20 +273,20 @@ These have external approval timelines. Must be tracked from Day 1.
 | Task | Status |
 |------|:------:|
 | `GET/POST/PATCH/DELETE /api/v1/expenses` | 🟡 CODE EXISTS (+ `GET /expenses/summary`) |
-| `GET/POST/PATCH/DELETE /api/v1/transfers` | ⬜ TODO (no `transfers` route — table `owner_transfers` exists in migration 003) |
-| `GET/POST/PATCH/DELETE /api/v1/fines` | ⬜ TODO (no `fines` route — table `fines` exists in migration 003) |
+| `GET/POST/PATCH/DELETE /api/v1/transfers` | 🟡 CODE EXISTS (2026-07-22, with audit_log on all mutations) |
+| `GET/POST/PATCH/DELETE /api/v1/fines` | 🟡 CODE EXISTS (2026-07-22, incl. mark-paid/unpaid + audit_log) |
 
 ### Operations Endpoints
 
 | Task | Status |
 |------|:------:|
-| `GET/POST/PATCH /api/v1/cancellations` | ⬜ TODO (tables exist in migration 004; no route file) |
-| `POST /api/v1/cancellations/:id/confirm` | ⬜ TODO |
-| `POST /api/v1/cancellations/:id/restore` | ⬜ TODO |
-| `GET/POST/PATCH /api/v1/maintenance` | ⬜ TODO (table exists; no route file) |
-| `GET/POST/PATCH /api/v1/complaints` | ⬜ TODO (table exists; no route file) |
-| `GET/POST /api/v1/checkin` | ⬜ TODO (table exists; no route file) |
-| `GET/POST /api/v1/notices` | ⬜ TODO (table exists; no route file) |
+| `GET/POST/PATCH /api/v1/cancellations` | 🟡 CODE EXISTS (2026-07-22, student → 'vacating' on create) |
+| `POST /api/v1/cancellations/:id/confirm` | 🟡 CODE EXISTS (2026-07-22, vacates student + frees bed + audit) |
+| `POST /api/v1/cancellations/:id/restore` | 🟡 CODE EXISTS (2026-07-22, reactivates student + audit) |
+| `GET/POST/PATCH /api/v1/maintenance` | 🟡 CODE EXISTS (2026-07-22, priority sort, resolved_at/by stamping) |
+| `GET/POST/PATCH /api/v1/complaints` | 🟡 CODE EXISTS (2026-07-22) |
+| `GET/POST /api/v1/checkin` | 🟡 CODE EXISTS (2026-07-22) |
+| `GET/POST /api/v1/notices` | 🟡 CODE EXISTS (2026-07-22, + PATCH/DELETE, expiry filtering) |
 
 ### System Endpoints
 
@@ -293,9 +294,9 @@ These have external approval timelines. Must be tracked from Day 1.
 |------|:------:|
 | `GET /api/v1/dashboard/stats` (single CTE < 200ms) | 🟡 CODE EXISTS (verify single-CTE + perf) |
 | `GET /api/v1/dashboard/alerts` | 🟡 CODE EXISTS |
-| `GET/POST/PATCH/DELETE /api/v1/users` | ⬜ TODO (no `users` route file) |
-| `GET/PATCH /api/v1/settings/hostel-info` | ⬜ TODO (no `settings` route file) |
-| `GET /api/v1/audit-log` | ⬜ TODO (audit reads unavailable; workers write to it, no read endpoint) |
+| `GET/POST/PATCH/DELETE /api/v1/users` | 🟡 CODE EXISTS (2026-07-22: bcrypt 12, USER_EMAIL_TAKEN/SELF_DELETE/LAST_OWNER guards, audit; ⚠️ spec's can_edit/can_delete/can_settings flags NOT in schema) |
+| `GET/PATCH /api/v1/settings/hostel-info` | 🟡 CODE EXISTS (2026-07-22 on real hostels columns; ⚠️ spec's tagline/brandColor/showBranding NOT in schema) |
+| `GET /api/v1/audit-log` (+ `/:entityId`) | 🟡 CODE EXISTS (2026-07-22, actor join, CNIC keys stripped from old/new values) |
 | `GET /api/v1/health` | 🟡 CODE EXISTS (`server.ts` — verify `db: ok` / `redis: ok` payload) |
 
 ### BullMQ Workers (All 7)

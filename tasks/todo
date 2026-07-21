@@ -30,15 +30,31 @@
 - [x] FIXED 2026-07-22: `auth.ts` migrated to otplib v13 API (`verify({token,secret})` →
       `{valid}`, awaited) — tsc now fully clean (exit 0)
 
-## 1. Missing Phase 1 endpoints (tables already exist in migrations)
-- [ ] Operations: cancellations (+confirm/+restore), maintenance, complaints, checkin, notices (mig 004)
-- [ ] `transfers` route (`owner_transfers`, mig 003)
-- [ ] `fines` route (`fines`, mig 003)
-- [ ] `users` CRUD route
-- [ ] `settings/hostel-info` GET/PATCH
-- [ ] `audit-log` GET (read endpoint — workers already write)
-- [ ] `students/import` CSV (formula sanitization)
-- [ ] Bed CRUD (confirm required vs. folded into rooms)
+## 1. Missing Phase 1 endpoints — BUILT 2026-07-22 (tsc clean, 14/14 tests green)
+- [x] Operations: cancellations (+confirm/+restore w/ student lifecycle + bed freeing),
+      maintenance, complaints, checkin, notices
+- [x] `transfers` route (audit on all mutations)
+- [x] `fines` route (mark paid/unpaid, audit on all mutations)
+- [x] `users` CRUD (bcrypt 12, EMAIL_TAKEN/SELF_DELETE/LAST_OWNER guards, audit)
+- [x] `settings/hostel-info` GET/PATCH (audit)
+- [x] `audit-log` GET + GET /:entityId (actor join, CNIC keys stripped)
+- [x] `students/import` CSV (multipart 2MB, preview/confirm, formula-injection strip,
+      trial 30-student cap) + `students/:id/reveal-cnic` (audited)
+- [x] Bed CRUD — RESOLVED: API spec Module 3 folds beds into rooms; no separate CRUD
+
+## 1.5 NEW schema/code gaps discovered while building (not yet fixed)
+- [ ] **CNIC stored PLAINTEXT** in `cnic_encrypted` (students POST + import) — needs an
+      encryption service (AES-256-GCM like auth.ts TOTP) + backfill migration; reveal-cnic
+      currently returns the raw stored value
+- [ ] `auth.ts` SELECTs `display_name, theme, language, totp_secret_enc, totp_backup_codes`
+      from users — NONE of these columns exist in migration 001 (auth would fail at runtime);
+      needs a migration or code alignment
+- [ ] Spec's warden permission flags (`can_edit`, `can_delete`, `can_settings`) not in users
+      schema — spec DELETE /students gating can't be implemented until added
+- [ ] Spec's hostel settings fields (`tagline`, `brandColor`, `showBranding`,
+      `autoMonthAdvance`) not in hostels schema
+- [ ] students.ts pre-existing routes lack JSON-Schema validation (hand-rolled checks only)
+      and use role 'super_admin' which isn't in the users role CHECK
 
 ## 2. Verification gate (turn 🟡 → ✅)
 - [ ] Live/local Postgres + Redis for integration tests

@@ -189,4 +189,202 @@ export async function studentRoutes(app: FastifyInstance) {
 
     return reply.send({ success:true, data: null });
   });
+
+  // GET /api/v1/students/:id/reveal-cnic
+  // Explicit, audited CNIC reveal — never returned by any list/detail endpoint.
+  app.get('/:id/reveal-cnic', { preHandler: [requireAuth, requireRole('hostel_owner', 'chain_manager')] }, async (request, reply) => {
+    const { id } = request.params as any;
+
+    const result = await withTenant(request.hostelId, async (db) => {
+      const student = await db.query(`
+        SELECT cnic_encrypted FROM public.students
+        WHERE id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid AND deleted_at IS NULL
+      `, [id]);
+
+      if (!student.rows[0]) return { error: 'NOT_FOUND' };
+
+      // INVARIANT-5: every CNIC reveal is audited with the acting user
+      await db.query(`
+        INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, new_data)
+        VALUES (current_setting('app.hostel_id')::uuid, $1, 'cnic_revealed', 'student', $2, $3::jsonb)
+      `, [request.userId, id, JSON.stringify({ cnicRevealed: true })]);
+
+      return { cnic: student.rows[0].cnic_encrypted || null };
+    });
+
+    if (result.error === 'NOT_FOUND') return reply.code(404).send({ success: false, code: 'NOT_FOUND', message: 'Student not found' });
+
+    return reply.send({ success: true, data: { cnic: result.cnic } });
+  });
+
+  // POST /api/v1/students/import — bulk CSV import with preview/confirm
+  app.post('/import', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'chain_manager')] }, async (request, reply) => {
+    const file = await (request as any).file();
+    if (!file) {
+      return reply.code(400).send({ success: false, code: 'IMPORT_INVALID_FILE', message: 'No CSV file uploaded' });
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = await file.toBuffer();
+    } catch {
+      return reply.code(400).send({ success: false, code: 'IMPORT_TOO_LARGE', message: 'File exceeds 2MB limit' });
+    }
+
+    const confirmField = file.fields?.confirm as any;
+    const confirm = (Array.isArray(confirmField) ? confirmField[0]?.value : confirmField?.value) === 'true';
+
+    const rows = parseCsv(buffer.toString('utf8'));
+    if (rows.length < 2) {
+      return reply.code(400).send({ success: false, code: 'IMPORT_INVALID_FILE', message: 'CSV must have a header row and at least one data row' });
+    }
+
+    // Header mapping — tolerant of spacing/case ("Full Name" / full_name / fullName)
+    const header = rows[0].map(h => h.toLowerCase().replace(/[^a-z]/g, ''));
+    const col = (names: string[]) => header.findIndex(h => names.includes(h));
+    const nameIdx = col(['name', 'fullname', 'studentname']);
+    const fatherIdx = col(['fathername', 'father']);
+    const cnicIdx = col(['cnic']);
+    const phoneIdx = col(['phone', 'mobile', 'contact']);
+    const feeIdx = col(['monthlyfee', 'fee', 'rent', 'rentpkr']);
+    const joinIdx = col(['joindate', 'joined', 'admissiondate']);
+
+    if (nameIdx === -1) {
+      return reply.code(400).send({ success: false, code: 'IMPORT_INVALID_FILE', message: 'CSV must contain a name/fullName column' });
+    }
+
+    const CNIC_RE = /^\d{5}-\d{7}-\d$|^\d{13}$/;
+    const preview: any[] = [];
+    let validRows = 0;
+
+    for (let i = 1; i < rows.length; i++) {
+      const cells = rows[i].map(sanitizeCell);
+      const fullName = (cells[nameIdx] ?? '').trim();
+      const cnic = cnicIdx !== -1 ? (cells[cnicIdx] ?? '').trim() : '';
+      const fee = feeIdx !== -1 ? (cells[feeIdx] ?? '').trim() : '';
+      const errors: string[] = [];
+
+      if (!fullName) errors.push('name required');
+      if (cnic && !CNIC_RE.test(cnic)) errors.push('invalid CNIC format');
+      if (fee && (isNaN(Number(fee)) || Number(fee) < 0)) errors.push('invalid monthly fee');
+
+      const valid = errors.length === 0;
+      if (valid) validRows++;
+      preview.push({
+        row: i,
+        fullName,
+        cnic: cnic || null,
+        fatherName: fatherIdx !== -1 ? (cells[fatherIdx] ?? '').trim() || null : null,
+        phone: phoneIdx !== -1 ? (cells[phoneIdx] ?? '').trim() || null : null,
+        monthlyFee: fee ? Number(fee) : 0,
+        joinDate: joinIdx !== -1 ? (cells[joinIdx] ?? '').trim() || null : null,
+        valid,
+        ...(valid ? {} : { errors }),
+      });
+    }
+
+    if (!confirm) {
+      return reply.send({
+        success: true,
+        data: {
+          preview: preview.map(({ row, fullName, cnic, valid, errors }) => ({ row, fullName, cnic, valid, ...(errors ? { errors } : {}) })),
+          validRows,
+          invalidRows: preview.length - validRows,
+          totalRows: preview.length,
+        },
+      });
+    }
+
+    const result = await withTenant(request.hostelId, async (db) => {
+      // Trial plan cap: 30 students total
+      const hostel = await db.query(`
+        SELECT plan_status FROM public.hostels WHERE id = current_setting('app.hostel_id')::uuid
+      `);
+      if (hostel.rows[0]?.plan_status === 'trial') {
+        const count = await db.query(`
+          SELECT COUNT(*) as total FROM public.students
+          WHERE hostel_id = current_setting('app.hostel_id')::uuid AND deleted_at IS NULL
+        `);
+        if (parseInt(count.rows[0].total) + validRows > 30) return { error: 'TRIAL_STUDENT_LIMIT' };
+      }
+
+      let imported = 0;
+      const failures: { row: number; reason: string }[] = [];
+
+      for (const r of preview) {
+        if (!r.valid) {
+          failures.push({ row: r.row, reason: (r.errors ?? []).join(', ') });
+          continue;
+        }
+        try {
+          await db.query(`
+            INSERT INTO public.students
+              (hostel_id, name, father_name, cnic_encrypted, phone, monthly_fee, join_date, status)
+            VALUES
+              (current_setting('app.hostel_id')::uuid, $1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE), 'active')
+          `, [r.fullName, r.fatherName, r.cnic ?? '', r.phone, r.monthlyFee, r.joinDate]);
+          imported++;
+        } catch {
+          failures.push({ row: r.row, reason: 'Database insert failed' });
+        }
+      }
+
+      // INVARIANT-5: audit bulk imports
+      await db.query(`
+        INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, new_data)
+        VALUES (current_setting('app.hostel_id')::uuid, $1, 'students_imported', 'student', NULL, $2::jsonb)
+      `, [request.userId, JSON.stringify({ imported, failed: failures.length, totalRows: preview.length })]);
+
+      return { data: { imported, failed: failures.length, failures } };
+    });
+
+    if (result.error === 'TRIAL_STUDENT_LIMIT') {
+      return reply.code(402).send({ success: false, code: 'TRIAL_STUDENT_LIMIT', message: 'Import would exceed the 30-student trial limit' });
+    }
+
+    return reply.send({ success: true, data: result.data });
+  });
+}
+
+// ─── CSV helpers ─────────────────────────────────────────────────────────────
+
+// Strip formula-injection prefixes (= + - @) so exported cells can't execute
+// in Excel/Sheets, per spec for POST /students/import
+function sanitizeCell(cell: string | undefined): string {
+  if (!cell) return '';
+  return cell.replace(/^[=+\-@\s]+/, '').trim();
+}
+
+// Minimal RFC-4180 CSV parser: quoted fields, escaped quotes, CRLF/LF
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += ch;
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      row.push(field); field = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else {
+      field += ch;
+    }
+  }
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    if (row.length > 1 || row[0] !== '') rows.push(row);
+  }
+  return rows;
 }
