@@ -25,12 +25,12 @@
 
 | Field | Value |
 |-------|-------|
-| **Active Phase** | Phase 1 — Cloud API Foundation (in progress, ~65% authored) |
-| **Overall Progress** | Phase 0 config authored (provisioning unverified) · Phase 1 core API + db lib exist |
-| **Last Session** | 2026-07-22 — docs↔code reconciliation (this document) |
-| **Last Completed Task** | Reconciled tracker against actual repo state; 14/14 payment unit tests verified passing |
-| **Next Task** | Fix the 4 open payment defects (see below), then build the missing Phase 1 endpoints (operations, users, settings, audit-log, transfers, fines, student import) |
-| **Blocking Issues** | Phase 0 external provisioning (Supabase PITR, Railway, Upstash, Vercel, branch protection) cannot be verified from the repo — founder must confirm |
+| **Active Phase** | Phase 1 — Cloud API Foundation (in progress, code ~95% authored; verification gate pending) |
+| **Overall Progress** | Phase 0 config authored (provisioning unverified) · Phase 1 API + db lib + ALL endpoints exist, tsc strict-clean · gate items need live DB/CI |
+| **Last Session** | 2026-07-22 (session 3) — corrected-audit hardening + schema runtime-blocker migration 009 |
+| **Last Completed Task** | All 5 corrected-audit findings resolved (strict mode, /health probe, error handler, login rate-limit, DB TLS) + migration 009 (auth/pdf column blockers); tsc clean, 14/14 payment tests green |
+| **Next Task** | CNIC encryption (AES-256-GCM service + backfill) — last real Phase 1 code item; then stand up live DB/Redis + CI to convert the 🟡 verification-gate rows to ✅ |
+| **Blocking Issues** | Phase 0 external provisioning (Supabase PITR, Railway, Upstash, Vercel, branch protection) cannot be verified from the repo — founder must confirm. Verification gate needs a live Postgres+Redis. |
 | **Suite Version** | v15.0 |
 | **PRD Authority** | docs/01_MASTER_PRD_v15.md |
 
@@ -171,9 +171,9 @@ These have external approval timelines. Must be tracked from Day 1.
 | All 14 payment unit tests pass in CI | ✅ 14/14 PASS locally (2026-07-22); CI-green still to confirm |
 | Cross-tenant isolation test passes on every endpoint (JWT A → data B → 404) | 🟡 `isolation.test.ts` exists — needs live DB |
 | `withTenant()` ESLint rule active and blocking violations in CI | 🟡 rule authored — verify enforced in ci.yml |
-| `/health` returns `db: ok` and `redis: ok` | 🟡 endpoint exists — verify payload shape |
-| bcrypt rounds ≥ 12 in auth integration test | ⬜ TODO |
-| CNIC encrypted — plaintext `cnic` column must not exist in DB | ⬜ TODO (verify encryption in students POST + schema) |
+| `/health` returns `db: ok` and `redis: ok` | ✅ CODE DONE (session 3) — now really probes `dbHealthCheck()` + `redis.ping()`, returns 503 if either down; CI-green run still to confirm |
+| bcrypt rounds ≥ 12 in auth integration test | ⬜ TODO (bcrypt 12 IS used in code; integration test needs live DB) |
+| CNIC encrypted — plaintext `cnic` column must not exist in DB | ⬜ TODO — **last open Phase 1 code item**; CNIC still stored plaintext in `cnic_encrypted` |
 | Soft-delete verified on all list endpoints | 🟡 `deleted_at IS NULL` filters present — needs test proof |
 | Receipt counter atomic function deployed and concurrency-tested | 🟡 `get_next_receipt_number()` used — concurrency test ⬜ |
 | BullMQ DLQ confirmed on all 7 queues | ⬜ TODO (only 5 real queues exist; 2 are later-phase) |
@@ -199,6 +199,8 @@ These have external approval timelines. Must be tracked from Day 1.
 | Migration 005: `room_inspections`, `bill_splits` + RLS | 🟡 CODE EXISTS (`005_inspections_billsplits.sql`) |
 | Migration 006: `subscriptions`, `audit_log`, `receipt_counter`, `warden_shift_log`, `dlq_jobs` + RLS | 🟡 CODE EXISTS (`006_system_tables.sql`) |
 | Migration 007: `feedback`, `nps_responses`, `onboarding_events`, `referral_payouts`, `api_keys` + RLS | 🟡 CODE EXISTS (`007_product_tables.sql`) |
+| Migration 008: `uq_payments_student_month` partial unique index (rent idempotency) | 🟡 CODE EXISTS (`008_payments_unique_month.sql`) — ⚠️ must be applied to live DB |
+| Migration 009: users `totp_secret_enc`/`totp_backup_codes`/`display_name`/`theme`/`language` + `hostels.tagline` (fixes auth + pdf-receipt runtime crashes) | 🟡 CODE EXISTS (`009_users_hostels_missing_columns.sql`, session 3) — ⚠️ must be applied to live DB |
 | `get_next_receipt_number()` PL/pgSQL function deployed | 🟡 CODE EXISTS (called by payments/rent-generate — deployment unverified) |
 | Dashboard aggregation SQL (single CTE query — not 5 separate SELECTs) | 🟡 CODE EXISTS (`dashboard.ts` — verify single-CTE) |
 | CI check: `SELECT tablename WHERE rowsecurity=false` → fails build if any row returned | ⬜ TODO (verify wired into ci.yml) |
@@ -224,7 +226,7 @@ These have external approval timelines. Must be tracked from Day 1.
 | `POST /api/v1/auth/totp/setup` | 🟡 CODE EXISTS |
 | `POST /api/v1/auth/totp/verify` | 🟡 CODE EXISTS |
 | JWT middleware: RS256 verify + jti blocklist + role from DB | 🟡 CODE EXISTS (`middleware/auth.ts`, `lib/jwt.ts`) |
-| Rate limit middleware: 10 attempts/15min/IP (Redis `rl:login:{ip}`) | ⬜ TODO (verify present in auth flow) |
+| Rate limit middleware: 10 attempts/15min/IP (Redis `rl:login:{ip}`) | ✅ CODE DONE (session 3) — `rl:login:{ip}` 10/15min → 429 in auth.ts login |
 | Security headers: CSP + HSTS + X-Frame-Options on every response | 🟡 CODE EXISTS (`helmet` registered in `server.ts` — CSP/HSTS config to verify) |
 
 ### Student Endpoints
@@ -259,12 +261,12 @@ These have external approval timelines. Must be tracked from Day 1.
 | Task | Status |
 |------|:------:|
 | `GET /api/v1/payments` | 🟡 CODE EXISTS |
-| `POST /api/v1/payments` (idempotency key, X-Idempotency-Key Redis 24h) | 🐞 EXISTS-BUGGY (defects 1,2,4 — extra_charges dropped, no audit_log) |
-| `PATCH /api/v1/payments/:id` | 🐞 EXISTS-BUGGY (defect 3 — recalcs with hardcoded `[]` extras; no audit_log) |
+| `POST /api/v1/payments` (idempotency key, X-Idempotency-Key Redis 24h) | 🟡 CODE EXISTS — defects FIXED (commit ef4bbbc): extra_charges persisted, audit_log on create |
+| `PATCH /api/v1/payments/:id` | 🟡 CODE EXISTS — defect FIXED: recalcs with real DB extras + Number() coercion; audit_log on edit |
 | `POST /api/v1/payments/generate-monthly` (idempotent) | 🟡 CODE EXISTS |
 | `GET /api/v1/payments/defaulters` | 🟡 CODE EXISTS |
 | `GET /api/v1/payments/summary` | 🟡 CODE EXISTS |
-| `POST /api/v1/payments/:id/void-request` | 🟡 CODE EXISTS as `PATCH /:id` (voidRequest) + `POST /:id/void-confirm` — route name differs from tracker; no audit_log on void |
+| `POST /api/v1/payments/:id/void-request` | 🟡 CODE EXISTS as `PATCH /:id` (voidRequest) + `POST /:id/void-confirm` — route name differs from tracker; audit_log on void-request + void-confirm NOW present (ef4bbbc) |
 | `POST /api/v1/payments/:id/send-receipt` | 🟡 CODE EXISTS |
 | Cross-tenant isolation test on every payment endpoint | ⬜ TODO |
 
@@ -297,7 +299,7 @@ These have external approval timelines. Must be tracked from Day 1.
 | `GET/POST/PATCH/DELETE /api/v1/users` | 🟡 CODE EXISTS (2026-07-22: bcrypt 12, USER_EMAIL_TAKEN/SELF_DELETE/LAST_OWNER guards, audit; ⚠️ spec's can_edit/can_delete/can_settings flags NOT in schema) |
 | `GET/PATCH /api/v1/settings/hostel-info` | 🟡 CODE EXISTS (2026-07-22 on real hostels columns; ⚠️ spec's tagline/brandColor/showBranding NOT in schema) |
 | `GET /api/v1/audit-log` (+ `/:entityId`) | 🟡 CODE EXISTS (2026-07-22, actor join, CNIC keys stripped from old/new values) |
-| `GET /api/v1/health` | 🟡 CODE EXISTS (`server.ts` — verify `db: ok` / `redis: ok` payload) |
+| `GET /api/v1/health` | ✅ CODE DONE (session 3) — real `dbHealthCheck()` + `redis.ping()`, 503 if either down |
 
 ### BullMQ Workers (All 7)
 
@@ -552,6 +554,8 @@ These have external approval timelines. Must be tracked from Day 1.
 
 | 2026-07-22 | Tracker reconciled to code; added 🟡/🐞 markers | Doc claimed "nothing built" but Phase 1 was ~65% authored — stale tracker was hiding real work and risking duplicate builds | Trusting the tracker as source-of-truth — falsified by inspection |
 | 2026-07-22 | "Code exists" recorded separately from "Done" | DoD requires CI-green + live RLS + isolation proof, none of which the repo alone can confirm | Marking authored code as ✅ — would overstate readiness |
+| 2026-07-22 (s3) | Add ONLY schema columns with a live code reader (migration 009); defer spec-only fields | Adding `can_edit/brand_color/...` with no consumer is dead schema; matches "ship what's used" | Front-loading every spec field — dead columns, migration churn |
+| 2026-07-22 (s3) | Doc audit is a 3-pass job: (1) reconcile tracker+kill false "nothing built" claims, (2) fix numbering collisions + consolidate 4 agent-onboarding docs + merge CLAUDE.md addendum, (3) upgrade weak docs + cross-doc consistency | 29 docs / ~19k lines written by earlier models drifted apart and behind code; a staged converge avoids a risky big-bang rewrite | Single big-bang doc rewrite — high risk of losing real content |
 
 *Add new rows here as decisions are made during Phase 1+.*
 
@@ -584,6 +588,8 @@ These have external approval timelines. Must be tracked from Day 1.
 | # | Date | Summary | Ended On |
 |---|------|---------|----------|
 | 1 | 2026-07-22 | Reconciled this tracker against actual repo state (was 1 phase stale). Verified 14/14 payment unit tests pass. Documented real Phase 1 coverage (~65% authored) and the true remaining backlog. | Docs reconciled; code unchanged |
+| 2 | 2026-07-22 | Fixed 4 payment defects + worker audit-column bug + rent idempotency/receipt-gap/void-leak/otplib (mig 008); built ALL missing Phase 1 endpoints (operations, transfers, fines, users, settings, audit-log, CSV import). tsc clean, 14/14 green. | Phase 1 endpoints code-complete |
+| 3 | 2026-07-22 | Resolved all 5 corrected-audit findings (TS strict on, /health real probe, global error handler, login rate-limit, DB TLS verify). Migration 009 fixed auth-login + pdf-receipt runtime column crashes. Removed dead 'super_admin' literal. Began docs↔code re-reconciliation (this update). | Anchor pass of doc audit |
 
 *Update this table at the end of every session.*
 
@@ -600,16 +606,18 @@ These have external approval timelines. Must be tracked from Day 1.
  Report all of this back before doing anything else."
 ```
 
-**Current next task (reconciled 2026-07-22):** We are in **Phase 1 (~65% authored)**, not Phase 0.
-In priority order:
-1. **Fix the 4 open payment defects** (leftover comment · `extra_charges` persistence · PATCH
-   real-extras recalc · `audit_log` on create/edit/void) — with tests. Blocks new endpoints.
-2. **Build the missing Phase 1 endpoints:** operations (cancellations, maintenance, complaints,
-   checkin, notices), users CRUD, settings/hostel-info, audit-log GET, transfers, fines, student
-   CSV import.
-3. **Stand up the verification gate** (live Supabase/Redis) so 🟡 items can be proven → ✅:
-   RLS check, isolation tests, health payload, DLQ round-trip.
+**Current next task (reconciled 2026-07-22, session 3):** We are in **Phase 1 — code ~95%
+authored, gated on live-DB verification**. Payment defects (1) and missing endpoints (2) from the
+old list are DONE. In priority order now:
+1. **CNIC encryption** — AES-256-GCM service (mirror auth.ts TOTP encrypt/decrypt) + backfill
+   migration for existing rows + reveal-cnic decrypt. **Last real Phase 1 code item.**
+2. **Generated DB types** from schema (no types file exists yet).
+3. **Stand up the verification gate** (live Supabase/Redis + CI) so 🟡 items can be proven → ✅:
+   RLS check, isolation tests, bcrypt integration test, receipt-counter concurrency, DLQ round-trip.
 4. **Founder to confirm Phase 0 external provisioning** (dashboards Claude can't see).
+5. **Doc-audit passes 2–3** (see DECISION LOG 2026-07-22 session-3 row): resolve doc numbering
+   collisions, consolidate the 4 overlapping agent-onboarding docs, merge the CLAUDE.md addendum,
+   and superseded-banner the stale "Phase 0 / nothing built" docs.
 
 ---
 
