@@ -1,0 +1,60 @@
+name: Staging Smoke Test
+
+# Promotion gate for Develop -> main (i.e. staging -> production).
+#
+# The `staging` Railway environment tracks the Develop branch, so by the time a Develop->main
+# PR is open, staging is already running the exact code about to ship to production. This job
+# asserts that LIVE staging is healthy (app booted, Postgres + Redis reachable, auth gate up)
+# before the promotion is allowed to merge — the concrete form of "nothing ships without
+# passing staging". Wired as a REQUIRED status check on `main` via the protect-main ruleset.
+#
+# Note: /health does not expose a git SHA, so this verifies staging is HEALTHY, not that it is
+# on the precise PR commit. The retry loop below absorbs the staging redeploy window.
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Staging Smoke Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Staging /health is green (DB + Redis reachable)
+        env:
+          HEALTH_URL: https://hostyllo-staging.up.railway.app/api/v1/health
+        run: |
+          set +e
+          ok=0
+          for i in $(seq 1 20); do
+            resp=$(curl -s -m 15 -w "\n%{http_code}" "$HEALTH_URL")
+            code=$(printf '%s' "$resp" | tail -n1)
+            json=$(printf '%s' "$resp" | sed '$d')
+            echo "attempt $i: HTTP $code — $json"
+            if [ "$code" = "200" ] \
+               && printf '%s' "$json" | grep -q '"db":"ok"' \
+               && printf '%s' "$json" | grep -q '"redis":"ok"'; then
+              ok=1; break
+            fi
+            sleep 15
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::Staging /health is not green — do NOT promote to production. Last: HTTP $code $json"
+            exit 1
+          fi
+          echo "Staging healthy."
+
+      - name: Auth gate is live (protected route returns 401 without a token)
+        env:
+          BASE: https://hostyllo-staging.up.railway.app
+        run: |
+          set +e
+          # A protected endpoint with no credentials must return 401 — proves routing + auth
+          # middleware are actually serving on staging, not just the health probe.
+          code=$(curl -s -m 15 -o /dev/null -w "%{http_code}" "$BASE/api/v1/students")
+          echo "GET /api/v1/students (unauthenticated) -> HTTP $code"
+          if [ "$code" != "401" ]; then
+            echo "::error::Expected 401 from the protected route, got $code — staging is not serving correctly."
+            exit 1
+          fi
+          echo "Auth gate live."
