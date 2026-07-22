@@ -24,17 +24,32 @@ function buildSsl(): pg.PoolConfig['ssl'] {
   return { rejectUnauthorized: true };
 }
 
+// Privileged (system) pool — connects as the role in DATABASE_URL (the Supabase `postgres`
+// role). Under migration 010 that role has app.system_context='on', so it is intentionally
+// CROSS-TENANT. Use it ONLY for the auth bootstrap (cross-tenant user lookup at login, before
+// a tenant is known) and background workers (platform-wide jobs). NEVER for per-request tenant
+// queries — those must go through withTenant().
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,  // ← was SUPABASE_URL
   ssl: buildSsl(),
-  max: 25,
+  max: 15,
 });
+
+// Per-request (tenant) pool — connects as the least-privilege `hostyllo_app` role when
+// DATABASE_URL_APP is set. Under migration 010 that role is fully constrained by FORCE ROW
+// LEVEL SECURITY: a query that forgets its hostel_id filter returns ZERO rows instead of
+// leaking across tenants. If DATABASE_URL_APP is unset (dev / pre-migration) it falls back to
+// the privileged pool — behaviour is then identical to before (explicit filters still scope,
+// nothing breaks), but DB-level enforcement stays inactive until the app role is configured.
+const tenantPool = process.env.DATABASE_URL_APP
+  ? new Pool({ connectionString: process.env.DATABASE_URL_APP, ssl: buildSsl(), max: 20 })
+  : pool;
 
 export async function withTenant<T>(
   hostelId: string,
   queryFn: (db: pg.PoolClient) => Promise<T>
 ): Promise<T> {
-  const client = await pool.connect();
+  const client = await tenantPool.connect();
   try {
     await client.query('BEGIN');
     await client.query('SELECT set_config($1, $2, true)', ['app.hostel_id', hostelId]);
