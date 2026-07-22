@@ -1,9 +1,135 @@
 # HOSTYLLO — Session Tasks
 
-## Current Session — Phase 1 Week 1
-- [ ] Monorepo structure ✅
-- [ ] packages/config/eslint-plugin-hostyllo
-- [ ] packages/db/src/withTenant.ts
-- [ ] packages/db/src/paymentService.ts
-- [ ] packages/db/src/__tests__/paymentService.test.ts
-- [ ] Migration 001 — hostels, users tables + RLS
+> Reconciled 2026-07-22. The old "Phase 1 Week 1" list (monorepo, eslint plugin, withTenant,
+> paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
+> Phase 1 backlog below, in priority order.
+
+## 0. Payment defects — FIXED 2026-07-22 (14/14 unit tests green)
+- [x] Remove leftover AI comment at `apps/api/src/routes/payments.ts:5`
+- [x] `POST /payments`: `extra_charges` in schema (label+amount, max 20) + persisted into `payment_extra_charges`
+- [x] `PATCH /payments/:id`: recalc with real extras from DB, not hardcoded `[]`
+- [x] `audit_log` INSERT on payment create / edit / void-request / void-confirm (INVARIANT-5)
+- [x] BONUS: `Number()` coercion on NUMERIC columns in PATCH (pg returns strings → `'10000'+500`
+      was string concat = corrupted totals)
+- [x] BONUS: migration 003 CHECK said `'voided'` but all code uses `'void'` → void-confirm would
+      have violated the constraint at runtime. Migration fixed. ⚠️ If a live DB already has the
+      old constraint applied, it needs `ALTER TABLE ... DROP/ADD CONSTRAINT`.
+- [ ] Integration tests covering extras persistence + audit rows (needs live DB — see section 2)
+
+## 0.5 NEW bugs discovered during the fix (not yet fixed)
+- [x] FIXED 2026-07-22: `workers/billing-sync.ts` (5×) + `workers/email-send.ts` (1×) audit_log
+      INSERTs used a nonexistent `metadata` column → remapped to `new_data` (schema-correct)
+- [x] FIXED 2026-07-22: `generate-monthly` (route + rent-generate worker) — confirmed the
+      `ON CONFLICT DO NOTHING` matched NO constraint (only UNIQUE was idempotency_key = NULL)
+      → re-runs would duplicate every student's rent. Added migration 008
+      (`uq_payments_student_month` partial unique index), explicit conflict targets,
+      pre-check that skips already-billed students WITHOUT burning receipt numbers,
+      `Number()` coercion on monthly_fee (string concat → 10× rent), and an audit row
+      for bulk generation. ⚠️ Migration 008 must be applied to any live DB.
+- [x] FIXED 2026-07-22: `GET /payments/summary` now excludes `status = 'void'`
+- [x] FIXED 2026-07-22: `auth.ts` migrated to otplib v13 API (`verify({token,secret})` →
+      `{valid}`, awaited) — tsc now fully clean (exit 0)
+
+## 1. Missing Phase 1 endpoints — BUILT 2026-07-22 (tsc clean, 14/14 tests green)
+- [x] Operations: cancellations (+confirm/+restore w/ student lifecycle + bed freeing),
+      maintenance, complaints, checkin, notices
+- [x] `transfers` route (audit on all mutations)
+- [x] `fines` route (mark paid/unpaid, audit on all mutations)
+- [x] `users` CRUD (bcrypt 12, EMAIL_TAKEN/SELF_DELETE/LAST_OWNER guards, audit)
+- [x] `settings/hostel-info` GET/PATCH (audit)
+- [x] `audit-log` GET + GET /:entityId (actor join, CNIC keys stripped)
+- [x] `students/import` CSV (multipart 2MB, preview/confirm, formula-injection strip,
+      trial 30-student cap) + `students/:id/reveal-cnic` (audited)
+- [x] Bed CRUD — RESOLVED: API spec Module 3 folds beds into rooms; no separate CRUD
+
+## 1.5 NEW schema/code gaps discovered while building
+- [x] **CNIC PLAINTEXT → FIXED 2026-07-22.** New `apps/api/src/lib/crypto.ts` (AES-256-GCM
+      encryptField/decryptField/isEncrypted, unified with auth.ts TOTP). students POST + CSV import
+      now encrypt CNIC before store (NULL when blank); reveal-cnic decrypts (backward-compatible
+      with legacy plaintext via isEncrypted). `scripts/backfill-cnic.mjs` (idempotent, --dry-run)
+      encrypts existing plaintext rows. auth.ts TOTP refactored onto the shared crypto module.
+      ⚠️ Founder: run backfill-cnic.mjs once against live DB after deploy.
+- [x] FIXED 2026-07-22 (migration 009): `auth.ts` login/totp SELECT/UPDATE of
+      `display_name, theme, language, totp_secret_enc, totp_backup_codes` — added the columns
+      (renamed plaintext `totp_secret`→`totp_secret_enc`). Also caught `pdf-receipts.ts`
+      SELECTing `h.tagline` (same class of runtime crash) → added `hostels.tagline`.
+      ⚠️ Migration 009 must be applied to any live DB.
+- [x] PARTIAL 2026-07-22: role 'super_admin' (not in users CHECK) removed from the 6
+      `requireRole` guards in students.ts — was a dead literal that never matched. NOTE: those
+      GET/POST/PATCH student routes still exclude `chain_manager` while import/reveal-cnic
+      include it — an authorization-policy inconsistency for the owner to decide (add
+      chain_manager to student read/write? left unchanged).
+- [ ] students.ts pre-existing routes still lack JSON-Schema validation (hand-rolled checks only)
+- [ ] DEFERRED (no code consumer yet — not adding dead schema): warden flags
+      (`can_edit/can_delete/can_settings`) for DELETE-gating; hostel branding fields
+      (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
+
+## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
+- [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts
+      Resend client re-typed to the real 'resend' type. All 5 audit findings now resolved.
+      TODO (CI): wire `pnpm -r tsc --noEmit` as a required check so strict can't regress.
+- [x] Finding 2: `/health` now actually probes db (`dbHealthCheck`) + redis (`PING`), returns 503 if either down
+- [x] Finding 3: global `setErrorHandler` added — structured envelope, no stack-trace leaks, 400 for schema validation
+- [x] Finding 4: login rate limit `rl:login:{ip}` 10/15min → 429 (auth.ts)
+- [x] Finding 5: DB TLS — dropped `rejectUnauthorized:false`; verifies by default, pins `DATABASE_CA_CERT`
+      if set, `PGSSL_NO_VERIFY` dev-only escape hatch refuses to run in production
+
+## 1.8 ARB AUDIT P0 BLOCKERS (docs/ENGINEERING_AUDIT_ARB_2026-07-22.md) — 2026-07-22
+> Full evidence + 18 reports in the audit file. These are production blockers.
+- [x] **C1 — RLS not enforced → FIXED + APPLIED + PROVEN LIVE (2026-07-22).** Migrations 010+011
+      applied to live Supabase via MCP; 28/28 tables FORCE RLS; hostyllo_app proven fail-closed
+      (no/wrong ctx → 0 rows, correct → own only). Role has LOGIN (pw set, rotate advised),
+      bypassrls=false. ⚠️ App-side activation pending: set DATABASE_URL_APP in Railway (Hobby plan
+      pending). Also applied live: 008 (rent idx) + adapted-009 (auth columns — fixed a live login
+      crash). Migration 010:
+      FORCE ROW LEVEL SECURITY on all 28 tables + every policy rewritten to
+      `hostel_id = current_setting('app.hostel_id') OR current_setting('app.system_context')='on'`;
+      hostels service_role policy → tenant scoping on id; least-privilege `hostyllo_app` role
+      (system_context='off', RLS-bound) vs privileged `postgres` (system_context='on', auth+workers).
+      lib/db.ts: withTenant now uses `tenantPool` (DATABASE_URL_APP → hostyllo_app); forgotten filter
+      = 0 rows. SAFE FALLBACK: inert until DATABASE_URL_APP set → no lockout risk. scripts/verify-rls.sql
+      = gate. ⚠️ FOUNDER: apply mig 010, create hostyllo_app LOGIN+password, set DATABASE_URL_APP,
+      run verify-rls.sql (0 rows), prove raw SELECT w/o app.hostel_id returns 0 rows.
+- [x] **C2 — weak ENCRYPTION_KEY → FIXED.** lib/env.ts `assertEncryptionKey()` rejects unset /
+      wrong-length / low-entropy (<16 distinct bytes) keys at boot; auth.ts uses it. Local .env key
+      rotated to a real `randomBytes(32)`. ⚠️ any TOTP secret enrolled under the OLD key must be
+      re-enrolled (pre-launch → likely none).
+- [x] **C3 — secrets hygiene → FIXED (repo side).** `apps/api/.env.example` template added (incl.
+      DATABASE_URL_APP, SUPABASE_ACCESS_TOKEN, empty secrets) + rotate-first runbook. .env already
+      gitignored. ⚠️ FOUNDER: rotate ALL live creds (they lived in a working-tree .env) + move to
+      Railway/Vercel secret store.
+- [x] **C4 — verify-pitr.sh → FIXED.** Now requires `SUPABASE_ACCESS_TOKEN` (PAT) for the Management
+      API instead of the service_role JWT (which always 401'd). Gate can pass once a PAT is provided.
+- [x] **M1 — FIXED.** Canonical connection layer (buildSsl + privileged pool + tenantPool +
+      withTenant + dbHealthCheck) consolidated into `packages/db/src/withTenant.ts`; apps/api/lib/db.ts
+      is now a thin re-export. One pool, TLS verified, no insecure duplicate instantiated on import.
+- [x] **M2 — FIXED.** Root CLAUDE.md `docs/docs/`→`docs/` (5 refs); GROUND TRUTH rewritten to reality
+      (10 migrations, 16 routes, all defects+C1-C4 fixed); git-discipline branch note corrected to Develop.
+- [x] **M3 — FIXED.** `packages/db/migrate.mjs` runner + `schema_migrations` ledger, tx-per-file,
+      checksum drift warnings, `baseline` mode for the hand-migrated DB. Scripts + migrations/README.md.
+- [x] **M4 — FIXED.** `lib/env.ts validateEnv()` — required secrets throw in prod / warn in dev;
+      rejects public cookie placeholder; server.ts calls it at boot; cookie/CORS fail-open defaults
+      now dev-only.
+- [x] **M5 — DONE + CI GREEN (run 29920423462).** Created `buildApp()` factory (app.ts) + slim
+      server.ts; relocated the two integration tests (were DEAD — imported a non-existent buildApp
+      from packages/db) to apps/api/src/__tests__/ with fixed fixtures + login-for-tokens;
+      globalSetup migrates+seeds a 2-tenant DB + gives hostyllo_app login; vitest config; ci.yml
+      `integration-tests` job (postgres + redis + serverless-redis-http shim, ephemeral RS256
+      keypair, DATABASE_URL_APP=hostyllo_app so RLS is actually exercised). Integration job now
+      PASSES: isolation 10/10 + auth 5/5 against real PG+Redis. No-DB runs skip cleanly (15 skipped).
+      Fixes the green run needed: Supabase-compat shim in globalSetup (auth.role() stub + anon/
+      authenticated/service_role roles), guarded 011 revoke, and **@fastify/multipart v10→v8** (a
+      real server-startup crash the integration test surfaced). Tenant isolation now has automated
+      regression coverage on every push.
+
+## 2. Verification gate (turn 🟡 → ✅)
+- [ ] Live/local Postgres + Redis for integration tests
+- [ ] `isolation.test.ts` green (JWT A → data B → 404 everywhere)
+- [ ] RLS CI check: `SELECT tablename FROM pg_tables WHERE rowsecurity=false` → 0 rows
+- [ ] `/health` returns `db: ok` + `redis: ok`
+- [ ] DLQ round-trip → row in `dlq_jobs`
+- [ ] CNIC encryption verified (no plaintext column)
+
+## 3. Founder-only (external dashboards — Claude can't verify)
+- [ ] Confirm Phase 0: Supabase Pro+PITR, Railway Pro, Upstash `rediss://`, Vercel domains,
+      branch protection, Sentry, Uptime Robot → then tick Phase 0 rows in 09_BUILD_STATE

@@ -2,26 +2,139 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, Develop]
   pull_request:
-    branches: [main, develop]
+    branches: [main, Develop]
   workflow_dispatch:
 
 jobs:
-  ci:
+  lint-typecheck:
+    # Display name MUST equal the status-check context required by the `protect-main`/`protect-develop`
+    # rulesets ("Lint and Test"), otherwise that required check never reports and PRs to main can
+    # never merge — which is why main drifted 30 commits behind Develop.
     name: Lint and Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v3
         with:
-          node-version: 24
+          version: 11
 
-      - name: Lint
-        run: echo "Lint placeholder"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-      - name: Tests
-        run: echo "Tests placeholder"
+      - run: pnpm install --frozen-lockfile
+
+      # Compile the workspace first so @hostyllo/db emits dist/ + .d.ts. Without this,
+      # `tsc --noEmit` on the api can't resolve '@hostyllo/db' (TS2307) — the same missing
+      # build that crashed the Railway deploy.
+      - name: Build workspace (turbo ^build — db before api)
+        run: pnpm build
+
+      - name: Lint (ESLint + hostyllo/* rules)
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm --filter @hostyllo/api exec tsc --noEmit
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Payment formula tests (14 — all must pass)
+        run: pnpm --filter @hostyllo/db exec vitest run src/__tests__/paymentService.test.ts --reporter=verbose
+
+      - name: All unit tests
+        run: pnpm run test
+
+  integration-tests:
+    name: Integration Tests (isolation + auth)
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+    env:
+      NODE_ENV: test
+      PGSSLMODE: disable
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      DATABASE_URL_APP: postgresql://hostyllo_app:apptest@localhost:5432/postgres
+      APP_DB_PASSWORD: apptest
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # @hostyllo/db now ships compiled dist (main -> ./dist/index.js); build it before the
+      # api integration suite imports it, or the import resolves to a non-existent file.
+      - name: Build workspace (turbo ^build — db before api)
+        run: pnpm build
+
+      - name: Generate ephemeral test secrets (RS256 keypair, keys)
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/priv.pem
+          openssl rsa -in /tmp/priv.pem -pubout -out /tmp/pub.pem
+          {
+            echo "JWT_PRIVATE_KEY<<PEMEOF"; cat /tmp/priv.pem; echo "PEMEOF"
+            echo "JWT_PUBLIC_KEY<<PEMEOF";  cat /tmp/pub.pem;  echo "PEMEOF"
+            echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
+            echo "COOKIE_SECRET=$(openssl rand -hex 32)"
+          } >> "$GITHUB_ENV"
+
+      - name: Run integration suite (globalSetup migrates + seeds the test DB)
+        run: pnpm --filter @hostyllo/api test
+
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: No .env files tracked
+        run: |
+          git ls-files | grep -E "^\.env$|\.env$" | grep -v ".env.example" && exit 1 || echo "Clean"
+
+      - name: No hardcoded secrets in source
+        run: |
+          FOUND=$(grep -rn \
+            --include="*.ts" --include="*.js" \
+            -E "(SUPABASE_SERVICE_KEY|JWT_PRIVATE_KEY|ENCRYPTION_KEY|COOKIE_SECRET|RESEND_API_KEY)\s*=\s*['\"][A-Za-z0-9+/]{20}" \
+            apps/ packages/ || true)
+          if [ -n "$FOUND" ]; then echo "SECRETS IN SOURCE:"; echo "$FOUND"; exit 1; fi
+          echo "Clean"

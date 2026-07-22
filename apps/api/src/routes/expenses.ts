@@ -20,11 +20,11 @@ export async function expensesRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { month, category, limit, offset } = request.query as any;
+    const { month, category, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`e.hostel_id = current_setting('app.hostel_id')::uuid`, `e.deleted_at IS NULL`];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       if (month) { conditions.push(`date_trunc('month', e.expense_date) = date_trunc('month', $${idx++}::date)`); values.push(month + '-01'); }
@@ -66,7 +66,7 @@ export async function expensesRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { month } = request.query as any;
+    const { month } = request.query as Record<string, string | undefined>;
     const monthDate = (month ?? new Date().toISOString().slice(0, 7)) + '-01';
 
     const result = await withTenant(request.hostelId, async (db) => {
@@ -107,7 +107,7 @@ export async function expensesRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const expense = await db.query(`
@@ -145,11 +145,11 @@ export async function expensesRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const fields = [];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       for (const [key, val] of Object.entries(body)) {

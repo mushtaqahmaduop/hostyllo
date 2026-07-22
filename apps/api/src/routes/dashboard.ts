@@ -15,7 +15,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { month } = request.query as any;
+    const { month } = request.query as Record<string, string | undefined>;
     const monthDate = (month ?? new Date().toISOString().slice(0, 7)) + '-01';
 
     const result = await withTenant(request.hostelId, async (db) => {

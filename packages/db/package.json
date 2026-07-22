@@ -3,9 +3,20 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
-    "test": "vitest run"
+    "build": "tsc",
+    "test": "vitest run",
+    "migrate": "node migrate.mjs",
+    "migrate:status": "node migrate.mjs status",
+    "migrate:baseline": "node migrate.mjs baseline"
   },
   "dependencies": {
     "pg": "^8.13.3"

@@ -25,10 +25,24 @@ async function generateMonthlyRent(hostelId: string, monthLabel: string): Promis
     return;
   }
 
+  // Find students already billed this month FIRST, so skips don't burn
+  // receipt numbers (get_next_receipt_number increments even when the
+  // insert conflicts, leaving gaps in the receipt sequence)
+  const { rows: existing } = await pool.query(
+    `SELECT student_id FROM public.payments
+     WHERE hostel_id = $1
+       AND date_trunc('month', month) = date_trunc('month', $2::date)
+       AND status != 'void' AND deleted_at IS NULL`,
+    [hostelId, monthDate]
+  );
+  const alreadyBilled = new Set(existing.map((r: { student_id: string }) => r.student_id));
+
   let created = 0;
   let skipped = 0;
 
   for (const student of students) {
+    if (alreadyBilled.has(student.id)) { skipped++; continue; }
+
     const receiptResult = await pool.query(
       `SELECT get_next_receipt_number($1) as receipt_number`,
       [hostelId]
@@ -36,13 +50,15 @@ async function generateMonthlyRent(hostelId: string, monthLabel: string): Promis
     const receiptNumber = receiptResult.rows[0].receipt_number;
     const totalDue = student.monthly_fee;
 
+    // Explicit conflict target (uq_payments_student_month, migration 008)
+    // as a race-condition backstop for the pre-check above
     const result = await pool.query(
       `INSERT INTO public.payments
          (hostel_id, student_id, room_id, month, rent, admission_fee,
           concession, total_due, paid, unpaid, status, receipt_number)
        VALUES
          ($1, $2, $3, $4, $5, 0, 0, $5, 0, $5, 'pending', $6)
-       ON CONFLICT DO NOTHING
+       ON CONFLICT (hostel_id, student_id, month) WHERE status != 'void' AND deleted_at IS NULL DO NOTHING
        RETURNING id`,
       [student.hostel_id, student.id, student.room_id, monthDate, totalDue, receiptNumber]
     );
