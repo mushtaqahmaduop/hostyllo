@@ -49,7 +49,7 @@ export async function usersRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as { password: string; email?: string; displayName?: string; role?: string };
 
     const passwordHash = await bcrypt.hash(body.password, 12);
 
@@ -108,7 +108,7 @@ export async function usersRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as { password?: string; displayName?: string; role?: string; isActive?: boolean };
 
     const passwordHash = body.password ? await bcrypt.hash(body.password, 12) : null;
 

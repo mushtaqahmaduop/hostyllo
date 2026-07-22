@@ -3,11 +3,23 @@ import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { encryptField, decryptField, isEncrypted } from '../lib/crypto.js';
 
+interface PreviewRow {
+  row: number;
+  fullName: string;
+  cnic: string | null;
+  fatherName: string | null;
+  phone: string | null;
+  monthlyFee: number;
+  joinDate: string | null;
+  valid: boolean;
+  errors?: string[];
+}
+
 export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students
   app.get('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
-    const { q, status = 'active', room_id, limit = 25, offset = 0 } = request.query as any;
+    const { q, status = 'active', room_id, limit = 25, offset = 0 } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       let query = `
@@ -27,7 +39,7 @@ export async function studentRoutes(app: FastifyInstance) {
         ) unpaid ON unpaid.student_id = s.id
         WHERE s.deleted_at IS NULL AND s.status = $1
       `;
-      const params: any[] = [status];
+      const params: unknown[] = [status];
       let paramIndex = 2;
 
       if (q) {
@@ -57,7 +69,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students/search
   app.get('/search', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
-    const { q } = request.query as any;
+    const { q } = request.query as Record<string, string | undefined>;
     if (!q || q.length < 2) {
       return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: 'q must be at least 2 characters' });
     }
@@ -86,7 +98,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students/:id
   app.get('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
-    const { id } = request.params as any;
+    const { id } = request.params as { id: string };
 
     const result = await withTenant(request.hostelId, async (db) => {
       const student = await db.query(`
@@ -119,8 +131,11 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // POST /api/v1/students
   app.post('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
-    const body = request.body as any;
-    const { name, father_name, cnic, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee = 0, join_date } = body;
+    const { name, father_name, cnic, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee = 0, join_date } = request.body as {
+      name?: string; father_name?: string; cnic?: string; phone?: string;
+      emergency_contact?: string; email?: string; address?: string;
+      room_id?: string; bed_id?: string; monthly_fee?: number; admission_fee?: number; join_date?: string;
+    };
 
     if (!name || !phone || !room_id || !bed_id || !monthly_fee || !join_date) {
       return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
@@ -149,8 +164,8 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // PATCH /api/v1/students/:id
   app.patch('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
-    const { id } = request.params as any;
-    const body = request.body as any;
+    const { id } = request.params as { id: string };
+    const body = request.body as Record<string, unknown>;
 
     const allowed = ['name', 'father_name', 'phone', 'emergency_contact', 'email', 'address', 'monthly_fee', 'status'];
     const updates = Object.keys(body).filter(k => allowed.includes(k));
@@ -173,7 +188,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // DELETE /api/v1/students/:id
   app.delete('/:id', { preHandler: [requireAuth, requireRole('hostel_owner')] }, async (request, reply) => {
-    const { id } = request.params as any;
+    const { id } = request.params as { id: string };
 
     await withTenant(request.hostelId, async (db) => {
       const unpaid = await db.query(
@@ -194,7 +209,7 @@ export async function studentRoutes(app: FastifyInstance) {
   // GET /api/v1/students/:id/reveal-cnic
   // Explicit, audited CNIC reveal — never returned by any list/detail endpoint.
   app.get('/:id/reveal-cnic', { preHandler: [requireAuth, requireRole('hostel_owner', 'chain_manager')] }, async (request, reply) => {
-    const { id } = request.params as any;
+    const { id } = request.params as { id: string };
 
     const result = await withTenant(request.hostelId, async (db) => {
       const student = await db.query(`
@@ -224,7 +239,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // POST /api/v1/students/import — bulk CSV import with preview/confirm
   app.post('/import', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'chain_manager')] }, async (request, reply) => {
-    const file = await (request as any).file();
+    const file = await request.file();
     if (!file) {
       return reply.code(400).send({ success: false, code: 'IMPORT_INVALID_FILE', message: 'No CSV file uploaded' });
     }
@@ -236,7 +251,7 @@ export async function studentRoutes(app: FastifyInstance) {
       return reply.code(400).send({ success: false, code: 'IMPORT_TOO_LARGE', message: 'File exceeds 2MB limit' });
     }
 
-    const confirmField = file.fields?.confirm as any;
+    const confirmField = file.fields?.confirm as { value?: string } | Array<{ value?: string }> | undefined;
     const confirm = (Array.isArray(confirmField) ? confirmField[0]?.value : confirmField?.value) === 'true';
 
     const rows = parseCsv(buffer.toString('utf8'));
@@ -259,7 +274,7 @@ export async function studentRoutes(app: FastifyInstance) {
     }
 
     const CNIC_RE = /^\d{5}-\d{7}-\d$|^\d{13}$/;
-    const preview: any[] = [];
+    const preview: PreviewRow[] = [];
     let validRows = 0;
 
     for (let i = 1; i < rows.length; i++) {

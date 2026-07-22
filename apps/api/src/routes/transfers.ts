@@ -20,11 +20,11 @@ export async function transfersRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { from, to, limit, offset } = request.query as any;
+    const { from, to, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`t.hostel_id = current_setting('app.hostel_id')::uuid`, `t.deleted_at IS NULL`];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       if (from) { conditions.push(`t.transfer_date >= $${idx++}::date`); values.push(from); }
@@ -78,7 +78,7 @@ export async function transfersRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const inserted = await db.query(`
@@ -128,7 +128,7 @@ export async function transfersRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const existing = await db.query(`

@@ -22,11 +22,11 @@ export async function paymentsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { month, studentId, status, limit, offset } = request.query as any;
+    const { month, studentId, status, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`p.hostel_id = current_setting('app.hostel_id')::uuid`, `p.deleted_at IS NULL`];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       if (month) { conditions.push(`date_trunc('month', p.month) = date_trunc('month', $${idx++}::date)`); values.push(month + '-01'); }
@@ -111,8 +111,13 @@ export async function paymentsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
-    const idempotencyKey = (request.headers as any)['x-idempotency-key'];
+    const body = request.body as {
+      studentId: string; month: string; rent: number; paid: number;
+      admission_fee?: number; concession?: number;
+      payment_method?: string; payment_date?: string;
+      extra_charges?: { label: string; amount: number }[];
+    };
+    const idempotencyKey = request.headers['x-idempotency-key'];
 
     const result = await withTenant(request.hostelId, async (db) => {
       // Idempotency check
@@ -304,7 +309,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { month } = request.query as any;
+    const { month } = request.query as Record<string, string | undefined>;
     const monthDate = (month ?? new Date().toISOString().slice(0, 7)) + '-01';
 
     const result = await withTenant(request.hostelId, async (db) => {
@@ -401,7 +406,10 @@ export async function paymentsRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as {
+      voidRequest?: boolean; voidReason?: string; paid?: number;
+      payment_method?: string; payment_date?: string;
+    };
 
     const result = await withTenant(request.hostelId, async (db) => {
       const payment = await db.query(`
@@ -494,7 +502,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const payment = await db.query(`
@@ -544,7 +552,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
     const monthDate = (body.month ?? new Date().toISOString().slice(0, 7)) + '-01';
 
     const result = await withTenant(request.hostelId, async (db) => {

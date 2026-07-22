@@ -19,11 +19,11 @@ export async function cancellationsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { status, limit, offset } = request.query as any;
+    const { status, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`c.hostel_id = current_setting('app.hostel_id')::uuid`, `c.deleted_at IS NULL`];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       if (status) { conditions.push(`c.status = $${idx++}`); values.push(status); }
@@ -75,7 +75,7 @@ export async function cancellationsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const student = await db.query(`

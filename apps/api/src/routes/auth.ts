@@ -4,7 +4,7 @@ import { randomUUID, randomBytes } from 'crypto';
 import { generateSecret, generateURI, verify as verifyTotp } from 'otplib';
 import { pool } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
-import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js';
+import { signAccessToken, signRefreshToken, verifyToken, type TokenPayload } from '../lib/jwt.js';
 import { requireAuth } from '../middleware/auth.js';
 // AES-256-GCM field encryption (shared with CNIC). Importing validates ENCRYPTION_KEY at startup
 // — rejects unset / wrong-length / low-entropy placeholder keys (audit C2).
@@ -122,7 +122,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(401).send({ success: false, code: 'AUTH_003', message: 'No refresh token' });
     }
 
-    let payload: any;
+    let payload: TokenPayload;
     try {
       payload = await verifyToken(refreshToken);
     } catch {
@@ -180,7 +180,7 @@ export async function authRoutes(app: FastifyInstance) {
     const authHeader = request.headers.authorization;
     if (authHeader?.startsWith('Bearer ')) {
       try {
-        const payload = await verifyToken(authHeader.slice(7)) as any;
+        const payload = await verifyToken(authHeader.slice(7));
         await redis.set(`blocklist:${payload.jti}`, '1', 60 * 15);
       } catch {
         // Already invalid — fine
@@ -190,7 +190,7 @@ export async function authRoutes(app: FastifyInstance) {
     const refreshToken = request.cookies?.refreshToken;
     if (refreshToken) {
       try {
-        const payload = await verifyToken(refreshToken) as any;
+        const payload = await verifyToken(refreshToken);
         await redis.del(`refresh:${payload.jti}`);
       } catch {
         // Already invalid — fine

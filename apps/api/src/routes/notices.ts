@@ -19,7 +19,7 @@ export async function noticesRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { includeExpired, limit, offset } = request.query as any;
+    const { includeExpired, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`n.hostel_id = current_setting('app.hostel_id')::uuid`, `n.deleted_at IS NULL`];
@@ -70,7 +70,7 @@ export async function noticesRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const inserted = await db.query(`
@@ -111,7 +111,7 @@ export async function noticesRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const existing = await db.query(`

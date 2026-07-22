@@ -22,11 +22,11 @@ export async function checkinRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { studentId, type, from, to, limit, offset } = request.query as any;
+    const { studentId, type, from, to, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`cl.hostel_id = current_setting('app.hostel_id')::uuid`];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       if (studentId) { conditions.push(`cl.student_id = $${idx++}::uuid`); values.push(studentId); }
@@ -80,7 +80,7 @@ export async function checkinRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const student = await db.query(`

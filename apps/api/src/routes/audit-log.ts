@@ -2,6 +2,12 @@ import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 
+interface AuditEntryRow {
+  oldValues: Record<string, unknown> | null;
+  newValues: Record<string, unknown> | null;
+  [k: string]: unknown;
+}
+
 // Per spec: cnic values are NEVER returned in old/new data
 function stripCnic(data: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!data) return null;
@@ -48,11 +54,11 @@ export async function auditLogRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { action, userId, entityType, limit, offset } = request.query as any;
+    const { action, userId, entityType, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`a.hostel_id = current_setting('app.hostel_id')::uuid`];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       if (action)     { conditions.push(`a.action = $${idx++}`); values.push(action); }
@@ -73,7 +79,7 @@ export async function auditLogRoutes(app: FastifyInstance) {
       `, values);
 
       return {
-        entries: rows.rows.map((e: any) => ({ ...e, oldValues: stripCnic(e.oldValues), newValues: stripCnic(e.newValues) })),
+        entries: rows.rows.map((e: AuditEntryRow) => ({ ...e, oldValues: stripCnic(e.oldValues), newValues: stripCnic(e.newValues) })),
         total: parseInt(count.rows[0].total),
         limit: limit ?? 25,
         offset: offset ?? 0,
@@ -104,7 +110,7 @@ export async function auditLogRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { entityId } = request.params as { entityId: string };
-    const { limit, offset } = request.query as any;
+    const { limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const rows = await db.query(`
@@ -120,7 +126,7 @@ export async function auditLogRoutes(app: FastifyInstance) {
       `, [entityId]);
 
       return {
-        entries: rows.rows.map((e: any) => ({ ...e, oldValues: stripCnic(e.oldValues), newValues: stripCnic(e.newValues) })),
+        entries: rows.rows.map((e: AuditEntryRow) => ({ ...e, oldValues: stripCnic(e.oldValues), newValues: stripCnic(e.newValues) })),
         total: parseInt(count.rows[0].total),
         limit: limit ?? 25,
         offset: offset ?? 0,

@@ -100,7 +100,11 @@ export async function roomsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as {
+      number?: string; floor?: string; type?: string; color?: string;
+      capacity: number; monthly_fee?: number; is_active?: boolean;
+      beds?: { label: string }[];
+    };
 
     const result = await withTenant(request.hostelId, async (db) => {
       // Check duplicate room number
@@ -237,11 +241,11 @@ export async function roomsRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const fields = [];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       for (const [key, val] of Object.entries(body)) {
@@ -333,7 +337,7 @@ export async function roomsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { studentId, toRoomId, toBedId, newMonthlyFee, notes: _notes } = request.body as any;
+    const { studentId, toRoomId, toBedId, newMonthlyFee, notes: _notes } = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       // Check target bed is vacant
@@ -438,7 +442,10 @@ export async function roomsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { mode, type, newMonthlyFee, updates } = request.body as any;
+    const { mode, type, newMonthlyFee, updates } = request.body as {
+      mode?: string; type?: string; newMonthlyFee?: number;
+      updates: { studentId: string; newMonthlyFee: number }[];
+    };
 
     const result = await withTenant(request.hostelId, async (db) => {
       let updatedCount = 0;

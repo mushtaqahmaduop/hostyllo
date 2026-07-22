@@ -55,9 +55,17 @@ export async function signRefreshToken(payload: {
     .sign(await getPrivateKey());
 }
 
-export async function verifyToken(token: string) {
+export interface TokenPayload {
+  sub: string;
+  hostelId: string;
+  role: string;
+  jti: string;
+  [k: string]: unknown;
+}
+
+export async function verifyToken(token: string): Promise<TokenPayload> {
   const { payload } = await jwtVerify(token, await getPublicKey(), {
     algorithms: ['RS256'],
   });
-  return payload;
+  return payload as unknown as TokenPayload;
 }

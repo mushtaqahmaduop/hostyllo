@@ -20,11 +20,11 @@ export async function finesRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { studentId, isPaid, limit, offset } = request.query as any;
+    const { studentId, isPaid, limit, offset } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const conditions = [`f.hostel_id = current_setting('app.hostel_id')::uuid`, `f.deleted_at IS NULL`];
-      const values: any[] = [];
+      const values: unknown[] = [];
       let idx = 1;
 
       if (studentId)          { conditions.push(`f.student_id = $${idx++}::uuid`); values.push(studentId); }
@@ -88,7 +88,7 @@ export async function finesRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const student = await db.query(`
@@ -151,7 +151,7 @@ export async function finesRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const body = request.body as any;
+    const body = request.body as Record<string, unknown>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       const existing = await db.query(`

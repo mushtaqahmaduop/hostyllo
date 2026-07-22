@@ -18,7 +18,7 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
 
   const token = authHeader.slice(7);
   try {
-    const payload = await verifyToken(token) as any;
+    const payload = await verifyToken(token);
 
     const blocked = await redis.exists(`blocklist:${payload.jti}`);
     if (blocked) {
