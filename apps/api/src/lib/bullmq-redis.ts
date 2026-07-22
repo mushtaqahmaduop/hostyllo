@@ -10,5 +10,6 @@ export const bullmqRedis = {
   password: url.password ? decodeURIComponent(url.password) : undefined,
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
+  family: 0, // dual-stack DNS — Railway's private network (redis.railway.internal) is IPv6-only
   ...(url.protocol === 'rediss:' ? { tls: {} } : {}),
 };

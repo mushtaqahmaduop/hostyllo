@@ -8,6 +8,7 @@ const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
 const client = new Redis(url, {
   lazyConnect: true,
   maxRetriesPerRequest: 3,
+  family: 0, // dual-stack DNS — Railway's private network (redis.railway.internal) is IPv6-only
 });
 // Don't let a connection blip crash the process with an unhandled 'error' event.
 client.on('error', (err) => { console.error('[redis] connection error:', err.message); });
