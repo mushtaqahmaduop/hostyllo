@@ -5,7 +5,10 @@
   "type": "module",
   "main": "./src/index.ts",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "migrate": "node migrate.mjs",
+    "migrate:status": "node migrate.mjs status",
+    "migrate:baseline": "node migrate.mjs baseline"
   },
   "dependencies": {
     "pg": "^8.13.3"
