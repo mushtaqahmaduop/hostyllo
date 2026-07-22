@@ -71,6 +71,28 @@
 - [x] Finding 5: DB TLS — dropped `rejectUnauthorized:false`; verifies by default, pins `DATABASE_CA_CERT`
       if set, `PGSSL_NO_VERIFY` dev-only escape hatch refuses to run in production
 
+## 1.8 ARB AUDIT P0 BLOCKERS (docs/ENGINEERING_AUDIT_ARB_2026-07-22.md) — 2026-07-22
+> Full evidence + 18 reports in the audit file. These are production blockers.
+- [ ] **C1 — RLS not enforced.** All tables `ENABLE` but none `FORCE ROW LEVEL SECURITY`; app
+      connects as table-owner `postgres.xxx` (owner bypasses RLS). Isolation currently rests only
+      on explicit `hostel_id = current_setting('app.hostel_id')` filters in every query — no DB
+      safety net, no CI check. FIX: `FORCE RLS` on all 26 tenant tables + non-owner `app_user`
+      role (no BYPASSRLS) + repoint DATABASE_URL + CI gate `relrowsecurity AND NOT relforcerowsecurity`.
+      ⚠️ Confirm on live DB.
+- [ ] **C2 — ENCRYPTION_KEY is a guessable pattern** (`a1b2c3d4e5f6`×). Worthless AES. FIX:
+      `openssl rand -hex 32`, store in secret manager, rotate, re-encrypt TOTP secrets.
+- [ ] **C3 — prod secrets in working-tree `.env`** (service_role key, DB pw, JWT priv key). Not
+      committed (gitignored) but unmanaged + exposed. FIX: move to Railway/Vercel secrets, ROTATE ALL.
+- [ ] **C4 — `verify-pitr.sh` broken** — uses service_role JWT against the Management API (needs a
+      Supabase PAT) → always 401. Phase-1 backup gate can never pass. FIX: use SUPABASE_ACCESS_TOKEN.
+- [ ] **M1 — two `withTenant`/pool impls**; `packages/db` copy still `rejectUnauthorized:false` and is
+      instantiated on `@hostyllo/db` import. Unify into one.
+- [ ] **M2 — root CLAUDE.md** paths point to `docs/docs/` (flattened) + stale ground-truth. Fix.
+- [ ] **M3 — no migration runner/ledger**; 001-007 not idempotent. Adopt one before prod apply.
+- [ ] **M4 — fail-open COOKIE_SECRET/CORS defaults + no env validation** (auth.ts:10 claims startup
+      validation that doesn't exist). Add boot-time env schema; throw in prod.
+- [ ] **M5 — isolation untested in CI** (no PG service). Add Postgres to ci.yml, run isolation.test.ts.
+
 ## 2. Verification gate (turn 🟡 → ✅)
 - [ ] Live/local Postgres + Redis for integration tests
 - [ ] `isolation.test.ts` green (JWT A → data B → 404 everywhere)
