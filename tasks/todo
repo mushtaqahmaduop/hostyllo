@@ -43,9 +43,12 @@
 - [x] Bed CRUD — RESOLVED: API spec Module 3 folds beds into rooms; no separate CRUD
 
 ## 1.5 NEW schema/code gaps discovered while building
-- [ ] **CNIC stored PLAINTEXT** in `cnic_encrypted` (students POST + import) — needs an
-      encryption service (AES-256-GCM like auth.ts TOTP) + backfill migration; reveal-cnic
-      currently returns the raw stored value  ← still open, highest-priority security item
+- [x] **CNIC PLAINTEXT → FIXED 2026-07-22.** New `apps/api/src/lib/crypto.ts` (AES-256-GCM
+      encryptField/decryptField/isEncrypted, unified with auth.ts TOTP). students POST + CSV import
+      now encrypt CNIC before store (NULL when blank); reveal-cnic decrypts (backward-compatible
+      with legacy plaintext via isEncrypted). `scripts/backfill-cnic.mjs` (idempotent, --dry-run)
+      encrypts existing plaintext rows. auth.ts TOTP refactored onto the shared crypto module.
+      ⚠️ Founder: run backfill-cnic.mjs once against live DB after deploy.
 - [x] FIXED 2026-07-22 (migration 009): `auth.ts` login/totp SELECT/UPDATE of
       `display_name, theme, language, totp_secret_enc, totp_backup_codes` — added the columns
       (renamed plaintext `totp_secret`→`totp_secret_enc`). Also caught `pdf-receipts.ts`

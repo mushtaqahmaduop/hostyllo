@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { encryptField, decryptField, isEncrypted } from '../lib/crypto.js';
 
 export async function studentRoutes(app: FastifyInstance) {
 
@@ -138,7 +139,7 @@ export async function studentRoutes(app: FastifyInstance) {
         VALUES
           (current_setting('app.hostel_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active', NOW(), NOW())
         RETURNING id
-      `, [name, father_name, cnic || '', phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee, join_date]);
+      `, [name, father_name, cnic ? encryptField(cnic) : null, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee, join_date]);
 
       return row.rows[0];
     });
@@ -209,7 +210,11 @@ export async function studentRoutes(app: FastifyInstance) {
         VALUES (current_setting('app.hostel_id')::uuid, $1, 'cnic_revealed', 'student', $2, $3::jsonb)
       `, [request.userId, id, JSON.stringify({ cnicRevealed: true })]);
 
-      return { cnic: student.rows[0].cnic_encrypted || null };
+      // Decrypt for the reveal. Legacy plaintext rows (pre-encryption) are returned as-is so a
+      // pending backfill doesn't break reveal — see scripts/backfill-cnic.mjs.
+      const stored: string | null = student.rows[0].cnic_encrypted;
+      const cnic = stored ? (isEncrypted(stored) ? decryptField(stored) : stored) : null;
+      return { cnic };
     });
 
     if (result.error === 'NOT_FOUND') return reply.code(404).send({ success: false, code: 'NOT_FOUND', message: 'Student not found' });
@@ -322,7 +327,7 @@ export async function studentRoutes(app: FastifyInstance) {
               (hostel_id, name, father_name, cnic_encrypted, phone, monthly_fee, join_date, status)
             VALUES
               (current_setting('app.hostel_id')::uuid, $1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE), 'active')
-          `, [r.fullName, r.fatherName, r.cnic ?? '', r.phone, r.monthlyFee, r.joinDate]);
+          `, [r.fullName, r.fatherName, r.cnic ? encryptField(r.cnic) : null, r.phone, r.monthlyFee, r.joinDate]);
           imported++;
         } catch {
           failures.push({ row: r.row, reason: 'Database insert failed' });

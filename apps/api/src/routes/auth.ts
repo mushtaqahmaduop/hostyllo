@@ -1,40 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
-import { randomUUID, createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import { generateSecret, generateURI, verify as verifyTotp } from 'otplib';
 import { pool } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js';
 import { requireAuth } from '../middleware/auth.js';
-import { assertEncryptionKey } from '../lib/env.js';
-
-// ─── Encryption key — validated at import (server startup). Rejects unset / wrong-length /
-// low-entropy placeholder keys so a worthless key can never reach production (audit C2). ─────
-const ENCRYPTION_KEY = assertEncryptionKey();
-
-// AES-256-GCM: authenticated encryption — prevents bit-flip attacks on TOTP secrets
-// Format: iv(12 bytes hex) : authTag(16 bytes hex) : ciphertext(hex)
-function encryptSecret(plaintext: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
-  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  return iv.toString('hex') + ':' + authTag.toString('hex') + ':' + encrypted.toString('hex');
-}
-
-function decryptSecret(ciphertext: string): string {
-  const parts = ciphertext.split(':');
-  if (parts.length !== 3) {
-    throw new Error('Invalid ciphertext format — expected GCM (iv:authTag:enc)');
-  }
-  const [ivHex, authTagHex, encHex] = parts;
-  const iv = Buffer.from(ivHex, 'hex');
-  const authTag = Buffer.from(authTagHex, 'hex');
-  const enc = Buffer.from(encHex, 'hex');
-  const decipher = createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
-  decipher.setAuthTag(authTag);
-  return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
-}
+// AES-256-GCM field encryption (shared with CNIC). Importing validates ENCRYPTION_KEY at startup
+// — rejects unset / wrong-length / low-entropy placeholder keys (audit C2).
+import { encryptField as encryptSecret, decryptField as decryptSecret } from '../lib/crypto.js';
 
 // ─── Login rate limiting ──────────────────────────────────────────────────────
 // 10 attempts / 15 min / IP (per the auth tracker). Counts every attempt, so a
