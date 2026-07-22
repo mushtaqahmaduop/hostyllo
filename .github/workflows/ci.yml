@@ -25,6 +25,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Compile the workspace first so @hostyllo/db emits dist/ + .d.ts. Without this,
+      # `tsc --noEmit` on the api can't resolve '@hostyllo/db' (TS2307) — the same missing
+      # build that crashed the Railway deploy.
+      - name: Build workspace (turbo ^build — db before api)
+        run: pnpm build
+
       - name: Lint (ESLint + hostyllo/* rules)
         run: pnpm run lint
 
@@ -88,6 +94,11 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+
+      # @hostyllo/db now ships compiled dist (main -> ./dist/index.js); build it before the
+      # api integration suite imports it, or the import resolves to a non-existent file.
+      - name: Build workspace (turbo ^build — db before api)
+        run: pnpm build
 
       - name: Generate ephemeral test secrets (RS256 keypair, keys)
         run: |

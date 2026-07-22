@@ -1,5 +1,9 @@
 [build]
-buildCommand = "pnpm --filter @hostyllo/api build"
+# Build the whole workspace via turbo (^build), NOT just the api: apps/api imports
+# @hostyllo/db, and `pnpm --filter api build` does NOT compile that dependency — so the
+# db package's dist/ (withTenant.js + types) never existed and every deploy crashed at
+# boot with ERR_MODULE_NOT_FOUND. `pnpm build` = `turbo run build` compiles db then api.
+buildCommand = "pnpm build"
 
 [deploy]
 startCommand = "cd apps/api && node dist/server.js"
