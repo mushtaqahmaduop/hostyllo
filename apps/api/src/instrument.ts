@@ -6,7 +6,9 @@ const dsn = process.env.SENTRY_DSN;
 if (dsn) {
   Sentry.init({
     dsn,
-    environment: process.env.NODE_ENV ?? 'development',
+    // Prefer an explicit SENTRY_ENVIRONMENT so staging (which runs NODE_ENV=production for
+    // secret-validation parity) reports as "staging", not "production", in Sentry.
+    environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? 'development',
     // Errors always report. Perf tracing off by default (opt in via env) to avoid overhead/cost.
     tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? '0'),
   });
