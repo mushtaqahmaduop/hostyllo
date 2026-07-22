@@ -1,4 +1,5 @@
 import { Worker, Job } from 'bullmq';
+import type { Resend as ResendClient } from 'resend';
 import { bullmqRedis } from '../lib/bullmq-redis.js';
 import { pool } from '../lib/db.js';
 import { moveToDLQ } from './dlq.js';
@@ -22,7 +23,7 @@ export interface EmailSendJob {
 
 // ─── Resend client (lazy — only initialised if key present) ──────────────────
 
-let resend: { emails: { send: (payload: unknown) => Promise<unknown> } } | null = null;
+let resend: ResendClient | null = null;
 
 async function getResend() {
   if (resend) return resend;
