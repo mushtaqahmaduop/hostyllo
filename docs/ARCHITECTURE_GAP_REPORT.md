@@ -2,6 +2,12 @@
 ## HOSTYLLO v15 — Enterprise SaaS Audit
 ### Audited: June 2026 | Status: Pre-Build (Phase 0 Not Started)
 
+> ⚠️ **SUPERSEDED FOR BUILD STATE (banner added 2026-07-22).** This was a June 2026
+> *documentation-only* review, written when no code existed — its "nothing has been built"
+> premise is now false. Phase 1 code is ~95% authored (see `09_BUILD_STATE_v15.md`). The
+> architectural gap *analysis* here may still be useful as a design critique, but do NOT cite
+> its build-status/coverage claims — they describe a pre-build snapshot, not today's repo.
+
 ---
 
 ## AUDIT CONTEXT

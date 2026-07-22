@@ -1,6 +1,12 @@
 # HOSTYLLO — Session Handoff
 ## For next Claude session — read this first
 
+> ⚠️ **SUPERSEDED (banner added 2026-07-22).** This is the Session-1 handoff and it *overstates*
+> completion — e.g. "All 28 tables in Supabase with RLS = true" and "/health working" were
+> claimed without live-DB proof (migrations declare RLS; they were never verified against a live
+> DB). For the honest, code-verified state use **`09_BUILD_STATE_v15.md`** (🟡 = code exists but
+> unverified) and **`tasks/todo`**. Kept for history only.
+
 ### What was built in Session 1
 - ✅ Monorepo (pnpm + Turborepo)
 - ✅ ESLint plugin (require-with-tenant + no-hostel-id-from-request)

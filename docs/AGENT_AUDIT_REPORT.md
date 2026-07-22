@@ -1,5 +1,11 @@
 # 🔍 HOSTYLLO — Comprehensive Agent Audit Report
 
+> ⚠️ **STALE SNAPSHOT (banner added 2026-07-22).** This is a June 10, 2026 point-in-time
+> report. Its "DEPLOYMENT BLOCKED / PR #11 pending" state and coverage numbers no longer
+> reflect the repo — Phase 1 is now code ~95% authored (16 routes, 9 migrations, 6 workers,
+> tsc strict-clean, 14/14 payment tests green). **Source of truth: `09_BUILD_STATE_v15.md`.**
+> Kept for history; do not act on its status claims.
+
 **Last Updated:** June 10, 2026  
 **Repository:** https://github.com/mushtaqahmaduop/hostyllo  
 **Default Branch:** `Develop`  
