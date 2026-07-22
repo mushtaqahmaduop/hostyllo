@@ -29,9 +29,10 @@ function buildSsl(): pg.PoolConfig['ssl'] {
 }
 
 // Privileged (system) pool — connects as the role in DATABASE_URL (the Supabase `postgres`
-// role). Under migration 010 that role has app.system_context='on', so it is intentionally
-// CROSS-TENANT. Use ONLY for the auth bootstrap (cross-tenant user lookup at login) and
-// background workers (platform-wide jobs). NEVER for per-request tenant queries.
+// role). Under migration 010's policies the `postgres` role bypasses RLS via the
+// `current_user = 'postgres'` escape, so it is intentionally CROSS-TENANT. Use ONLY for the
+// auth bootstrap (cross-tenant user lookup at login) and background workers (platform-wide
+// jobs). NEVER for per-request tenant queries.
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: buildSsl(),
