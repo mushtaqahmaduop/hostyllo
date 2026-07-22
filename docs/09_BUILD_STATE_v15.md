@@ -168,11 +168,11 @@ These have external approval timelines. Must be tracked from Day 1.
 |------|:------:|
 | All 28 tables with RLS enabled | ✅ **LIVE-VERIFIED 2026-07-22** — all 28 `ENABLE` **and `FORCE`** (migration 010); `verify-rls.sql` returns 0 rows |
 | `verify-pitr.sh` returns exit 0 | 🟡 script fixed (uses SUPABASE_ACCESS_TOKEN now); needs a PAT + PITR add-on to run |
-| All 14 payment unit tests pass in CI | ✅ 14/14 PASS locally; CI-green still to confirm on first `integration-tests` run |
-| Cross-tenant isolation test passes on every endpoint (JWT A → data B → 404) | ✅ **RLS isolation PROVEN live** (hostyllo_app: no/wrong ctx → 0 rows, correct → own only). `isolation.test.ts` now real + wired into CI (M5) — awaits first green CI run |
-| `withTenant()` ESLint rule active and blocking violations in CI | 🟡 rule authored + in `ci.yml` lint job — first green run to confirm |
+| All 14 payment unit tests pass in CI | ✅ **CI-GREEN** (run 29920423462, 14/14) |
+| Cross-tenant isolation test passes on every endpoint (JWT A → data B → 404) | ✅ **DONE — proven live AND CI-green** (isolation.test.ts 10/10 in CI, app connects as RLS-constrained hostyllo_app; + live MCP proof) |
+| `withTenant()` ESLint rule active and blocking violations in CI | ✅ **CI-GREEN** — lint job passes with the hostyllo rules |
 | `/health` returns `db: ok` and `redis: ok` | ✅ CODE DONE — probes `dbHealthCheck()` + `redis.ping()`, 503 if either down |
-| bcrypt rounds ≥ 12 in auth integration test | 🟡 code uses cost-12; `auth.test.ts` asserts it — awaits first green CI run |
+| bcrypt rounds ≥ 12 in auth integration test | ✅ **CI-GREEN** — auth.test.ts asserts cost-12 on the seeded hash |
 | CNIC encrypted — plaintext `cnic` column must not exist in DB | ✅ **FIXED** — `lib/crypto.ts` AES-256-GCM; POST/import encrypt, reveal decrypts; `scripts/backfill-cnic.mjs` for legacy rows |
 | Soft-delete verified on all list endpoints | 🟡 `deleted_at IS NULL` filters present — needs test proof |
 | Receipt counter atomic function deployed and concurrency-tested | 🟡 `get_next_receipt_number()` deployed live (search_path pinned, mig 011) — concurrency test ⬜ |

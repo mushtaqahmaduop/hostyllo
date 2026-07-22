@@ -110,14 +110,17 @@
 - [x] **M4 — FIXED.** `lib/env.ts validateEnv()` — required secrets throw in prod / warn in dev;
       rejects public cookie placeholder; server.ts calls it at boot; cookie/CORS fail-open defaults
       now dev-only.
-- [x] **M5 — FIXED IN CODE (CI job pending first-run confirmation).** Created `buildApp()` factory
-      (app.ts) + slim server.ts; relocated the two integration tests (were DEAD — imported a
-      non-existent buildApp from packages/db) to apps/api/src/__tests__/ with fixed fixtures +
-      login-for-tokens; globalSetup migrates+seeds a 2-tenant DB + gives hostyllo_app login; vitest
-      config; new ci.yml `integration-tests` job (postgres + redis + serverless-redis-http shim,
-      ephemeral RS256 keypair, DATABASE_URL_APP=hostyllo_app so RLS is actually exercised). No-DB
-      runs skip cleanly (15 skipped, exit 0) so `pnpm test` stays green. ⚠️ CI job wiring
-      (SRH networking, role login) needs its first green run to confirm.
+- [x] **M5 — DONE + CI GREEN (run 29920423462).** Created `buildApp()` factory (app.ts) + slim
+      server.ts; relocated the two integration tests (were DEAD — imported a non-existent buildApp
+      from packages/db) to apps/api/src/__tests__/ with fixed fixtures + login-for-tokens;
+      globalSetup migrates+seeds a 2-tenant DB + gives hostyllo_app login; vitest config; ci.yml
+      `integration-tests` job (postgres + redis + serverless-redis-http shim, ephemeral RS256
+      keypair, DATABASE_URL_APP=hostyllo_app so RLS is actually exercised). Integration job now
+      PASSES: isolation 10/10 + auth 5/5 against real PG+Redis. No-DB runs skip cleanly (15 skipped).
+      Fixes the green run needed: Supabase-compat shim in globalSetup (auth.role() stub + anon/
+      authenticated/service_role roles), guarded 011 revoke, and **@fastify/multipart v10→v8** (a
+      real server-startup crash the integration test surfaced). Tenant isolation now has automated
+      regression coverage on every push.
 
 ## 2. Verification gate (turn 🟡 → ✅)
 - [ ] Live/local Postgres + Redis for integration tests
