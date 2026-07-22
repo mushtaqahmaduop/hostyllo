@@ -42,19 +42,32 @@
       trial 30-student cap) + `students/:id/reveal-cnic` (audited)
 - [x] Bed CRUD — RESOLVED: API spec Module 3 folds beds into rooms; no separate CRUD
 
-## 1.5 NEW schema/code gaps discovered while building (not yet fixed)
+## 1.5 NEW schema/code gaps discovered while building
 - [ ] **CNIC stored PLAINTEXT** in `cnic_encrypted` (students POST + import) — needs an
       encryption service (AES-256-GCM like auth.ts TOTP) + backfill migration; reveal-cnic
-      currently returns the raw stored value
-- [ ] `auth.ts` SELECTs `display_name, theme, language, totp_secret_enc, totp_backup_codes`
-      from users — NONE of these columns exist in migration 001 (auth would fail at runtime);
-      needs a migration or code alignment
-- [ ] Spec's warden permission flags (`can_edit`, `can_delete`, `can_settings`) not in users
-      schema — spec DELETE /students gating can't be implemented until added
-- [ ] Spec's hostel settings fields (`tagline`, `brandColor`, `showBranding`,
-      `autoMonthAdvance`) not in hostels schema
-- [ ] students.ts pre-existing routes lack JSON-Schema validation (hand-rolled checks only)
-      and use role 'super_admin' which isn't in the users role CHECK
+      currently returns the raw stored value  ← still open, highest-priority security item
+- [x] FIXED 2026-07-22 (migration 009): `auth.ts` login/totp SELECT/UPDATE of
+      `display_name, theme, language, totp_secret_enc, totp_backup_codes` — added the columns
+      (renamed plaintext `totp_secret`→`totp_secret_enc`). Also caught `pdf-receipts.ts`
+      SELECTing `h.tagline` (same class of runtime crash) → added `hostels.tagline`.
+      ⚠️ Migration 009 must be applied to any live DB.
+- [x] PARTIAL 2026-07-22: role 'super_admin' (not in users CHECK) removed from the 6
+      `requireRole` guards in students.ts — was a dead literal that never matched. NOTE: those
+      GET/POST/PATCH student routes still exclude `chain_manager` while import/reveal-cnic
+      include it — an authorization-policy inconsistency for the owner to decide (add
+      chain_manager to student read/write? left unchanged).
+- [ ] students.ts pre-existing routes still lack JSON-Schema validation (hand-rolled checks only)
+- [ ] DEFERRED (no code consumer yet — not adding dead schema): warden flags
+      (`can_edit/can_delete/can_settings`) for DELETE-gating; hostel branding fields
+      (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
+
+## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
+- [ ] Finding 1: enable TypeScript `strict` + `tsc --noEmit` gate (money math) — IN PROGRESS
+- [x] Finding 2: `/health` now actually probes db (`dbHealthCheck`) + redis (`PING`), returns 503 if either down
+- [x] Finding 3: global `setErrorHandler` added — structured envelope, no stack-trace leaks, 400 for schema validation
+- [x] Finding 4: login rate limit `rl:login:{ip}` 10/15min → 429 (auth.ts)
+- [x] Finding 5: DB TLS — dropped `rejectUnauthorized:false`; verifies by default, pins `DATABASE_CA_CERT`
+      if set, `PGSSL_NO_VERIFY` dev-only escape hatch refuses to run in production
 
 ## 2. Verification gate (turn 🟡 → ✅)
 - [ ] Live/local Postgres + Redis for integration tests

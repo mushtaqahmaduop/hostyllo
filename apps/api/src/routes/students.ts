@@ -5,7 +5,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students
-  app.get('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'super_admin')] }, async (request, reply) => {
+  app.get('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
     const { q, status = 'active', room_id, limit = 25, offset = 0 } = request.query as any;
 
     const result = await withTenant(request.hostelId, async (db) => {
@@ -55,7 +55,7 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // GET /api/v1/students/search
-  app.get('/search', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'super_admin')] }, async (request, reply) => {
+  app.get('/search', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
     const { q } = request.query as any;
     if (!q || q.length < 2) {
       return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: 'q must be at least 2 characters' });
@@ -84,7 +84,7 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // GET /api/v1/students/:id
-  app.get('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'super_admin')] }, async (request, reply) => {
+  app.get('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
     const { id } = request.params as any;
 
     const result = await withTenant(request.hostelId, async (db) => {
@@ -117,7 +117,7 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // POST /api/v1/students
-  app.post('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'super_admin')] }, async (request, reply) => {
+  app.post('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
     const body = request.body as any;
     const { name, father_name, cnic, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee = 0, join_date } = body;
 
@@ -147,7 +147,7 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // PATCH /api/v1/students/:id
-  app.patch('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'super_admin')] }, async (request, reply) => {
+  app.patch('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
     const { id } = request.params as any;
     const body = request.body as any;
 
@@ -171,7 +171,7 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // DELETE /api/v1/students/:id
-  app.delete('/:id', { preHandler: [requireAuth, requireRole('hostel_owner', 'super_admin')] }, async (request, reply) => {
+  app.delete('/:id', { preHandler: [requireAuth, requireRole('hostel_owner')] }, async (request, reply) => {
     const { id } = request.params as any;
 
     await withTenant(request.hostelId, async (db) => {

@@ -20,12 +20,44 @@ import { finesRoutes } from './routes/fines.js';
 import { usersRoutes } from './routes/users.js';
 import { settingsRoutes } from './routes/settings.js';
 import { auditLogRoutes } from './routes/audit-log.js';
+import { dbHealthCheck } from './lib/db.js';
+import { redis } from './lib/redis.js';
 import './workers/auto-cancel.js';
 import './workers/pdf-receipts.js';
 import './workers/rent-generate.js';
 import './workers/billing-sync.js';
 import './workers/email-send.js';
 const app = Fastify({ logger: true });
+
+// Global error handler — never leak stack traces, always return the {success,code,message}
+// envelope every route uses. Fastify schema-validation failures arrive here with
+// `error.validation` set; everything else is treated as an unexpected 500.
+app.setErrorHandler((error, request, reply) => {
+  if (error.validation) {
+    return reply.code(400).send({
+      success: false,
+      code: 'VALIDATION_ERROR',
+      message: error.message,
+    });
+  }
+
+  const status = error.statusCode ?? 500;
+  if (status >= 500) {
+    request.log.error({ err: error }, 'unhandled error');
+    return reply.code(status).send({
+      success: false,
+      code: 'INTERNAL_ERROR',
+      message: 'An unexpected error occurred',
+    });
+  }
+
+  // Deliberate 4xx thrown by a handler (e.g. reply.code(x).send(...) escaping) — pass through.
+  return reply.code(status).send({
+    success: false,
+    code: (error as { code?: string }).code ?? 'ERROR',
+    message: error.message,
+  });
+});
 
 await app.register(helmet);
 await app.register(cors, {
@@ -55,9 +87,23 @@ app.register(finesRoutes, { prefix: '/api/v1' });
 app.register(usersRoutes, { prefix: '/api/v1' });
 app.register(settingsRoutes, { prefix: '/api/v1' });
 app.register(auditLogRoutes, { prefix: '/api/v1' });
-// Health check
-app.get('/api/v1/health', async () => {
-  return { success: true, data: { db: 'ok', redis: 'ok', version: '1.0.0' } };
+// Health check — actually probes both backing services. Returns 503 if either is
+// down so uptime monitors and the Phase 1 gate ("/health returns db: ok") mean something.
+app.get('/api/v1/health', async (_request, reply) => {
+  const [dbOk, redisOk] = await Promise.all([
+    dbHealthCheck(),
+    redis.ping().then((r) => r === 'PONG').catch(() => false),
+  ]);
+
+  const healthy = dbOk && redisOk;
+  return reply.code(healthy ? 200 : 503).send({
+    success: healthy,
+    data: {
+      db: dbOk ? 'ok' : 'down',
+      redis: redisOk ? 'ok' : 'down',
+      version: '1.0.0',
+    },
+  });
 });
 const port = Number(process.env.PORT) || 3001;
 await app.listen({ port, host: '0.0.0.0' });

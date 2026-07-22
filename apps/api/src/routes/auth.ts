@@ -34,6 +34,13 @@ function decryptSecret(ciphertext: string): string {
   return Buffer.concat([decipher.update(enc), decipher.final()]).toString('utf8');
 }
 
+// ─── Login rate limiting ──────────────────────────────────────────────────────
+// 10 attempts / 15 min / IP (per the auth tracker). Counts every attempt, so a
+// brute-force burst trips it regardless of success. incr() sets the TTL only on the
+// first hit, giving a fixed 15-minute window per IP.
+const LOGIN_MAX_ATTEMPTS = 10;
+const LOGIN_WINDOW_SECONDS = 15 * 60;
+
 // ─── OTP rate limiting ────────────────────────────────────────────────────────
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_WINDOW_SECONDS = 15 * 60;
@@ -64,6 +71,12 @@ export async function authRoutes(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { email, password } = request.body as { email: string; password: string };
+
+    const rlKey = `rl:login:${request.ip}`;
+    const attempts = await redis.incr(rlKey, LOGIN_WINDOW_SECONDS);
+    if (attempts > LOGIN_MAX_ATTEMPTS) {
+      return reply.code(429).send({ success: false, code: 'RATE_LIMIT', message: 'Too many login attempts. Try again in 15 minutes.' });
+    }
 
     const result = await pool.query(
       `SELECT u.id, u.hostel_id, u.role, u.email, u.password_hash,
