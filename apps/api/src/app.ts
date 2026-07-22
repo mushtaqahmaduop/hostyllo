@@ -78,15 +78,16 @@ export async function buildApp(): Promise<FastifyInstance> {
   app.register(settingsRoutes, { prefix: '/api/v1' });
   app.register(auditLogRoutes, { prefix: '/api/v1' });
 
-  // Health check — probes both backing services; 503 if either is down.
+  // Liveness check — 200 as long as the process is serving. It still probes db + redis and
+  // reports their status in the body (for readiness/monitoring), but a transient backend blip
+  // must NOT fail the platform deploy healthcheck and tear down a working process.
   app.get('/api/v1/health', async (_request, reply) => {
     const [dbOk, redisOk] = await Promise.all([
-      dbHealthCheck(),
+      dbHealthCheck().catch(() => false),
       redis.ping().then((r) => r === 'PONG').catch(() => false),
     ]);
-    const healthy = dbOk && redisOk;
-    return reply.code(healthy ? 200 : 503).send({
-      success: healthy,
+    return reply.code(200).send({
+      success: dbOk && redisOk,
       data: { db: dbOk ? 'ok' : 'down', redis: redisOk ? 'ok' : 'down', version: '1.0.0' },
     });
   });
