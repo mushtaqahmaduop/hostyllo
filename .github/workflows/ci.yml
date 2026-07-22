@@ -9,7 +9,10 @@ on:
 
 jobs:
   lint-typecheck:
-    name: Lint & Typecheck
+    # Display name MUST equal the status-check context required by the `protect-main`/`protect-develop`
+    # rulesets ("Lint and Test"), otherwise that required check never reports and PRs to main can
+    # never merge — which is why main drifted 30 commits behind Develop.
+    name: Lint and Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
