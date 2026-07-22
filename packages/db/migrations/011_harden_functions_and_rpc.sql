@@ -5,7 +5,14 @@
 --    should only ever be fired by the event-trigger system as its owner — no role needs direct
 --    EXECUTE, and PostgREST was exposing it as an anon/authenticated RPC (/rest/v1/rpc/…).
 --    Not exploitable (it errors outside a DDL-event context) but flagged; remove the exposure.
-REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated, hostyllo_app;
+--    Guarded: rls_auto_enable() was added manually on the live Supabase DB and is NOT created by
+--    any migration, so it is absent on a fresh DB (CI / a new project) — only revoke if present.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'rls_auto_enable' AND pronamespace = 'public'::regnamespace) THEN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated, hostyllo_app';
+  END IF;
+END $$;
 
 -- 2. Pin search_path on the flagged functions (prevents search_path manipulation, especially on
 --    SECURITY DEFINER / trigger functions).

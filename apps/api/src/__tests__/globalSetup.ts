@@ -27,6 +27,24 @@ export async function setup() {
   });
   await client.connect();
   try {
+    // 0. Supabase-compat shim — the migrations target a Supabase DB, which provides an `auth`
+    //    schema (auth.role() is used by migration 001's hostels policy) and the anon/
+    //    authenticated/service_role roles. Plain Postgres in CI has none of these, so create
+    //    minimal stand-ins before applying migrations.
+    await client.query(`
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+      CREATE EXTENSION IF NOT EXISTS pg_trgm;
+      CREATE SCHEMA IF NOT EXISTS auth;
+      CREATE OR REPLACE FUNCTION auth.role() RETURNS text LANGUAGE sql STABLE
+        AS $fn$ SELECT current_setting('request.jwt.claim.role', true) $fn$;
+      DO $roles$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='anon')          THEN CREATE ROLE anon NOLOGIN; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='service_role')  THEN CREATE ROLE service_role NOLOGIN; END IF;
+      END $roles$;
+    `);
+
     // 1. migrations, in order
     const files = (await readdir(MIGRATIONS_DIR)).filter((f) => f.endsWith('.sql')).sort();
     for (const f of files) {
