@@ -1,50 +1,42 @@
-// Upstash Redis via HTTP REST API — no TCP connection needed
-const baseUrl = process.env.UPSTASH_REDIS_REST_URL!;
-const token   = process.env.UPSTASH_REDIS_REST_TOKEN!;
+import Redis from 'ioredis';
 
-async function redisCommand(command: string[]) {
-  const res = await fetch(`${baseUrl}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(command),
-  });
-  const data = await res.json() as { result: unknown; error?: string };
-  if (data.error) throw new Error(`Redis error: ${data.error}`);
-  return data.result;
-}
+// TCP Redis via ioredis (Railway Redis / any redis://). Replaced the Upstash REST client — the
+// per-command billing on Upstash's free tier was exhausted by the BullMQ workers. `lazyConnect`
+// so importing this module never opens a socket (keeps `buildApp()` usable without a live Redis);
+// the connection opens on the first command.
+const url = process.env.REDIS_URL ?? 'redis://localhost:6379';
+const client = new Redis(url, {
+  lazyConnect: true,
+  maxRetriesPerRequest: 3,
+});
+// Don't let a connection blip crash the process with an unhandled 'error' event.
+client.on('error', (err) => { console.error('[redis] connection error:', err.message); });
 
 export const redis = {
   async set(key: string, value: string, exSeconds?: number) {
-    if (exSeconds) {
-      return redisCommand(['SET', key, value, 'EX', String(exSeconds)]);
-    }
-    return redisCommand(['SET', key, value]);
+    return exSeconds ? client.set(key, value, 'EX', exSeconds) : client.set(key, value);
   },
-  async get(key: string) {
-    return redisCommand(['GET', key]) as Promise<string | null>;
+  async get(key: string): Promise<string | null> {
+    return client.get(key);
   },
   async del(key: string) {
-    return redisCommand(['DEL', key]);
+    return client.del(key);
   },
-  async exists(key: string) {
-    return redisCommand(['EXISTS', key]) as Promise<number>;
+  async exists(key: string): Promise<number> {
+    return client.exists(key);
   },
   /** Increment a counter; sets expiry on first increment only */
   async incr(key: string, exSeconds?: number): Promise<number> {
-    const count = await redisCommand(['INCR', key]) as number;
+    const count = await client.incr(key);
     if (count === 1 && exSeconds) {
-      await redisCommand(['EXPIRE', key, String(exSeconds)]);
+      await client.expire(key, exSeconds);
     }
     return count;
   },
   async expire(key: string, seconds: number) {
-    return redisCommand(['EXPIRE', key, String(seconds)]);
+    return client.expire(key, seconds);
   },
   async ping(): Promise<string> {
-    return redisCommand(['PING']) as Promise<string>;
+    return client.ping();
   },
 };
-

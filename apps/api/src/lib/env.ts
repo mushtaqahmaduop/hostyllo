@@ -38,8 +38,7 @@ export function validateEnv(): void {
 
   // Always-required (the app cannot function without these in any environment).
   const required = [
-    'JWT_PRIVATE_KEY', 'JWT_PUBLIC_KEY', 'ENCRYPTION_KEY', 'DATABASE_URL',
-    'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
+    'JWT_PRIVATE_KEY', 'JWT_PUBLIC_KEY', 'ENCRYPTION_KEY', 'DATABASE_URL', 'REDIS_URL',
   ];
   // Required in production only (dev has safe local fallbacks).
   const prodOnly = ['COOKIE_SECRET', 'CORS_ORIGIN'];
