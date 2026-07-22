@@ -2,8 +2,8 @@
 
 > Auto-loaded by Claude Code every session. This is the behavioral contract for the
 > HOSTYLLO engineering team (architect, backend, frontend, database, security, devops, qa).
-> **PRD authority:** `docs/docs/01_MASTER_PRD_v15.md`. If anything here conflicts with the PRD, the PRD wins.
-> **Deep reference:** `docs/docs/06_CLAUDE_MD_v15.md` (full stack/queue/redis/env tables).
+> **PRD authority:** `docs/01_MASTER_PRD_v15.md`. If anything here conflicts with the PRD, the PRD wins.
+> **Deep reference:** `docs/06_CLAUDE_MD_v15.md` (full stack/queue/redis/env tables).
 
 ---
 
@@ -16,26 +16,31 @@ HOSTYLLO — a multi-tenant SaaS hostel-management platform for Pakistan (global
 
 ---
 
-## ⚠️ GROUND TRUTH — READ FIRST (updated this session)
-
-The tracking docs are **out of sync with the code.** `docs/docs/09_BUILD_STATE_v15.md` says
-"Phase 0, nothing built." That is **false.** The repo already contains:
-
-- 7 DB migrations (`packages/db/migrations/001–007`) — the 28-table schema
-- `packages/db`: `withTenant.ts`, `paymentService.ts`, `formatters.ts` + tests
-- `apps/api`: full Fastify server, routes (auth, students, rooms, payments, expenses, dashboard),
-  auth middleware, 6 workers, compiled `dist/`
-- `packages/config/eslint-plugin-hostyllo`
+## ⚠️ GROUND TRUTH — READ FIRST (reconciled 2026-07-22, session 3)
 
 **Rule:** Never trust the tracker over the code. Inspect the code, then reconcile the tracker.
-Reconciling docs↔code and fixing the known bugs below is the team's first assigned work.
+The tracker (`docs/09_BUILD_STATE_v15.md`) has drifted more than once — always verify.
 
-### Known open defects (found in audit — fix before building new endpoints)
-1. `apps/api/src/routes/payments.ts:5` — leftover AI instruction comment shipped in source.
-2. `POST /payments` reads `body.extra_charges`, but the request schema (`additionalProperties:false`)
-   never declares it → extra charges are silently rejected; `payment_extra_charges` never written.
-3. `PATCH /payments/:id` recalculates with hardcoded `[]` extras → wrong `total_due` on every edit.
-4. No `audit_log` INSERT on payment create/edit/void → violates INVARIANT-5.
+Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
+- 10 DB migrations (`packages/db/migrations/001–010`) — the 28-table schema + FORCE-RLS/app-role.
+- `packages/db`: canonical `withTenant.ts` (single pool layer), `paymentService.ts`, `formatters.ts` + tests.
+- `apps/api`: full Fastify server, **16 route modules** (auth, students, rooms, payments, expenses,
+  dashboard, cancellations, maintenance, complaints, checkin, notices, transfers, fines, users,
+  settings, audit-log), auth middleware, global error handler, 6 workers.
+- `packages/config/eslint-plugin-hostyllo` (withTenant + no-hostel-id-from-request rules).
+- `tsc --strict` clean; 14/14 payment unit tests green.
+
+### Status of prior known defects — ALL FIXED (see tasks/todo + git log)
+- The 4 payment defects (leftover comment · `extra_charges` dropped · PATCH `[]` recalc ·
+  missing `audit_log`) → FIXED (commit `ef4bbbc`).
+- The 5 ARB-audit critical blockers C1–C4 (RLS not FORCEd · weak ENCRYPTION_KEY · secrets
+  hygiene · broken PITR gate) → FIXED IN CODE (mig 010 + lib/env.ts + .env.example +
+  verify-pitr.sh); ⚠️ **C1/C3/C4 need founder live-DB/secret-store steps** — see
+  `docs/ENGINEERING_AUDIT_ARB_2026-07-22.md` + `tasks/todo §1.8`.
+
+### Current open work (in priority order)
+See `tasks/todo`: remaining audit majors (M2–M5 in progress), CNIC plaintext encryption
+(last Phase-1 code item), and the live-DB verification gate.
 
 ---
 
@@ -120,8 +125,8 @@ Reject: temporary hacks, quick fixes, magic numbers, unnecessary complexity, lef
 ## GIT DISCIPLINE
 
 Commit after every working unit (endpoint/migration/component) — not batched.
-`git commit -m "feat: <exactly what was built>"`. Branch off `main`; never push to `main` directly.
-Commit/push only when the user asks.
+`git commit -m "feat: <exactly what was built>"`. `Develop` is the default/integration branch;
+branch off it and PR into it — never force-push a shared branch. Commit/push only when the user asks.
 
 ---
 
@@ -133,7 +138,7 @@ native apps, offline SQLite before Phase 5, student portal) until the trigger is
 If asked to build a deferred item, state the trigger first.
 
 **Phase 1 is the current frontier.** Ship Phase 1 to its Definition of Done
-(`docs/docs/09_BUILD_STATE_v15.md`) before any Phase 2 scope.
+(`docs/09_BUILD_STATE_v15.md`) before any Phase 2 scope.
 
 ---
 
@@ -143,6 +148,6 @@ Next.js 14 (Vercel) · Fastify 4 (Railway) · PostgreSQL/Supabase + RLS (Mumbai 
 Redis/Upstash (`rediss://`) · BullMQ · JWT RS256 · Vitest/Playwright/k6 · Sentry + Uptime Robot.
 PgBouncer **transaction mode** (required for `withTenant()` — never session mode).
 
-Full stack/queue/redis-key/env tables: `docs/docs/06_CLAUDE_MD_v15.md`.
+Full stack/queue/redis-key/env tables: `docs/06_CLAUDE_MD_v15.md`.
 
 *Update this file after any significant architectural change.*
