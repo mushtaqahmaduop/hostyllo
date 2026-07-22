@@ -94,5 +94,20 @@ export async function buildApp(): Promise<FastifyInstance> {
     });
   });
 
+  // Readiness check for EXTERNAL uptime monitors (UptimeRobot). Unlike /health (liveness — always
+  // 200 so the platform deploy healthcheck never tears down a working process), this returns 503
+  // when a backend is down, so a plain HTTP monitor detects "process up but DB/Redis down".
+  app.get('/api/v1/ready', async (_request, reply) => {
+    const [dbOk, redisOk] = await Promise.all([
+      dbHealthCheck().catch(() => false),
+      redis.ping().then((r) => r === 'PONG').catch(() => false),
+    ]);
+    const ready = dbOk && redisOk;
+    return reply.code(ready ? 200 : 503).send({
+      success: ready,
+      data: { db: dbOk ? 'ok' : 'down', redis: redisOk ? 'ok' : 'down', version: '1.0.0' },
+    });
+  });
+
   return app;
 }

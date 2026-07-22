@@ -19,9 +19,18 @@ Health endpoint: **`GET /api/v1/health`** → `200` with `{success, data:{db, re
 
 ---
 
-## 2. Deploy flow
+## 2. Deploy flow (staging → production pipeline)
 
-- **Railway auto-deploys the `Develop` branch.** Push to `Develop` = deploy. `main` is a sync target only (PRs), it does **not** deploy.
+Two Railway environments in the **Hostyllo** project, same `hostyllo` service, isolated backends:
+
+| Environment | Deploy branch | URL | Postgres (Supabase) | Redis |
+|---|---|---|---|---|
+| **production** | **`main`** | https://hostyllo-production.up.railway.app | `eprrhckgtrerknenngdy` | prod Railway Redis |
+| **staging** | **`Develop`** | https://hostyllo-staging.up.railway.app | `ljnuwmfnpofzlmioskfc` (hostyllo-staging) | its own Railway Redis |
+
+- Push to **`Develop`** → deploys to **staging** only. Push/merge to **`main`** → deploys to **production** only. Production never moves until you promote `Develop → main`.
+- The per-environment deploy branch is a **deployment trigger** (not a service-level setting). The CLI `railway service source connect --branch` is service-GLOBAL and will change **both** environments — do **not** use it to change one. Set a single environment's branch via the GraphQL `deploymentTriggerUpdate` mutation (see §11) or the Railway dashboard (service → Settings → the environment's Source branch).
+- `watchPatterns` in `railway.toml` means only changes under `apps/**`, `packages/**`, or the build files (`railway.toml`, `package.json`, `pnpm-lock.yaml`, `turbo.json`) trigger a redeploy — docs/CI/task pushes do not. A push whose watched tree is identical to what's already deployed shows as **SKIPPED** (expected, not an error).
 - Build/run config lives in **`railway.toml`** (read per-commit):
   ```toml
   [build]
@@ -86,9 +95,11 @@ Railway's public domain routes to a fixed **targetPort = 8080**. The app listens
 
 ## 8. Branches & CI
 
-- Default/deploy branch: **`Develop`**. Release sync: PR `Develop → main`.
-- GitHub rulesets `protect-main` / `protect-develop` require the status check **`Lint and Test`** — the CI gate job (`.github/workflows/ci.yml`, job id `lint-typecheck`) must keep `name: Lint and Test` or PRs can never merge.
-- CI runs `pnpm build` before typecheck/integration so `@hostyllo/db` resolves.
+- **`Develop`** = staging branch (also the repo default). **`main`** = production branch. Promote with a PR `Develop → main`.
+- GitHub ruleset `protect-develop` requires **`Lint and Test`** on PRs into Develop.
+- GitHub ruleset `protect-main` requires **`Lint and Test`** AND **`Staging Smoke Test`** on PRs into main — a promotion cannot merge unless live staging is healthy. The gate job `.github/workflows/staging-smoke.yml` (`name: Staging Smoke Test`) probes staging `/health` (DB + Redis) and asserts a protected route returns 401. Both job names must stay exactly as the ruleset contexts or promotions can never merge.
+- CI (`.github/workflows/ci.yml`) runs `pnpm build` before typecheck/integration so `@hostyllo/db` resolves. The `Lint and Test` job (id `lint-typecheck`) must keep `name: Lint and Test`.
+- Promotion flow: `feature → PR → Develop` (Lint and Test) → auto-deploy **staging** → `PR Develop → main` (Lint and Test + Staging Smoke Test) → auto-deploy **production**.
 
 ---
 
@@ -118,3 +129,32 @@ curl -s .../api/v1/students     # 401 Missing token
 # 3. tenant isolation (as hostyllo_app, via DATABASE_URL_APP + CA):
 #    no app.hostel_id context → 0 rows; correct hostel_id → own rows; wrong id → 0 rows.
 ```
+
+---
+
+## 11. Rollback (one-click, native)
+
+A bad deploy reached production despite staging — roll back to the last-good deployment. **Nothing to build; Railway versions every deploy.**
+
+- **Dashboard:** Railway → `hostyllo` service → **production** → Deployments → pick the last green deployment → **⋯ → Rollback** (or **Redeploy**). Instant; no rebuild.
+- **CLI:** `railway redeploy --service hostyllo --environment production --yes` re-runs the current deployment. To go to an *older* commit, roll back a commit on `main` (revert the bad PR) — a push to `main` redeploys production — or use the dashboard Rollback on the specific prior deployment.
+- After rollback, revert/fix on `Develop`, let it ride the staging gate, then re-promote. Don't hotfix `main` directly except in a true emergency (it bypasses the staging smoke gate).
+
+Verify after rollback with §10.
+
+---
+
+## 12. Per-environment branch (staging pipeline ops)
+
+The deploy branch is a **deployment trigger** per environment, not a service setting. `railway service source connect --branch X` is **service-global** and changes every environment — never use it to retarget one. To change a single environment's branch, use the Railway GraphQL API (token from `~/.railway/config.json` → `user.accessToken`, `User-Agent` header required or Cloudflare 1010s):
+
+```
+mutation($id:String!,$input:DeploymentTriggerUpdateInput!){
+  deploymentTriggerUpdate(id:$id, input:$input){ id branch environmentId }
+}
+```
+
+Find trigger ids: `project(id){ deploymentTriggers{ edges{ node{ id branch environmentId } } } }`.
+Current: production trigger → `main`, staging trigger → `Develop`. Or set it in the dashboard: service → Settings → the environment's Source branch.
+
+**Staging DB** is Supabase project `ljnuwmfnpofzlmioskfc` (hostyllo-staging), schema applied via `packages/db/migrate.mjs` (11 migrations + `hostyllo_app` role). Its `DATABASE_CA_CERT` is the same Supabase CA as prod (same regional pooler host). Staging env vars mirror prod except `DATABASE_URL*`, `REDIS_URL`, `SUPABASE_URL`; the unused `SUPABASE_SERVICE_KEY` is intentionally absent so no prod secret lives in staging.

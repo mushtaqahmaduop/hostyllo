@@ -1,9 +1,12 @@
 name: Uptime
 
-# External uptime probe for the Railway production API. Runs on a schedule (GitHub may delay
-# scheduled runs under load) and on demand. A failed job emails the repo owner, and each run
-# reports a check-in to Sentry Crons (monitor "hostyllo-uptime") so downtime — including the
-# probe itself going silent — surfaces in Sentry alongside error reporting.
+# Lightweight BACKUP uptime probe. The PRIMARY external monitor is UptimeRobot (5-min checks on
+# /api/v1/ready → email alerts). This runs on GitHub's schedule (which GitHub throttles to roughly
+# hourly) purely as a second, independent probe: a failed job emails the repo owner.
+#
+# It hits /api/v1/ready (readiness — 503 when DB/Redis is down), NOT /health (liveness — always
+# 200). No Sentry Crons check-in: GitHub's unreliable scheduler made that monitor flap with false
+# "missed check-in" alerts, so cron monitoring now lives in UptimeRobot, not here.
 on:
   schedule:
     - cron: '*/10 * * * *'
@@ -11,41 +14,20 @@ on:
 
 jobs:
   probe:
-    name: Probe /health
+    name: Probe /ready
     runs-on: ubuntu-latest
     steps:
-      - name: Check production health
+      - name: Check production readiness
         env:
-          HEALTH_URL: https://hostyllo-production.up.railway.app/api/v1/health
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          READY_URL: https://hostyllo-production.up.railway.app/api/v1/ready
         run: |
           set +e
-          resp=$(curl -s -m 15 -w "\n%{http_code}" "$HEALTH_URL")
+          resp=$(curl -s -m 15 -w "\n%{http_code}" "$READY_URL")
           code=$(printf '%s' "$resp" | tail -n1)
           json=$(printf '%s' "$resp" | sed '$d')
           echo "HTTP $code — $json"
-
-          ok=1
-          [ "$code" = "200" ] || ok=0
-          printf '%s' "$json" | grep -q '"db":"ok"'    || ok=0
-          printf '%s' "$json" | grep -q '"redis":"ok"' || ok=0
-
-          # Best-effort Sentry Crons check-in (upsert the monitor with its schedule so Sentry
-          # can also alert when this probe stops reporting entirely).
-          if [ -n "$SENTRY_DSN" ]; then
-            key=$(printf '%s' "$SENTRY_DSN" | sed -E 's#https://([^@]+)@.*#\1#')
-            host=$(printf '%s' "$SENTRY_DSN" | sed -E 's#https://[^@]+@([^/]+)/.*#\1#')
-            proj=$(printf '%s' "$SENTRY_DSN" | sed -E 's#.*/##')
-            status=$([ "$ok" = "1" ] && echo ok || echo error)
-            curl -s -m 10 -X POST \
-              "https://${host}/api/${proj}/cron/hostyllo-uptime/${key}/" \
-              -H 'Content-Type: application/json' \
-              -d "{\"status\":\"${status}\",\"environment\":\"production\",\"monitor_config\":{\"schedule\":{\"type\":\"crontab\",\"value\":\"*/10 * * * *\"},\"checkin_margin\":10,\"max_runtime\":5,\"timezone\":\"UTC\"}}" \
-              >/dev/null || true
-          fi
-
-          if [ "$ok" != "1" ]; then
-            echo "::error::Production health check FAILED (HTTP $code): $json"
+          if [ "$code" != "200" ]; then
+            echo "::error::Production readiness FAILED (HTTP $code): $json"
             exit 1
           fi
-          echo "healthy"
+          echo "ready"
