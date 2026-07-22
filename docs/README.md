@@ -10,7 +10,7 @@ index is the single source of navigation. Cite docs by **filename**, not by numb
 > reference `06_CLAUDE_MD_v15.md`); for *current engineering health* →
 > `ENGINEERING_AUDIT_ARB_2026-07-22.md`. If any other doc conflicts with these, these win.
 
-## Active documents (23)
+## Active documents (24)
 
 ### Product & scope
 | Doc | Purpose |
@@ -40,6 +40,7 @@ index is the single source of navigation. Cite docs by **filename**, not by numb
 | `11_BUSINESS_CONTINUITY.md` | BCP/DR (largely future-facing). |
 | `12_ENTERPRISE_READINESS_ROADMAP.md` | Enterprise-readiness plan (future-facing). |
 | `13_PRODUCTION_READINESS.md` | Error catalog, CI pipeline, perf targets. |
+| `14_DEPLOYMENT_RUNBOOK.md` | **Production deploy runbook (live).** Stack, env vars, build, the 502/port + db:down/pooler traps, monitoring, failure modes → fixes. |
 
 ### Process, tracking & audits
 | Doc | Purpose |

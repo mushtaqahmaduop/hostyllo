@@ -25,12 +25,12 @@
 
 | Field | Value |
 |-------|-------|
-| **Active Phase** | Phase 1 — Cloud API Foundation (code complete; tenant isolation now LIVE-VERIFIED) |
-| **Overall Progress** | Phase 1 API + db lib + ALL endpoints exist, tsc strict-clean · **C1–C4 + M1–M5 audit findings all fixed** · CNIC encrypted · **migrations 008–011 applied live to Supabase; FORCE-RLS isolation proven on the real DB** |
-| **Last Session** | 2026-07-22 (session 4) — fixed all ARB-audit criticals+majors, CNIC encryption, doc consolidation, and applied+proved C1 live via Supabase MCP |
-| **Last Completed Task** | Applied migrations 010 (FORCE RLS + hostyllo_app role) + 011 (fn hardening) + 008 + adapted-009 to live Supabase; proved isolation (hostyllo_app: no/wrong context → 0 rows, correct → own rows only) |
-| **Next Task** | Founder: activate enforcement in the running app (set DATABASE_URL_APP once Railway Hobby plan is live) · rotate all secrets (C3) · get the CI integration-tests job to first green run |
-| **Blocking Issues** | Railway trial expired → API not deployed (Hobby plan pending). Phase 0 external provisioning (PITR add-on, Upstash plan, Vercel, branch protection) still founder-confirmable only. |
+| **Active Phase** | Phase 1 — Cloud API Foundation (**DEPLOYED LIVE on Railway**; tenant isolation live-verified in production) |
+| **Overall Progress** | Phase 1 API + db lib + ALL endpoints exist, tsc strict-clean · **C1–C4 + M1–M5 audit findings all fixed** · CNIC encrypted · migrations 008–011 applied live to Supabase · **DEPLOYED LIVE on Railway (Develop), health green (`db:ok, redis:ok`); app runs as `hostyllo_app` — isolation live-proven in prod; Sentry + uptime monitoring wired; CI green; main synced** |
+| **Last Session** | 2026-07-23 (session 5) — deployed to Railway (green after fixing `@hostyllo/db` build, `buildCommand=pnpm build`, PORT/domain 8080, Supabase IPv4 pooler + pinned CA, Redis→Railway), wired Sentry + Sentry-Crons uptime, fixed the `Lint and Test` ruleset + merged PR #17 to main, live smoke-test + RLS isolation re-proven. See `14_DEPLOYMENT_RUNBOOK.md`. |
+| **Last Completed Task** | Wired Sentry error reporting + GitHub-Actions/Sentry-Crons uptime monitor (`hostyllo-uptime`), and deleted the dead Upstash/BULLMQ vars — production live & healthy |
+| **Next Task** | Founder: rotate live secrets (C3 — **NOT** `ENCRYPTION_KEY`) · then full audit (APIs / platform / docs / repo / codebase) → Phase 2 |
+| **Blocking Issues** | None blocking the API — deployed & live on Railway. Open: live-credential rotation (C3); frontend (Vercel `hostyllo.web`) deploy is red — separate stream. |
 | **Suite Version** | v15.0 |
 | **PRD Authority** | docs/01_MASTER_PRD_v15.md |
 

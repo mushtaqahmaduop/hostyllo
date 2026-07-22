@@ -106,7 +106,7 @@ git commit -m "feat: [describe exactly what was built]"
 | Backend API | Fastify 4 + Node.js · Railway (ap-southeast-1) |
 | Cloud DB | PostgreSQL via Supabase (ap-south-1 Mumbai) + Row Level Security |
 | Offline DB | SQLite via wa-sqlite (OPFS, browser) — **Phase 5 ONLY. Do not import before Phase 5.** |
-| Cache | Redis via Upstash (serverless, `rediss://` TLS required) |
+| Cache | Redis (Railway plugin, `redis://` via private network) |
 | Auth | JWT RS256 asymmetric + httpOnly refresh cookie |
 | WhatsApp | Meta Business API via 360dialog — 250 msg/day cap, 2s queue delay |
 | Billing | Paymob (JazzCash/EasyPaisa) Phase 1–5 · Stripe Phase 6+ (DEFERRED until MRR trigger) |

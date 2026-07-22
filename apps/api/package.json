@@ -19,6 +19,7 @@
     "@fastify/rate-limit": "^9.0.0",
     "@hostyllo/db": "workspace:*",
     "@otplib/preset-default": "^12.0.1",
+    "@sentry/node": "^8",
     "@types/bcrypt": "^5.0.2",
     "@types/pg": "^8.20.0",
     "bcrypt": "^5.1.1",

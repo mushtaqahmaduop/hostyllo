@@ -4,6 +4,8 @@
 # db package's dist/ (withTenant.js + types) never existed and every deploy crashed at
 # boot with ERR_MODULE_NOT_FOUND. `pnpm build` = `turbo run build` compiles db then api.
 buildCommand = "pnpm build"
+# Only redeploy when code or build config changes — docs/CI/task pushes no longer trigger a build.
+watchPatterns = ["apps/**", "packages/**", "railway.toml", "package.json", "pnpm-lock.yaml", "turbo.json"]
 
 [deploy]
 startCommand = "cd apps/api && node dist/server.js"

@@ -10,18 +10,20 @@
 > **All 4 CRITICAL and all 5 MAJOR findings have been fixed.** C1 is **verified live on the
 > production Supabase DB** (28/28 tables `FORCE ROW LEVEL SECURITY`; as the least-privilege
 > `hostyllo_app` role, queries with no/wrong hostel context return 0 rows — proven via MCP).
-> - **C1** RLS not enforced → migrations 010/011 applied live; isolation proven. *App-side
->   activation (point the running app at `DATABASE_URL_APP`=hostyllo_app) is pending the Railway
->   Hobby plan; until then the app uses the safe postgres fallback.*
+> - **C1** RLS not enforced → migrations 010/011 applied live; isolation proven. **App-side
+>   activation is LIVE (2026-07-23):** the deployed app connects as the least-privilege
+>   `hostyllo_app` role via `DATABASE_URL_APP` — isolation re-proven against production
+>   (no/wrong hostel context → 0 rows, correct → own rows only).
 > - **C2** weak enc key → boot-time `assertEncryptionKey()`; key rotated. **C3** secrets → `.env.example`
 >   + rotate runbook (⚠️ founder still to rotate live creds). **C4** pitr gate → uses a PAT now.
 > - **M1** duplicate pool unified · **M2** CLAUDE.md fixed · **M3** migration runner+ledger ·
->   **M4** env validation · **M5** isolation tests made real + wired into CI (first green run pending).
+>   **M4** env validation · **M5** isolation tests made real + wired into CI (**green**).
 >
 > The verdict below (❌ REJECTED) reflects the **state at audit time**. With C1–C4 closed and C1
 > proven live, the product is on the short path to **⚠️ APPROVED WITH MAJOR CHANGES** for a
-> controlled beta — remaining gates: app-side DATABASE_URL_APP live, CI integration job green,
-> and live-credential rotation.
+> controlled beta. **DEPLOYED LIVE on Railway 2026-07-23** (health green: `db:ok, redis:ok`;
+> Sentry error reporting + Sentry-Crons uptime wired). App-side `DATABASE_URL_APP` and CI green
+> are now done — the one remaining gate is **live-credential rotation** (C3).
 
 ---
 
