@@ -19,6 +19,7 @@ import { finesRoutes } from './routes/fines.js';
 import { usersRoutes } from './routes/users.js';
 import { settingsRoutes } from './routes/settings.js';
 import { auditLogRoutes } from './routes/audit-log.js';
+import * as Sentry from '@sentry/node';
 import { dbHealthCheck } from './lib/db.js';
 import { redis } from './lib/redis.js';
 
@@ -39,6 +40,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     const status = error.statusCode ?? 500;
     if (status >= 500) {
       request.log.error({ err: error }, 'unhandled error');
+      Sentry.captureException(error);
       return reply.code(status).send({ success: false, code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' });
     }
     return reply.code(status).send({
