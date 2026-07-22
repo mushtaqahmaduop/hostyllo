@@ -6,9 +6,11 @@ import { pool } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../lib/jwt.js';
 import { requireAuth } from '../middleware/auth.js';
+import { assertEncryptionKey } from '../lib/env.js';
 
-// ─── Encryption key — validated at startup in server.ts ──────────────────────
-const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY!, 'hex');
+// ─── Encryption key — validated at import (server startup). Rejects unset / wrong-length /
+// low-entropy placeholder keys so a worthless key can never reach production (audit C2). ─────
+const ENCRYPTION_KEY = assertEncryptionKey();
 
 // AES-256-GCM: authenticated encryption — prevents bit-flip attacks on TOTP secrets
 // Format: iv(12 bytes hex) : authTag(16 bytes hex) : ciphertext(hex)

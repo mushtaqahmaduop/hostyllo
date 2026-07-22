@@ -73,20 +73,28 @@
 
 ## 1.8 ARB AUDIT P0 BLOCKERS (docs/ENGINEERING_AUDIT_ARB_2026-07-22.md) — 2026-07-22
 > Full evidence + 18 reports in the audit file. These are production blockers.
-- [ ] **C1 — RLS not enforced.** All tables `ENABLE` but none `FORCE ROW LEVEL SECURITY`; app
-      connects as table-owner `postgres.xxx` (owner bypasses RLS). Isolation currently rests only
-      on explicit `hostel_id = current_setting('app.hostel_id')` filters in every query — no DB
-      safety net, no CI check. FIX: `FORCE RLS` on all 26 tenant tables + non-owner `app_user`
-      role (no BYPASSRLS) + repoint DATABASE_URL + CI gate `relrowsecurity AND NOT relforcerowsecurity`.
-      ⚠️ Confirm on live DB.
-- [ ] **C2 — ENCRYPTION_KEY is a guessable pattern** (`a1b2c3d4e5f6`×). Worthless AES. FIX:
-      `openssl rand -hex 32`, store in secret manager, rotate, re-encrypt TOTP secrets.
-- [ ] **C3 — prod secrets in working-tree `.env`** (service_role key, DB pw, JWT priv key). Not
-      committed (gitignored) but unmanaged + exposed. FIX: move to Railway/Vercel secrets, ROTATE ALL.
-- [ ] **C4 — `verify-pitr.sh` broken** — uses service_role JWT against the Management API (needs a
-      Supabase PAT) → always 401. Phase-1 backup gate can never pass. FIX: use SUPABASE_ACCESS_TOKEN.
+- [x] **C1 — RLS not enforced → FIXED IN CODE (mig 010, commit pending live-verify).** Migration 010:
+      FORCE ROW LEVEL SECURITY on all 28 tables + every policy rewritten to
+      `hostel_id = current_setting('app.hostel_id') OR current_setting('app.system_context')='on'`;
+      hostels service_role policy → tenant scoping on id; least-privilege `hostyllo_app` role
+      (system_context='off', RLS-bound) vs privileged `postgres` (system_context='on', auth+workers).
+      lib/db.ts: withTenant now uses `tenantPool` (DATABASE_URL_APP → hostyllo_app); forgotten filter
+      = 0 rows. SAFE FALLBACK: inert until DATABASE_URL_APP set → no lockout risk. scripts/verify-rls.sql
+      = gate. ⚠️ FOUNDER: apply mig 010, create hostyllo_app LOGIN+password, set DATABASE_URL_APP,
+      run verify-rls.sql (0 rows), prove raw SELECT w/o app.hostel_id returns 0 rows.
+- [x] **C2 — weak ENCRYPTION_KEY → FIXED.** lib/env.ts `assertEncryptionKey()` rejects unset /
+      wrong-length / low-entropy (<16 distinct bytes) keys at boot; auth.ts uses it. Local .env key
+      rotated to a real `randomBytes(32)`. ⚠️ any TOTP secret enrolled under the OLD key must be
+      re-enrolled (pre-launch → likely none).
+- [x] **C3 — secrets hygiene → FIXED (repo side).** `apps/api/.env.example` template added (incl.
+      DATABASE_URL_APP, SUPABASE_ACCESS_TOKEN, empty secrets) + rotate-first runbook. .env already
+      gitignored. ⚠️ FOUNDER: rotate ALL live creds (they lived in a working-tree .env) + move to
+      Railway/Vercel secret store.
+- [x] **C4 — verify-pitr.sh → FIXED.** Now requires `SUPABASE_ACCESS_TOKEN` (PAT) for the Management
+      API instead of the service_role JWT (which always 401'd). Gate can pass once a PAT is provided.
 - [ ] **M1 — two `withTenant`/pool impls**; `packages/db` copy still `rejectUnauthorized:false` and is
-      instantiated on `@hostyllo/db` import. Unify into one.
+      instantiated on `@hostyllo/db` import. Unify into one. (Note: C1's tenantPool is in lib/db.ts;
+      packages/db copy still needs the same treatment or deletion.)
 - [ ] **M2 — root CLAUDE.md** paths point to `docs/docs/` (flattened) + stale ground-truth. Fix.
 - [ ] **M3 — no migration runner/ledger**; 001-007 not idempotent. Adopt one before prod apply.
 - [ ] **M4 — fail-open COOKIE_SECRET/CORS defaults + no env validation** (auth.ts:10 claims startup
