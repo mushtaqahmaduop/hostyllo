@@ -8,6 +8,17 @@
 
 This document defines the complete observability stack for HOSTYLLO: structured logging, metrics, distributed tracing, alerting, SLOs, and operational dashboards. All configurations are prescriptive — not conceptual.
 
+> **IMPLEMENTATION STATUS (2026-07-23) — what is actually live vs. designed:**
+> - ✅ **Structured logging** (Pino, via Fastify) — live.
+> - ✅ **Error reporting: Sentry** — wired in `apps/api/src/instrument.ts` (imported first in
+>   `server.ts`); captures 5xx (central error handler) + `unhandledRejection`/`uncaughtException`.
+>   Org `zeerak-services`, project `hostyllo-api`. No-op without `SENTRY_DSN`.
+> - ✅ **Uptime**: GitHub Actions `.github/workflows/uptime.yml` probes `/health` every 10 min →
+>   Sentry Crons monitor `hostyllo-uptime` (alerts on app-down **and** probe-silent).
+> - ⬜ **Metrics / distributed tracing / SLO dashboards** below are still design-only (Sentry perf
+>   tracing is available via `SENTRY_TRACES_SAMPLE_RATE` but off by default). See
+>   `14_DEPLOYMENT_RUNBOOK.md` §7 for the live monitoring setup.
+
 ---
 
 ## 1. LOGGING

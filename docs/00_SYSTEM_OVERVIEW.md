@@ -58,7 +58,7 @@ HOSTYLLO is a **cloud-native, multi-tenant SaaS hostel management platform** for
 | Frontend | Next.js 14 App Router, Vercel | Serverless, Vercel's zero-config CI, global CDN |
 | Backend | Fastify 4, Node.js, Railway | Low-latency, schema validation built-in, Railway's pnpm support |
 | Database | PostgreSQL via Supabase (Mumbai, ap-south-1) | PITR backup, RLS multi-tenancy, pg_trgm search |
-| Cache/Queue | Redis via Upstash (serverless), BullMQ | rediss:// TLS, pay-as-you-go, transient jobs |
+| Cache/Queue | Redis (Railway plugin), BullMQ | `redis://` over Railway private network, transient jobs |
 | Auth | JWT RS256 asymmetric, httpOnly refresh cookie | Algorithm confusion attack prevention |
 | Multi-tenancy | PostgreSQL RLS + withTenant() pattern | SET LOCAL inside BEGIN/COMMIT — race condition eliminated |
 | Offline (Phase 5) | SQLite Wasm (wa-sqlite, OPFS) | Browser-native, no install required |

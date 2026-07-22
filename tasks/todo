@@ -4,6 +4,20 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
+## ★ SESSION 5 — DEPLOYED LIVE (2026-07-23)  ·  see `docs/14_DEPLOYMENT_RUNBOOK.md`
+- [x] **Production API deployed & healthy on Railway** (`Develop` branch) — `db:ok, redis:ok`.
+      Fixed the deploy chain: `@hostyllo/db` build + `buildCommand=pnpm build`; PORT/domain 8080;
+      Supabase IPv4 pooler + pinned `DATABASE_CA_CERT`; Redis → Railway (Upstash 500k drain gone).
+- [x] **C1 app-side activation LIVE** — `DATABASE_URL_APP` set; app runs as `hostyllo_app`;
+      isolation re-proven against prod (no/wrong ctx → 0 rows, correct → own rows).
+- [x] **Monitoring wired** — Sentry error reporting (`instrument.ts`) + uptime probe
+      (`.github/workflows/uptime.yml` → Sentry Crons `hostyllo-uptime`).
+- [x] **CI green** + `Lint and Test` ruleset fixed + **PR #17 merged → main** (synced).
+- [x] Deleted dead `BULLMQ_REDIS_*` / `UPSTASH_*` Railway vars.
+- [ ] **Founder: rotate live secrets (C3)** — everything EXCEPT `ENCRYPTION_KEY` (encrypts CNIC/TOTP at rest).
+- [ ] Full audit (APIs / platform / docs / repo / codebase) → then Phase 2.
+- [ ] Frontend (Vercel `hostyllo.web`) deploy is red — separate stream, untouched.
+
 ## 0. Payment defects — FIXED 2026-07-22 (14/14 unit tests green)
 - [x] Remove leftover AI comment at `apps/api/src/routes/payments.ts:5`
 - [x] `POST /payments`: `extra_charges` in schema (label+amount, max 20) + persisted into `payment_extra_charges`
@@ -126,10 +140,11 @@
 - [ ] Live/local Postgres + Redis for integration tests
 - [ ] `isolation.test.ts` green (JWT A → data B → 404 everywhere)
 - [ ] RLS CI check: `SELECT tablename FROM pg_tables WHERE rowsecurity=false` → 0 rows
-- [ ] `/health` returns `db: ok` + `redis: ok`
+- [x] `/health` returns `db: ok` + `redis: ok` — **LIVE 2026-07-23**
 - [ ] DLQ round-trip → row in `dlq_jobs`
 - [ ] CNIC encryption verified (no plaintext column)
 
 ## 3. Founder-only (external dashboards — Claude can't verify)
-- [ ] Confirm Phase 0: Supabase Pro+PITR, Railway Pro, Upstash `rediss://`, Vercel domains,
-      branch protection, Sentry, Uptime Robot → then tick Phase 0 rows in 09_BUILD_STATE
+- [x] Railway (API + Redis) live · Sentry wired · uptime monitor active · branch rulesets working
+- [ ] Still founder-confirmable: Supabase Pro + PITR add-on, Vercel domains/frontend deploy.
+      (Upstash retired — Redis is on Railway now.)

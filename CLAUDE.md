@@ -152,7 +152,7 @@ If asked to build a deferred item, state the trigger first.
 ## TECH STACK (locked — change only via PRD update)
 
 Next.js 14 (Vercel) · Fastify 4 (Railway) · PostgreSQL/Supabase + RLS (Mumbai ap-south-1) ·
-Redis/Upstash (`rediss://`) · BullMQ · JWT RS256 · Vitest/Playwright/k6 · Sentry + Uptime Robot.
+Redis (Railway, `redis://` private net) · BullMQ · JWT RS256 · Vitest/Playwright/k6 · Sentry + uptime probe.
 PgBouncer **transaction mode** (required for `withTenant()` — never session mode).
 
 Full stack/queue/redis-key/env tables: `docs/06_CLAUDE_MD_v15.md`.
