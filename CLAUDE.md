@@ -44,7 +44,7 @@ See `tasks/todo`: remaining audit majors (M2–M5 in progress), CNIC plaintext e
 
 ---
 
-## THE 6 INVARIANTS — NEVER VIOLATE (CI + ESLint enforced)
+## THE 6 INVARIANTS — NEVER VIOLATE
 
 ```
 INVARIANT-1  jwtVerify uses algorithms: ['RS256'] ONLY — never HS256
@@ -54,6 +54,13 @@ INVARIANT-4  Money columns are NUMERIC(10,2) ONLY — FLOAT is forbidden
 INVARIANT-5  audit_log is INSERT-ONLY — never UPDATE, never DELETE
 INVARIANT-6  Supabase PITR active before any client data — Free tier forbidden in prod
 ```
+
+**How each is actually enforced (do not overstate):** INVARIANT-2 & 3 are the only two checked
+by the ESLint plugin (`packages/config/eslint-plugin-hostyllo`). INVARIANT-1 is enforced in
+`lib/jwt.ts` (`algorithms:['RS256']`); INVARIANT-4 by the schema; INVARIANT-5 by a DB trigger
+(`audit_log_immutable`, migration 006) + FORCE RLS (migration 010); INVARIANT-6 is operational
+(verify with `scripts/verify-pitr.sh`). The broader rules 1–30 live in `docs/06_CLAUDE_MD_v15.md`
+(the 6 above are the non-negotiable core, not the full list).
 
 The `withTenant()` pattern (`packages/db/src/withTenant.ts`) and the payment formula
 (`packages/db/src/paymentService.ts`) are architectural cornerstones — do not modify without

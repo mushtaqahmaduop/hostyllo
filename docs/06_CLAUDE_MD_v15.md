@@ -523,3 +523,45 @@ NODE_ENV
 ```
 **All in Railway (backend) or Vercel (frontend). Zero in code. Zero in git.**
 
+---
+
+# PRODUCTION READINESS ADDENDUM (merged 2026-07-22)
+
+> Merged from the former `06_CLAUDE_MD_v15_ADDENDUM.md`. Some items were aspirational when
+> written (June 2026); **reconciliation notes** below mark where current code differs — trust
+> the note over the original rule.
+
+## 6 ADDITIONAL HARD RULES (25–30)
+
+```
+25. ERROR RESPONSES: never leak DB error messages, stack traces, or SQL to the client.
+26. EVERY worker: on('failed') → moveToDLQ(). A worker without DLQ handling is silent data loss.
+27. LOADING STATES (frontend): skeleton shimmer, not spinners.
+28. EMPTY STATES: every list screen handles 0 results.
+29. CROSS-TENANT TEST: after every new endpoint run the isolation helper (A JWT → B id → 404, not 403).
+30. PRE-DEPLOY: run the deploy gate before every prod push; if any step fails, fix first.
+```
+
+**Reconciliation notes (code reality, 2026-07-22):**
+- Rule 25 originally mandated an `AppError` class from `lib/errors` — **that class does not exist**.
+  The app uses a global `setErrorHandler` (`apps/api/src/app.ts`) returning the
+  `{success,code,message}` envelope with no stack leak. Follow the handler; do not invent AppError.
+- Rule 29 is now automated: `apps/api/src/__tests__/isolation.test.ts` runs in the CI
+  `integration-tests` job (Postgres + Redis). Still add a case per new endpoint.
+- Rule 30 referenced `./scripts/pre-deploy-check.sh` — **that script does not exist**. The real
+  gates today are `scripts/verify-pitr.sh`, `scripts/verify-rls.sql`, and the CI jobs.
+- Health-check target below said "No DB, no Redis (<50ms)" — **superseded**: `/health` now
+  intentionally probes both and returns 503 if either is down (audit finding). Latency is no
+  longer the priority for that endpoint; correctness is.
+
+## Performance targets (unchanged, still valid)
+
+| What | Target | How |
+|------|--------|-----|
+| Dashboard query | < 200ms | Single CTE — never 5 queries |
+| Student search | < 200ms | GIN index on pg_trgm |
+| Login | < 500ms | bcrypt cost-12 is intentionally slow |
+
+**Redis cache key format:** `cache:{hostelId}:{resource}` — the hostelId prefix is MANDATORY.
+Full error catalog + CI pipeline spec: `docs/13_PRODUCTION_READINESS.md`.
+
