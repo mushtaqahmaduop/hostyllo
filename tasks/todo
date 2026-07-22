@@ -76,7 +76,12 @@
 
 ## 1.8 ARB AUDIT P0 BLOCKERS (docs/ENGINEERING_AUDIT_ARB_2026-07-22.md) — 2026-07-22
 > Full evidence + 18 reports in the audit file. These are production blockers.
-- [x] **C1 — RLS not enforced → FIXED IN CODE (mig 010, commit pending live-verify).** Migration 010:
+- [x] **C1 — RLS not enforced → FIXED + APPLIED + PROVEN LIVE (2026-07-22).** Migrations 010+011
+      applied to live Supabase via MCP; 28/28 tables FORCE RLS; hostyllo_app proven fail-closed
+      (no/wrong ctx → 0 rows, correct → own only). Role has LOGIN (pw set, rotate advised),
+      bypassrls=false. ⚠️ App-side activation pending: set DATABASE_URL_APP in Railway (Hobby plan
+      pending). Also applied live: 008 (rent idx) + adapted-009 (auth columns — fixed a live login
+      crash). Migration 010:
       FORCE ROW LEVEL SECURITY on all 28 tables + every policy rewritten to
       `hostel_id = current_setting('app.hostel_id') OR current_setting('app.system_context')='on'`;
       hostels service_role policy → tenant scoping on id; least-privilege `hostyllo_app` role

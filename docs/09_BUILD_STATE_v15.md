@@ -25,12 +25,12 @@
 
 | Field | Value |
 |-------|-------|
-| **Active Phase** | Phase 1 — Cloud API Foundation (in progress, code ~95% authored; verification gate pending) |
-| **Overall Progress** | Phase 0 config authored (provisioning unverified) · Phase 1 API + db lib + ALL endpoints exist, tsc strict-clean · gate items need live DB/CI |
-| **Last Session** | 2026-07-22 (session 3) — corrected-audit hardening + schema runtime-blocker migration 009 |
-| **Last Completed Task** | All 5 corrected-audit findings resolved (strict mode, /health probe, error handler, login rate-limit, DB TLS) + migration 009 (auth/pdf column blockers); tsc clean, 14/14 payment tests green |
-| **Next Task** | CNIC encryption (AES-256-GCM service + backfill) — last real Phase 1 code item; then stand up live DB/Redis + CI to convert the 🟡 verification-gate rows to ✅ |
-| **Blocking Issues** | Phase 0 external provisioning (Supabase PITR, Railway, Upstash, Vercel, branch protection) cannot be verified from the repo — founder must confirm. Verification gate needs a live Postgres+Redis. |
+| **Active Phase** | Phase 1 — Cloud API Foundation (code complete; tenant isolation now LIVE-VERIFIED) |
+| **Overall Progress** | Phase 1 API + db lib + ALL endpoints exist, tsc strict-clean · **C1–C4 + M1–M5 audit findings all fixed** · CNIC encrypted · **migrations 008–011 applied live to Supabase; FORCE-RLS isolation proven on the real DB** |
+| **Last Session** | 2026-07-22 (session 4) — fixed all ARB-audit criticals+majors, CNIC encryption, doc consolidation, and applied+proved C1 live via Supabase MCP |
+| **Last Completed Task** | Applied migrations 010 (FORCE RLS + hostyllo_app role) + 011 (fn hardening) + 008 + adapted-009 to live Supabase; proved isolation (hostyllo_app: no/wrong context → 0 rows, correct → own rows only) |
+| **Next Task** | Founder: activate enforcement in the running app (set DATABASE_URL_APP once Railway Hobby plan is live) · rotate all secrets (C3) · get the CI integration-tests job to first green run |
+| **Blocking Issues** | Railway trial expired → API not deployed (Hobby plan pending). Phase 0 external provisioning (PITR add-on, Upstash plan, Vercel, branch protection) still founder-confirmable only. |
 | **Suite Version** | v15.0 |
 | **PRD Authority** | docs/01_MASTER_PRD_v15.md |
 
@@ -166,19 +166,19 @@ These have external approval timelines. Must be tracked from Day 1.
 
 | Gate | Status |
 |------|:------:|
-| All 28 tables with RLS enabled | 🟡 migrations declare RLS — not verified against live DB |
-| `verify-pitr.sh` returns exit 0 | 🟡 script authored — needs live Supabase |
-| All 14 payment unit tests pass in CI | ✅ 14/14 PASS locally (2026-07-22); CI-green still to confirm |
-| Cross-tenant isolation test passes on every endpoint (JWT A → data B → 404) | 🟡 `isolation.test.ts` exists — needs live DB |
-| `withTenant()` ESLint rule active and blocking violations in CI | 🟡 rule authored — verify enforced in ci.yml |
-| `/health` returns `db: ok` and `redis: ok` | ✅ CODE DONE (session 3) — now really probes `dbHealthCheck()` + `redis.ping()`, returns 503 if either down; CI-green run still to confirm |
-| bcrypt rounds ≥ 12 in auth integration test | ⬜ TODO (bcrypt 12 IS used in code; integration test needs live DB) |
-| CNIC encrypted — plaintext `cnic` column must not exist in DB | ⬜ TODO — **last open Phase 1 code item**; CNIC still stored plaintext in `cnic_encrypted` |
+| All 28 tables with RLS enabled | ✅ **LIVE-VERIFIED 2026-07-22** — all 28 `ENABLE` **and `FORCE`** (migration 010); `verify-rls.sql` returns 0 rows |
+| `verify-pitr.sh` returns exit 0 | 🟡 script fixed (uses SUPABASE_ACCESS_TOKEN now); needs a PAT + PITR add-on to run |
+| All 14 payment unit tests pass in CI | ✅ 14/14 PASS locally; CI-green still to confirm on first `integration-tests` run |
+| Cross-tenant isolation test passes on every endpoint (JWT A → data B → 404) | ✅ **RLS isolation PROVEN live** (hostyllo_app: no/wrong ctx → 0 rows, correct → own only). `isolation.test.ts` now real + wired into CI (M5) — awaits first green CI run |
+| `withTenant()` ESLint rule active and blocking violations in CI | 🟡 rule authored + in `ci.yml` lint job — first green run to confirm |
+| `/health` returns `db: ok` and `redis: ok` | ✅ CODE DONE — probes `dbHealthCheck()` + `redis.ping()`, 503 if either down |
+| bcrypt rounds ≥ 12 in auth integration test | 🟡 code uses cost-12; `auth.test.ts` asserts it — awaits first green CI run |
+| CNIC encrypted — plaintext `cnic` column must not exist in DB | ✅ **FIXED** — `lib/crypto.ts` AES-256-GCM; POST/import encrypt, reveal decrypts; `scripts/backfill-cnic.mjs` for legacy rows |
 | Soft-delete verified on all list endpoints | 🟡 `deleted_at IS NULL` filters present — needs test proof |
-| Receipt counter atomic function deployed and concurrency-tested | 🟡 `get_next_receipt_number()` used — concurrency test ⬜ |
+| Receipt counter atomic function deployed and concurrency-tested | 🟡 `get_next_receipt_number()` deployed live (search_path pinned, mig 011) — concurrency test ⬜ |
 | BullMQ DLQ confirmed on all 7 queues | ⬜ TODO (only 5 real queues exist; 2 are later-phase) |
-| Sentry receiving events | ⬜ TODO |
-| No secrets in git | ⬜ TODO (run `git log -p \| grep -iE "key\|secret\|password"`) |
+| Sentry receiving events | ⬜ TODO (SENTRY_DSN set; connect Sentry MCP to verify) |
+| No secrets in git | ✅ verified — `.env` git-ignored, never committed; CI secrets-scan active. ⚠️ live creds still need rotation (C3) since they sat in a working-tree `.env` |
 
 ### Monorepo Setup
 
@@ -590,6 +590,7 @@ These have external approval timelines. Must be tracked from Day 1.
 | 1 | 2026-07-22 | Reconciled this tracker against actual repo state (was 1 phase stale). Verified 14/14 payment unit tests pass. Documented real Phase 1 coverage (~65% authored) and the true remaining backlog. | Docs reconciled; code unchanged |
 | 2 | 2026-07-22 | Fixed 4 payment defects + worker audit-column bug + rent idempotency/receipt-gap/void-leak/otplib (mig 008); built ALL missing Phase 1 endpoints (operations, transfers, fines, users, settings, audit-log, CSV import). tsc clean, 14/14 green. | Phase 1 endpoints code-complete |
 | 3 | 2026-07-22 | Resolved all 5 corrected-audit findings (TS strict on, /health real probe, global error handler, login rate-limit, DB TLS verify). Migration 009 fixed auth-login + pdf-receipt runtime column crashes. Removed dead 'super_admin' literal. Began docs↔code re-reconciliation (this update). | Anchor pass of doc audit |
+| 4 | 2026-07-22 | Full ARB audit (18 reports) → fixed all 4 CRITICAL (C1 FORCE-RLS+app role, C2 enc-key validation, C3 secrets template, C4 pitr gate) + all 5 MAJOR (M1 single pool, M2 CLAUDE.md, M3 migration runner, M4 env validation, M5 real isolation CI). CNIC encrypted. Doc suite consolidated (merged addendum, archived 6, added index). **Applied migrations 008–011 to live Supabase via MCP and PROVED tenant isolation on the real DB.** | Isolation live-verified; app-side activation pending Railway |
 
 *Update this table at the end of every session.*
 

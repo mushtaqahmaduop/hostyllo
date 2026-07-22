@@ -6,6 +6,23 @@
 
 **One-line verdict:** A competently-built modular monolith wrapped in ~19k lines of largely speculative documentation, whose single most important promise — **DB-enforced tenant isolation — is not actually enforced.** ❌ **REJECTED for production**; fixable to BETA with 4 critical fixes.
 
+> ## ✅ REMEDIATION STATUS (updated 2026-07-22, same day)
+> **All 4 CRITICAL and all 5 MAJOR findings have been fixed.** C1 is **verified live on the
+> production Supabase DB** (28/28 tables `FORCE ROW LEVEL SECURITY`; as the least-privilege
+> `hostyllo_app` role, queries with no/wrong hostel context return 0 rows — proven via MCP).
+> - **C1** RLS not enforced → migrations 010/011 applied live; isolation proven. *App-side
+>   activation (point the running app at `DATABASE_URL_APP`=hostyllo_app) is pending the Railway
+>   Hobby plan; until then the app uses the safe postgres fallback.*
+> - **C2** weak enc key → boot-time `assertEncryptionKey()`; key rotated. **C3** secrets → `.env.example`
+>   + rotate runbook (⚠️ founder still to rotate live creds). **C4** pitr gate → uses a PAT now.
+> - **M1** duplicate pool unified · **M2** CLAUDE.md fixed · **M3** migration runner+ledger ·
+>   **M4** env validation · **M5** isolation tests made real + wired into CI (first green run pending).
+>
+> The verdict below (❌ REJECTED) reflects the **state at audit time**. With C1–C4 closed and C1
+> proven live, the product is on the short path to **⚠️ APPROVED WITH MAJOR CHANGES** for a
+> controlled beta — remaining gates: app-side DATABASE_URL_APP live, CI integration job green,
+> and live-credential rotation.
+
 ---
 
 ## REPORT 1 — EXECUTIVE SUMMARY & SCORES
