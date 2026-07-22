@@ -92,14 +92,24 @@
       Railway/Vercel secret store.
 - [x] **C4 — verify-pitr.sh → FIXED.** Now requires `SUPABASE_ACCESS_TOKEN` (PAT) for the Management
       API instead of the service_role JWT (which always 401'd). Gate can pass once a PAT is provided.
-- [ ] **M1 — two `withTenant`/pool impls**; `packages/db` copy still `rejectUnauthorized:false` and is
-      instantiated on `@hostyllo/db` import. Unify into one. (Note: C1's tenantPool is in lib/db.ts;
-      packages/db copy still needs the same treatment or deletion.)
-- [ ] **M2 — root CLAUDE.md** paths point to `docs/docs/` (flattened) + stale ground-truth. Fix.
-- [ ] **M3 — no migration runner/ledger**; 001-007 not idempotent. Adopt one before prod apply.
-- [ ] **M4 — fail-open COOKIE_SECRET/CORS defaults + no env validation** (auth.ts:10 claims startup
-      validation that doesn't exist). Add boot-time env schema; throw in prod.
-- [ ] **M5 — isolation untested in CI** (no PG service). Add Postgres to ci.yml, run isolation.test.ts.
+- [x] **M1 — FIXED.** Canonical connection layer (buildSsl + privileged pool + tenantPool +
+      withTenant + dbHealthCheck) consolidated into `packages/db/src/withTenant.ts`; apps/api/lib/db.ts
+      is now a thin re-export. One pool, TLS verified, no insecure duplicate instantiated on import.
+- [x] **M2 — FIXED.** Root CLAUDE.md `docs/docs/`→`docs/` (5 refs); GROUND TRUTH rewritten to reality
+      (10 migrations, 16 routes, all defects+C1-C4 fixed); git-discipline branch note corrected to Develop.
+- [x] **M3 — FIXED.** `packages/db/migrate.mjs` runner + `schema_migrations` ledger, tx-per-file,
+      checksum drift warnings, `baseline` mode for the hand-migrated DB. Scripts + migrations/README.md.
+- [x] **M4 — FIXED.** `lib/env.ts validateEnv()` — required secrets throw in prod / warn in dev;
+      rejects public cookie placeholder; server.ts calls it at boot; cookie/CORS fail-open defaults
+      now dev-only.
+- [x] **M5 — FIXED IN CODE (CI job pending first-run confirmation).** Created `buildApp()` factory
+      (app.ts) + slim server.ts; relocated the two integration tests (were DEAD — imported a
+      non-existent buildApp from packages/db) to apps/api/src/__tests__/ with fixed fixtures +
+      login-for-tokens; globalSetup migrates+seeds a 2-tenant DB + gives hostyllo_app login; vitest
+      config; new ci.yml `integration-tests` job (postgres + redis + serverless-redis-http shim,
+      ephemeral RS256 keypair, DATABASE_URL_APP=hostyllo_app so RLS is actually exercised). No-DB
+      runs skip cleanly (15 skipped, exit 0) so `pnpm test` stays green. ⚠️ CI job wiring
+      (SRH networking, role login) needs its first green run to confirm.
 
 ## 2. Verification gate (turn 🟡 → ✅)
 - [ ] Live/local Postgres + Redis for integration tests
