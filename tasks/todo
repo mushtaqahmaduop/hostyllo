@@ -62,7 +62,9 @@
       (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
 
 ## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
-- [ ] Finding 1: enable TypeScript `strict` + `tsc --noEmit` gate (money math) — IN PROGRESS
+- [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts
+      Resend client re-typed to the real 'resend' type. All 5 audit findings now resolved.
+      TODO (CI): wire `pnpm -r tsc --noEmit` as a required check so strict can't regress.
 - [x] Finding 2: `/health` now actually probes db (`dbHealthCheck`) + redis (`PING`), returns 503 if either down
 - [x] Finding 3: global `setErrorHandler` added — structured envelope, no stack-trace leaks, 400 for schema validation
 - [x] Finding 4: login rate limit `rl:login:{ip}` 10/15min → 429 (auth.ts)
