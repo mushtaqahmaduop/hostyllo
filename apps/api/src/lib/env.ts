@@ -25,3 +25,41 @@ export function assertEncryptionKey(): Buffer {
   }
   return bytes;
 }
+
+const PUBLIC_COOKIE_PLACEHOLDER = 'hostyllo-cookie-secret';
+
+/**
+ * Validate all security-critical env at boot (audit M4). In production a missing/placeholder
+ * secret THROWS (fail-closed) instead of silently falling back to a public default; in dev the
+ * same gaps only warn so local work isn't blocked. Call once at startup, before serving.
+ */
+export function validateEnv(): void {
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // Always-required (the app cannot function without these in any environment).
+  const required = [
+    'JWT_PRIVATE_KEY', 'JWT_PUBLIC_KEY', 'ENCRYPTION_KEY', 'DATABASE_URL',
+    'UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN',
+  ];
+  // Required in production only (dev has safe local fallbacks).
+  const prodOnly = ['COOKIE_SECRET', 'CORS_ORIGIN'];
+
+  const missing = required.filter((k) => !process.env[k]);
+  if (isProd) missing.push(...prodOnly.filter((k) => !process.env[k]));
+
+  if (missing.length) {
+    const msg = `Missing required environment variable(s): ${missing.join(', ')}`;
+    if (isProd) throw new Error(msg);
+    console.warn(`⚠️  ${msg} — allowed in non-production, but set them before deploy`);
+  }
+
+  // The old public default is forgeable — never allow it in production.
+  if (isProd && (!process.env.COOKIE_SECRET || process.env.COOKIE_SECRET === PUBLIC_COOKIE_PLACEHOLDER)) {
+    throw new Error('COOKIE_SECRET must be a strong random value in production — `openssl rand -hex 32`');
+  }
+
+  // Key strength is validated in every environment.
+  assertEncryptionKey();
+}
+
+export { PUBLIC_COOKIE_PLACEHOLDER };

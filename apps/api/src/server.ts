@@ -22,11 +22,17 @@ import { settingsRoutes } from './routes/settings.js';
 import { auditLogRoutes } from './routes/audit-log.js';
 import { dbHealthCheck } from './lib/db.js';
 import { redis } from './lib/redis.js';
+import { validateEnv } from './lib/env.js';
 import './workers/auto-cancel.js';
 import './workers/pdf-receipts.js';
 import './workers/rent-generate.js';
 import './workers/billing-sync.js';
 import './workers/email-send.js';
+
+// Fail fast on missing/placeholder secrets (audit M4). Throws in production, warns in dev.
+validateEnv();
+
+const isProd = process.env.NODE_ENV === 'production';
 const app = Fastify({ logger: true });
 
 // Global error handler — never leak stack traces, always return the {success,code,message}
@@ -61,11 +67,13 @@ app.setErrorHandler((error, request, reply) => {
 
 await app.register(helmet);
 await app.register(cors, {
-  origin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
+  // Prod requires CORS_ORIGIN (validated above); dev falls back to localhost. No prod fail-open.
+  origin: process.env.CORS_ORIGIN ?? (isProd ? false : 'http://localhost:3000'),
   credentials: true,
 });
 await app.register(cookie, {
- secret: process.env.COOKIE_SECRET ?? 'hostyllo-cookie-secret',
+  // Prod requires a real COOKIE_SECRET (validated above); the dev-only fallback is clearly named.
+  secret: process.env.COOKIE_SECRET ?? 'dev-only-insecure-cookie-secret',
 });
 await app.register(multipart, {
   limits: { fileSize: 2 * 1024 * 1024, files: 1 }, // 2MB cap for CSV imports
