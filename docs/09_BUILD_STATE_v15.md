@@ -27,10 +27,10 @@
 |-------|-------|
 | **Active Phase** | Phase 1 — Cloud API Foundation (**DEPLOYED LIVE on Railway**; tenant isolation live-verified in production) |
 | **Overall Progress** | Phase 1 API + db lib + ALL endpoints exist, tsc strict-clean · **C1–C4 + M1–M5 audit findings all fixed** · CNIC encrypted · migrations 008–011 applied live to Supabase · **DEPLOYED LIVE on Railway (Develop), health green (`db:ok, redis:ok`); app runs as `hostyllo_app` — isolation live-proven in prod; Sentry + uptime monitoring wired; CI green; main synced** |
-| **Last Session** | 2026-07-23 (session 5) — deployed to Railway (green after fixing `@hostyllo/db` build, `buildCommand=pnpm build`, PORT/domain 8080, Supabase IPv4 pooler + pinned CA, Redis→Railway), wired Sentry + Sentry-Crons uptime, fixed the `Lint and Test` ruleset + merged PR #17 to main, live smoke-test + RLS isolation re-proven. See `14_DEPLOYMENT_RUNBOOK.md`. |
-| **Last Completed Task** | Wired Sentry error reporting + GitHub-Actions/Sentry-Crons uptime monitor (`hostyllo-uptime`), and deleted the dead Upstash/BULLMQ vars — production live & healthy |
-| **Next Task** | Founder: rotate live secrets (C3 — **NOT** `ENCRYPTION_KEY`) · then full audit (APIs / platform / docs / repo / codebase) → Phase 2 |
-| **Blocking Issues** | None blocking the API — deployed & live on Railway. Open: live-credential rotation (C3); frontend (Vercel `hostyllo.web`) deploy is red — separate stream. |
+| **Last Session** | 2026-07-23 (sessions 6–7) — Built the **staging→production pipeline** (prod=`main`, staging=`Develop` on separate Supabase `ljnuwmfnpofzlmioskfc` + own Redis; `protect-main` gates on **Lint and Test + Staging Smoke Test**; per-env branch set via Railway GraphQL `deploymentTriggerUpdate`, NOT `service source connect` which is service-global). Separated Sentry envs via `SENTRY_ENVIRONMENT`; replaced flapping Sentry-Crons uptime with **UptimeRobot** (external, 5-min) on a new `/api/v1/ready` (503-when-unhealthy) probe. Added Phase-1 verification tests + generated DB types. See `14_DEPLOYMENT_RUNBOOK.md`. |
+| **Last Completed Task** | Phase-1 verification gate: `soft-delete` + `receipt-counter` concurrency + `dlq` round-trip tests (CI-green), **fixed a silent DLQ bug** (moveToDLQ wrote non-existent columns), generated Supabase DB types |
+| **Next Task** | Founder must do the 2 real go-live blockers: **(1) enable Supabase PITR/Pro on prod** (INVARIANT-6; `verify-pitr.sh` exit 0) and **(2) rotate live secrets (C3 — NOT `ENCRYPTION_KEY`)**. Then: verify DLQ wired into each worker → full audit → Phase 2. |
+| **Blocking Issues** | None blocking the API — live on Railway with staging/prod pipeline + UptimeRobot + Sentry. Go-live blockers before real customer data: **PITR (C4/INVARIANT-6)** + **secret rotation (C3)**. Frontend (`apps/web`) not built = Phase 2; Vercel red is expected (empty app). |
 | **Suite Version** | v15.0 |
 | **PRD Authority** | docs/01_MASTER_PRD_v15.md |
 
@@ -174,10 +174,10 @@ These have external approval timelines. Must be tracked from Day 1.
 | `/health` returns `db: ok` and `redis: ok` | ✅ CODE DONE — probes `dbHealthCheck()` + `redis.ping()`, 503 if either down |
 | bcrypt rounds ≥ 12 in auth integration test | ✅ **CI-GREEN** — auth.test.ts asserts cost-12 on the seeded hash |
 | CNIC encrypted — plaintext `cnic` column must not exist in DB | ✅ **FIXED** — `lib/crypto.ts` AES-256-GCM; POST/import encrypt, reveal decrypts; `scripts/backfill-cnic.mjs` for legacy rows |
-| Soft-delete verified on all list endpoints | 🟡 `deleted_at IS NULL` filters present — needs test proof |
-| Receipt counter atomic function deployed and concurrency-tested | 🟡 `get_next_receipt_number()` deployed live (search_path pinned, mig 011) — concurrency test ⬜ |
-| BullMQ DLQ confirmed on all 7 queues | ⬜ TODO (only 5 real queues exist; 2 are later-phase) |
-| Sentry receiving events | ⬜ TODO (SENTRY_DSN set; connect Sentry MCP to verify) |
+| Soft-delete verified on all list endpoints | ✅ **CI-GREEN** — `soft-delete.test.ts`: DELETE → row survives with `deleted_at`+`status='vacated'`, hidden from list/detail (even when status=vacated is queried) |
+| Receipt counter atomic function deployed and concurrency-tested | ✅ **CI-GREEN** — `receipt-counter.test.ts`: 50 concurrent `get_next_receipt_number()` calls → unique + gap-free 1..N |
+| BullMQ DLQ confirmed on all 7 queues | 🟡 `dlq.test.ts` proves `moveToDLQ()` round-trips into `dlq_jobs` (CI-green) + **FIXED a silent bug** (it wrote non-existent columns job_data/error_message → every insert failed). Still ⬜: confirm `moveToDLQ` is wired into each of the 5 real workers' failed handlers |
+| Sentry receiving events | ✅ **VERIFIED LIVE** 2026-07-23 (events in project `hostyllo-api`; staging vs prod separated via `SENTRY_ENVIRONMENT`) |
 | No secrets in git | ✅ verified — `.env` git-ignored, never committed; CI secrets-scan active. ⚠️ live creds still need rotation (C3) since they sat in a working-tree `.env` |
 
 ### Monorepo Setup
@@ -210,7 +210,7 @@ These have external approval timelines. Must be tracked from Day 1.
 | Task | Status |
 |------|:------:|
 | `withTenant.ts` implementation | 🟡 CODE EXISTS |
-| TypeScript types generated from schema | ⬜ TODO (confirm — no generated types file found) |
+| TypeScript types generated from schema | ✅ `packages/db/src/database.types.ts` (generated via Supabase MCP; ready for the Phase 2 frontend) |
 | `paymentService.ts`: `calculateUnpaid()` ported verbatim from Electron | 🟡 CODE EXISTS |
 | `paymentService.test.ts`: all 14 test cases passing in CI | ✅ 14/14 PASS locally (2026-07-22) — CI run still to confirm |
 | `formatters.ts`: `fmtCnic()` + `fmtPhone()` ported verbatim | 🟡 CODE EXISTS (`formatters.ts`) |
@@ -591,6 +591,9 @@ These have external approval timelines. Must be tracked from Day 1.
 | 2 | 2026-07-22 | Fixed 4 payment defects + worker audit-column bug + rent idempotency/receipt-gap/void-leak/otplib (mig 008); built ALL missing Phase 1 endpoints (operations, transfers, fines, users, settings, audit-log, CSV import). tsc clean, 14/14 green. | Phase 1 endpoints code-complete |
 | 3 | 2026-07-22 | Resolved all 5 corrected-audit findings (TS strict on, /health real probe, global error handler, login rate-limit, DB TLS verify). Migration 009 fixed auth-login + pdf-receipt runtime column crashes. Removed dead 'super_admin' literal. Began docs↔code re-reconciliation (this update). | Anchor pass of doc audit |
 | 4 | 2026-07-22 | Full ARB audit (18 reports) → fixed all 4 CRITICAL (C1 FORCE-RLS+app role, C2 enc-key validation, C3 secrets template, C4 pitr gate) + all 5 MAJOR (M1 single pool, M2 CLAUDE.md, M3 migration runner, M4 env validation, M5 real isolation CI). CNIC encrypted. Doc suite consolidated (merged addendum, archived 6, added index). **Applied migrations 008–011 to live Supabase via MCP and PROVED tenant isolation on the real DB.** | Isolation live-verified; app-side activation pending Railway |
+| 5 | 2026-07-23 | Deployed to Railway green: fixed `@hostyllo/db` build, `buildCommand=pnpm build`, PORT/domain 8080, Supabase IPv4 pooler + pinned CA, Redis→Railway. Wired Sentry + (old) Sentry-Crons uptime. Fixed `Lint and Test` ruleset; merged to main; live smoke-test + RLS re-proven. | Production live & green |
+| 6 | 2026-07-23 | Built staging→prod pipeline: staging Supabase `ljnuwmfnpofzlmioskfc` (11 migs + `hostyllo_app` role) + own Railway Redis; prod→`main`, staging→`Develop` via per-env `deploymentTrigger`; `protect-main` = Lint and Test + Staging Smoke Test; `watchPatterns`; rollback documented (runbook §11/§12). | Pipeline live, both envs green |
+| 7 | 2026-07-23 | Monitoring: `/api/v1/ready` (503 when down) + UptimeRobot on prod+staging; Sentry env separation (`SENTRY_ENVIRONMENT`); decommissioned flapping Sentry cron. Phase-1 verification tests: soft-delete, receipt-counter concurrency, DLQ round-trip (**+ fixed a silent DLQ column bug**); generated DB types. | Phase-1 verification gate ~complete |
 
 *Update this table at the end of every session.*
 
@@ -607,18 +610,24 @@ These have external approval timelines. Must be tracked from Day 1.
  Report all of this back before doing anything else."
 ```
 
-**Current next task (reconciled 2026-07-22, session 3):** We are in **Phase 1 — code ~95%
-authored, gated on live-DB verification**. Payment defects (1) and missing endpoints (2) from the
-old list are DONE. In priority order now:
-1. **CNIC encryption** — AES-256-GCM service (mirror auth.ts TOTP encrypt/decrypt) + backfill
-   migration for existing rows + reveal-cnic decrypt. **Last real Phase 1 code item.**
-2. **Generated DB types** from schema (no types file exists yet).
-3. **Stand up the verification gate** (live Supabase/Redis + CI) so 🟡 items can be proven → ✅:
-   RLS check, isolation tests, bcrypt integration test, receipt-counter concurrency, DLQ round-trip.
-4. **Founder to confirm Phase 0 external provisioning** (dashboards Claude can't see).
-5. **Doc-audit passes 2–3** (see DECISION LOG 2026-07-22 session-3 row): resolve doc numbering
-   collisions, consolidate the 4 overlapping agent-onboarding docs, merge the CLAUDE.md addendum,
-   and superseded-banner the stale "Phase 0 / nothing built" docs.
+**Current next task (reconciled 2026-07-23, session 7):** Phase 1 is **code-complete, deployed,
+and mostly verified**. CNIC encryption, generated DB types, and the verification tests (RLS,
+isolation, bcrypt, soft-delete, receipt-counter concurrency, DLQ round-trip) are all ✅ CI-green.
+The only things between here and Phase 2:
+
+1. **🔴 FOUNDER — Supabase PITR/Pro on prod** (INVARIANT-6, gate C4): enable the PITR add-on on
+   project `eprrhckgtrerknenngdy`, then `verify-pitr.sh` must exit 0. **Blocks real customer data.**
+2. **🔴 FOUNDER — rotate live secrets (C3)** that once sat in a working-tree `.env`: DB passwords,
+   `JWT_*`, `COOKIE_SECRET`, `RESEND_API_KEY`, `SENTRY_DSN`. **NOT `ENCRYPTION_KEY`** (rotating it
+   orphans encrypted CNIC/TOTP). Update Railway (both envs) + re-verify `/health` green.
+3. **Verify `moveToDLQ` is wired into each of the 5 real workers'** failed handlers (the fn itself
+   is now fixed + tested; confirm the call sites).
+4. **Full audit** (APIs / platform / docs / repo / codebase) — founder's stated Phase-2 gate.
+5. **Doc-audit passes 2–3** (numbering collisions, consolidate agent-onboarding docs).
+
+Then **Phase 2 — Web Frontend** (`apps/web`, Next.js 14 → Vercel; set Vercel Root Directory =
+`apps/web`, Production Branch = `main`; the pipeline already handles staging previews from
+`Develop`). See runbook + `02_PRODUCT_BLUEPRINT.md` §13.
 
 ---
 
