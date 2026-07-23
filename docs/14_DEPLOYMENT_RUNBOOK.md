@@ -13,9 +13,13 @@ Last verified live: 2026-07-23 — `{"success":true,"data":{"db":"ok","redis":"o
 | Redis | Railway plugin **Redis** (`redis-volume`) | cache + BullMQ queues |
 | Postgres | **Supabase** (project ref `eprrhckgtrerknenngdy`) | via Supavisor pooler (IPv4) |
 | Errors | **Sentry** — org `zeerak-services`, project `hostyllo-api` (region `de.sentry.io`) | |
-| Uptime | GitHub Actions `.github/workflows/uptime.yml` → Sentry Crons monitor `hostyllo-uptime` | every 10 min |
+| Uptime | **UptimeRobot** (external, 5-min) → email alerts, on `/api/v1/ready`. GitHub Actions `uptime.yml` is a hourly backup probe. | primary = UptimeRobot |
 
-Health endpoint: **`GET /api/v1/health`** → `200` with `{success, data:{db, redis, version}}` (liveness — always 200 while the process serves; `success` is `db && redis`). There is intentionally no `GET /` route (a `404` there is normal; a `502` is not).
+Two probes:
+- **`GET /api/v1/health`** → **always `200`** with `{success, data:{db, redis, version}}` (**liveness** — never fails so the Railway deploy healthcheck can't tear down a working process; `success` is `db && redis`).
+- **`GET /api/v1/ready`** → `200` when healthy, **`503` when `db` or `redis` is down** (**readiness** — for external HTTP monitors like UptimeRobot, since a plain HTTP monitor only sees the status code). Same body shape.
+
+There is intentionally no `GET /` route (a `404` there is normal; a `502` is not).
 
 ---
 
@@ -88,8 +92,8 @@ Railway's public domain routes to a fixed **targetPort = 8080**. The app listens
 
 ## 7. Monitoring
 
-- **Errors:** Sentry SDK (`apps/api/src/instrument.ts`, imported first in `server.ts`). Captures 5xx (central error handler) + `unhandledRejection`/`uncaughtException`. No-op when `SENTRY_DSN` is unset.
-- **Uptime:** `.github/workflows/uptime.yml` probes `/health` every 10 min; a failed job emails the owner; each run check-ins to Sentry Crons monitor `hostyllo-uptime` (schedule `*/10`), so Sentry alerts on app-down (error check-in) **and** probe-silent (missed check-in). Set the crons alert target in Sentry (email/Slack).
+- **Errors:** Sentry SDK (`apps/api/src/instrument.ts`, imported first in `server.ts`). Captures 5xx (central error handler) + `unhandledRejection`/`uncaughtException`. No-op when `SENTRY_DSN` is unset. `environment` = `SENTRY_ENVIRONMENT` (staging/production) ?? `NODE_ENV`, so staging and prod are separated even though both run `NODE_ENV=production`.
+- **Uptime:** **UptimeRobot** (external, 5-min HTTP monitors on `/api/v1/ready` for prod + staging → email alerts) is primary. `/ready` returns 503 when a backend is down, so a free HTTP monitor catches "app up but DB/Redis down" — not just process-down. Free plan blocks monitor *creation* via API, so add them in the UptimeRobot dashboard (reads/deletes still work via API, key `u3510412-…`). `.github/workflows/uptime.yml` remains a lightweight hourly backup probe on `/ready` (emails on failure). The old Sentry Crons monitor `hostyllo-uptime` was decommissioned — GitHub throttles the `*/10` schedule to ~hourly, which caused false "missed check-in" alerts; delete that monitor in Sentry → Crons.
 
 ---
 
