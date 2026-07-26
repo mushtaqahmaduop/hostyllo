@@ -13,8 +13,24 @@
 
 DO $$
 DECLARE
-  offenders text;
+  -- Core tables that must exist for this gate to mean anything. Without this check the gate
+  -- passes VACUOUSLY on an empty schema: string_agg over zero rows returns NULL, so a run where
+  -- the migrations silently failed -- or psql pointed at the wrong database -- would report
+  -- success having verified nothing. A gate that cannot fail when it matters most is not a gate.
+  required   text[] := ARRAY['hostels','students','payments','audit_log'];
+  missing    text;
+  offenders  text;
 BEGIN
+  SELECT string_agg(r, ', ' ORDER BY r)
+    INTO missing
+  FROM unnest(required) AS r
+  WHERE to_regclass('public.' || r) IS NULL;
+
+  IF missing IS NOT NULL THEN
+    RAISE EXCEPTION
+      'RLS GATE FAILED — schema not migrated, core table(s) absent: %', missing;
+  END IF;
+
   SELECT string_agg(c.relname, ', ' ORDER BY c.relname)
     INTO offenders
   FROM pg_class c
