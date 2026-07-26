@@ -25,6 +25,12 @@ INSERT INTO students (id, hostel_id, room_id, name, monthly_fee) VALUES
    '0a000002-0000-4000-8000-00000000a002', 'Student A', 8000)
 ON CONFLICT (id) DO NOTHING;
 
+-- A free bed in room A. students.bed_id is a FK to beds(id), so POST /students needs a real one.
+INSERT INTO beds (id, hostel_id, room_id, label) VALUES
+  ('0a000003-0000-4000-8000-00000000a003', '0000000a-0000-4000-8000-00000000000a',
+   '0a000002-0000-4000-8000-00000000a002', 'A-101-1')
+ON CONFLICT (id) DO NOTHING;
+
 -- Hostel B data (the target hostel A must not be able to reach).
 INSERT INTO rooms (id, hostel_id, number, monthly_fee) VALUES
   ('0b000002-0000-4000-8000-00000000b002', '0000000b-0000-4000-8000-00000000000b', 'B-101', 5000)

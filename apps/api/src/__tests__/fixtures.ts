@@ -12,6 +12,7 @@ export const TEST_PASSWORD_HASH = '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7ano
 // Hostel A's own data — used to exercise real write paths as owner A.
 export const HOSTEL_A_STUDENT_ID = '0a000001-0000-4000-8000-00000000a001';
 export const HOSTEL_A_ROOM_ID    = '0a000002-0000-4000-8000-00000000a002';
+export const HOSTEL_A_BED_ID     = '0a000003-0000-4000-8000-00000000a003';
 
 // Hostel B data — hostel A's token must never see any of these.
 export const HOSTEL_B_STUDENT_ID = '0b000001-0000-4000-8000-00000000b001';
