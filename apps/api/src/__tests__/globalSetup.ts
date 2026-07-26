@@ -15,11 +15,38 @@ import pg from 'pg';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(HERE, '../../../..', 'packages/db/migrations');
 
+// This setup is DESTRUCTIVE — it runs every migration, grants hostyllo_app a login, and seeds
+// two tenants into whatever DATABASE_URL names. It must therefore only ever point at a throwaway
+// database. CI supplies ephemeral postgres:16 / redis:7 service containers on localhost; a
+// developer's apps/api/.env may well hold the PRODUCTION Supabase URL, and Vitest loads .env into
+// process.env, so without this check a plain `pnpm --filter @hostyllo/api test` seeds production.
+// Fail closed: localhost only, no env escape hatch.
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0']);
+
+function assertLocalTestDb(rawUrl: string): void {
+  let host: string;
+  try {
+    host = new URL(rawUrl).hostname;
+  } catch {
+    throw new Error(`globalSetup: DATABASE_URL is not a parsable URL — refusing to migrate/seed.`);
+  }
+  if (!LOCAL_HOSTS.has(host)) {
+    throw new Error(
+      `globalSetup: refusing to migrate + seed a NON-LOCAL database (host: ${host}).\n` +
+        `This suite drops nothing but it DOES apply all migrations and insert seed tenants.\n` +
+        `Point DATABASE_URL at a local/ephemeral Postgres (see .github/workflows/ci.yml), ` +
+        `or unset it to skip the integration suite.`
+    );
+  }
+}
+
 export async function setup() {
   if (!process.env.DATABASE_URL) {
     console.warn('⚠️  DATABASE_URL unset — skipping integration seed (integration tests will be skipped).');
     return;
   }
+
+  assertLocalTestDb(process.env.DATABASE_URL);
 
   const client = new pg.Client({
     connectionString: process.env.DATABASE_URL,
