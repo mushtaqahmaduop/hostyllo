@@ -13,6 +13,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "migrate": "node migrate.mjs",
     "migrate:status": "node migrate.mjs status",

@@ -37,8 +37,12 @@ jobs:
       - name: Lint (ESLint + hostyllo/* rules)
         run: pnpm run lint
 
-      - name: Typecheck
-        run: pnpm --filter @hostyllo/api exec tsc --noEmit
+      # Workspace-wide, not just the api: packages/db was previously typechecked only as a
+      # side-effect of `pnpm build` emitting, so a strict regression there depended on the build
+      # step. --if-present skips packages/config (a plain-JS ESLint plugin with no tsconfig);
+      # a new TS package opts in by adding the same script.
+      - name: Typecheck (all packages, strict)
+        run: pnpm -r --if-present run typecheck
 
   unit-tests:
     name: Unit Tests
