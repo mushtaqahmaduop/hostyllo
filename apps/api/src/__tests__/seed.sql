@@ -13,6 +13,18 @@ INSERT INTO users (id, hostel_id, name, email, password_hash, role) VALUES
    'Owner B', 'owner-b@test.hostyllo.app', '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7anoAuEPJbk8ha/sfE.', 'hostel_owner')
 ON CONFLICT (id) DO NOTHING;
 
+-- Hostel A data — A's OWN room + student, so tests can exercise real write paths (payments with
+-- extra charges, audit rows) as owner A. The isolation tests assert `not.toContain` on B's ids,
+-- never a row count, so adding A-side rows does not disturb them.
+INSERT INTO rooms (id, hostel_id, number, monthly_fee) VALUES
+  ('0a000002-0000-4000-8000-00000000a002', '0000000a-0000-4000-8000-00000000000a', 'A-101', 8000)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO students (id, hostel_id, room_id, name, monthly_fee) VALUES
+  ('0a000001-0000-4000-8000-00000000a001', '0000000a-0000-4000-8000-00000000000a',
+   '0a000002-0000-4000-8000-00000000a002', 'Student A', 8000)
+ON CONFLICT (id) DO NOTHING;
+
 -- Hostel B data (the target hostel A must not be able to reach).
 INSERT INTO rooms (id, hostel_id, number, monthly_fee) VALUES
   ('0b000002-0000-4000-8000-00000000b002', '0000000b-0000-4000-8000-00000000000b', 'B-101', 5000)
