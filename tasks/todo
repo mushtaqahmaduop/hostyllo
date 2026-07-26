@@ -137,12 +137,20 @@
       regression coverage on every push.
 
 ## 2. Verification gate (turn 🟡 → ✅)
-- [ ] Live/local Postgres + Redis for integration tests
-- [ ] `isolation.test.ts` green (JWT A → data B → 404 everywhere)
+- [x] Live/local Postgres + Redis for integration tests — CI `integration-tests` job supplies
+      ephemeral postgres:16 + redis:7 service containers. NOT runnable on a dev machine: there is
+      no local PG/Redis/Docker, and `apps/api/.env` holds the PRODUCTION Supabase URL. globalSetup
+      now refuses any non-localhost DATABASE_URL (commit `fd9dfed`) — it applies all 10 migrations
+      and seeds tenants, so pointing it at prod would have injected test data into the live DB.
+- [x] `isolation.test.ts` green (JWT A → data B → 404 everywhere) — **10/10, CI run 30224319107
+      (PR #28), 2026-07-26.** Whole suite: 25 passed / 5 files / 0 skipped, against real PG+Redis
+      with `DATABASE_URL_APP=hostyllo_app` so FORCE-RLS is actually exercised. Verified from the
+      job log that the tests RAN — a missing DATABASE_URL makes them skip and still report success.
 - [ ] RLS CI check: `SELECT tablename FROM pg_tables WHERE rowsecurity=false` → 0 rows
 - [x] `/health` returns `db: ok` + `redis: ok` — **LIVE 2026-07-23**
-- [ ] DLQ round-trip → row in `dlq_jobs`
-- [ ] CNIC encryption verified (no plaintext column)
+- [x] DLQ round-trip → row in `dlq_jobs` — `dlq.test.ts` 2/2 green in the same CI run.
+- [ ] CNIC encryption verified (no plaintext column) — BLOCKED on founder: needs a live-DB check
+      that no plaintext CNIC remains + `scripts/backfill-cnic.mjs` run once against prod.
 
 ## 3. Founder-only (external dashboards — Claude can't verify)
 - [x] Railway (API + Redis) live · Sentry wired · uptime monitor active · branch rulesets working
