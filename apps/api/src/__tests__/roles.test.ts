@@ -141,13 +141,14 @@ describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
       ['GET', '/api/v1/students'],
       ['GET', `/api/v1/students/${HOSTEL_A_STUDENT_ID}`],
       ['POST', '/api/v1/students'],
-      ['PATCH', `/api/v1/students/${HOSTEL_A_STUDENT_ID}`],
+      // Targets a non-existent id: students.ts requires minProperties on PATCH, so an empty body
+      // 400s before the guard, but a real field against the seeded student would mutate a fixture
+      // other suites read. A 404 from the handler proves the guard let the role through.
+      ['PATCH', `/api/v1/students/${ABSENT}`],
     ] as const)('can %s %s (PRD: add/edit student ✓)', async (method, url) => {
-      // PATCH sends an empty object: no required fields, so it passes validation and reaches the
-      // guard without renaming the seeded student out from under the other suites.
       const body = method === 'GET' ? undefined
         : method === 'POST' ? VALID_BODY['/api/v1/students']
-        : {};
+        : { name: 'Role Probe' };
       expect(await allowed('chain', method, url, body)).toBe(true);
     });
 
@@ -162,7 +163,7 @@ describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
 
     it('cannot reach settings (PRD: settings access —)', async () => {
       expect(await allowed('chain', 'GET', '/api/v1/settings/hostel-info')).toBe(false);
-      expect(await allowed('chain', 'PATCH', '/api/v1/settings/hostel-info', {})).toBe(false);
+      expect(await allowed('chain', 'PATCH', '/api/v1/settings/hostel-info', { city: 'Probe' })).toBe(false);
     });
 
     it('cannot generate monthly billing (PRD: manage billing —)', async () => {
