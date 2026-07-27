@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { SENSITIVE_READ } from '../lib/roles.js';
 
 interface AuditEntryRow {
   oldValues: Record<string, unknown> | null;
@@ -39,7 +40,7 @@ export async function auditLogRoutes(app: FastifyInstance) {
 
   // GET /audit-log
   app.get('/audit-log', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(SENSITIVE_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -91,7 +92,7 @@ export async function auditLogRoutes(app: FastifyInstance) {
 
   // GET /audit-log/:entityId — full trail for one entity
   app.get('/audit-log/:entityId', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(SENSITIVE_READ)],
     schema: {
       params: {
         type: 'object',

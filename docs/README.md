@@ -17,8 +17,9 @@ follows it, finds nothing, and works from memory instead.
 > requirements* → `01_MASTER_PRD_v15.md`; for *agent behaviour* → root `../CLAUDE.md` (deep
 > reference `06_CLAUDE_MD_v15.md`); for *current engineering health* → `AUDIT_2026-07-27.md`
 > (supersedes `ENGINEERING_AUDIT_ARB_2026-07-22.md`, whose C1–C4 and M1–M5 are all closed); for
-> *what the API actually exposes* → `apps/api/src/routes/`, **not** `05_API_SPECIFICATION.md`,
-> which documents 9 of 16 modules. If any other doc conflicts with these, these win.
+> *what the API exposes* → `05_API_SPECIFICATION.md` (all 16 modules, reconciled 2026-07-27); for
+> *who may call it* → PRD §4.2, enforced by `apps/api/src/lib/roles.ts`. If any other doc conflicts
+> with these, these win.
 
 ## Active documents (25)
 
@@ -37,7 +38,7 @@ follows it, finds nothing, and works from memory instead.
 | `03_SECURITY_ARCHITECTURE.md` | Auth, RLS, tenant isolation, OWASP, secrets. |
 | `04_DATABASE_ARCHITECTURE.md` | 28-table schema, indexes, RLS, migrations. |
 | `04_UX_DESIGN_SYSTEM.md` | Design tokens, components (Phase 2, not yet built). |
-| `05_API_SPECIFICATION.md` | Endpoint contracts. ⚠️ **Covers 9 of 16 route modules** — 25 live endpoints are summary-only (Modules 10–17); the route files are authority for those. |
+| `05_API_SPECIFICATION.md` | **Endpoint contracts for all 16 route modules.** Modules 10–17 written from the implementations 2026-07-27; roles reflect PRD §4.2 as enforced by `lib/roles.ts`. |
 | `09_FEATURE_FLAG_ARCHITECTURE.md` | Feature-flag design. |
 | `10_OBSERVABILITY_ARCHITECTURE.md` | Logging / metrics / tracing design. |
 
@@ -79,7 +80,7 @@ Archived/superseded docs live in `_archive/` — see `_archive/README.md`.
   prefixes, while this index already mandates citing by filename, and `09_BUILD_STATE_v15.md` in
   particular is referenced from session notes and external records this repo cannot rewrite. So it
   stays a deliberate decision, not an unresolved one.
-- **`05_API_SPECIFICATION.md` is 9 of 16 modules.** Writing the 25 missing contracts is real work
-  and is a prerequisite for the Phase-2 frontend, not a documentation nicety.
+- ~~`05_API_SPECIFICATION.md` is 9 of 16 modules.~~ **Closed 2026-07-27** — Modules 10–17 written
+  from the route implementations; all 16 modules now specified.
 - Several docs (`11_BUSINESS_CONTINUITY`, `12_ENTERPRISE_READINESS_ROADMAP`) were authored
   pre-build and describe intent, not implementation — treat as roadmap, not status.

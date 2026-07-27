@@ -1,13 +1,14 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CAN_OPERATE, CAN_READ, OWNER_ONLY } from '../lib/roles.js';
 import { calculateUnpaid } from '@hostyllo/db';
 
 export async function paymentsRoutes(app: FastifyInstance) {
 
   // GET /payments
   app.get('/payments', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -73,7 +74,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // POST /payments
   app.post('/payments', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       headers: {
         type: 'object',
@@ -246,7 +247,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // GET /payments/defaulters
   app.get('/payments/defaulters', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -300,7 +301,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // GET /payments/summary
   app.get('/payments/summary', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -334,7 +335,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // GET /payments/:id
   app.get('/payments/:id', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       params: {
         type: 'object',
@@ -384,7 +385,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // PATCH /payments/:id
   app.patch('/payments/:id', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(OWNER_ONLY)],
     schema: {
       params: {
         type: 'object',
@@ -486,7 +487,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // POST /payments/:id/void-confirm
   app.post('/payments/:id/void-confirm', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(OWNER_ONLY)],
     schema: {
       params: {
         type: 'object',
@@ -543,7 +544,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // POST /payments/generate-monthly
   app.post('/payments/generate-monthly', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(OWNER_ONLY)],
     schema: {
       body: {
         type: 'object',
@@ -616,7 +617,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
 
   // POST /payments/:id/send-receipt
   app.post('/payments/:id/send-receipt', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       params: {
         type: 'object',

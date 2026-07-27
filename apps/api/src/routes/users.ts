@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CHAIN_LEVEL } from '../lib/roles.js';
 
 // Assignable roles are restricted to warden/chain_manager/viewer in the
 // schemas below — creating another hostel_owner (or super_admin) is forbidden
@@ -10,7 +11,7 @@ export async function usersRoutes(app: FastifyInstance) {
 
   // GET /users
   app.get('/users', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
   }, async (request, reply) => {
     const result = await withTenant(request.hostelId, async (db) => {
       const rows = await db.query(`
@@ -34,7 +35,7 @@ export async function usersRoutes(app: FastifyInstance) {
 
   // POST /users
   app.post('/users', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       body: {
         type: 'object',
@@ -87,7 +88,7 @@ export async function usersRoutes(app: FastifyInstance) {
 
   // PATCH /users/:id
   app.patch('/users/:id', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',
@@ -166,7 +167,7 @@ export async function usersRoutes(app: FastifyInstance) {
 
   // DELETE /users/:id (soft delete)
   app.delete('/users/:id', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',

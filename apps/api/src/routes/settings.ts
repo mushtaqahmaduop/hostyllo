@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { OWNER_ONLY } from '../lib/roles.js';
 
 const HOSTEL_INFO_SELECT = `
   SELECT
@@ -25,7 +26,7 @@ export async function settingsRoutes(app: FastifyInstance) {
 
   // GET /settings/hostel-info
   app.get('/settings/hostel-info', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(OWNER_ONLY)],
   }, async (request, reply) => {
     const result = await withTenant(request.hostelId, async (db) => {
       const hostel = await db.query(HOSTEL_INFO_SELECT);
@@ -39,7 +40,7 @@ export async function settingsRoutes(app: FastifyInstance) {
 
   // PATCH /settings/hostel-info
   app.patch('/settings/hostel-info', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(OWNER_ONLY)],
     schema: {
       body: {
         type: 'object',

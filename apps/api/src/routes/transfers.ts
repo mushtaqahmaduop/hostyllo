@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CHAIN_LEVEL } from '../lib/roles.js';
 
 export async function transfersRoutes(app: FastifyInstance) {
 
   // GET /transfers
   app.get('/transfers', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       querystring: {
         type: 'object',
@@ -64,7 +65,7 @@ export async function transfersRoutes(app: FastifyInstance) {
 
   // POST /transfers
   app.post('/transfers', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       body: {
         type: 'object',
@@ -108,7 +109,7 @@ export async function transfersRoutes(app: FastifyInstance) {
 
   // PATCH /transfers/:id
   app.patch('/transfers/:id', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',
@@ -167,7 +168,7 @@ export async function transfersRoutes(app: FastifyInstance) {
 
   // DELETE /transfers/:id (soft delete)
   app.delete('/transfers/:id', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',

@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CAN_OPERATE, CAN_READ } from '../lib/roles.js';
 
 export async function complaintsRoutes(app: FastifyInstance) {
 
   // GET /complaints
   app.get('/complaints', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -61,7 +62,7 @@ export async function complaintsRoutes(app: FastifyInstance) {
 
   // POST /complaints
   app.post('/complaints', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       body: {
         type: 'object',
@@ -102,7 +103,7 @@ export async function complaintsRoutes(app: FastifyInstance) {
 
   // PATCH /complaints/:id
   app.patch('/complaints/:id', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       params: {
         type: 'object',

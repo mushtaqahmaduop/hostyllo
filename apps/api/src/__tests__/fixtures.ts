@@ -4,6 +4,10 @@ export const HOSTEL_A_ID = '0000000a-0000-4000-8000-00000000000a';
 export const HOSTEL_B_ID = '0000000b-0000-4000-8000-00000000000b';
 
 export const OWNER_A_EMAIL = 'owner-a@test.hostyllo.app';
+// One user per role in hostel A — lets the PRD §4.2 matrix be asserted against live responses.
+export const CHAIN_A_EMAIL = 'chain-a@test.hostyllo.app';
+export const WARDEN_A_EMAIL = 'warden-a@test.hostyllo.app';
+export const VIEWER_A_EMAIL = 'viewer-a@test.hostyllo.app';
 export const OWNER_B_EMAIL = 'owner-b@test.hostyllo.app';
 export const TEST_PASSWORD = 'Test@1234';
 // bcrypt(Test@1234, 12) — the auth suite asserts rounds >= 12 on this exact hash.

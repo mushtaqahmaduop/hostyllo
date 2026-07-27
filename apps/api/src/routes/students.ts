@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CAN_OPERATE, CAN_READ, OWNER_ONLY, SENSITIVE_READ } from '../lib/roles.js';
 import { encryptField, decryptField, isEncrypted } from '../lib/crypto.js';
 
 interface PreviewRow {
@@ -34,7 +35,7 @@ export async function studentRoutes(app: FastifyInstance) {
   // turning an over-large limit into a 400 would be a silent contract change for existing callers.
   // The schema's job here is the type — `limit=abc` used to reach SQL as NaN and 500.
   app.get('/', {
-    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -99,7 +100,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students/search
   app.get('/search', {
-    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -135,7 +136,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students/:id
   app.get('/:id', {
-    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: { params: idParam },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -174,7 +175,7 @@ export async function studentRoutes(app: FastifyInstance) {
   // rejected a legitimate fee of 0 (scholarship / free bed) as "Missing required fields" — the
   // column is NUMERIC(10,2) NOT NULL DEFAULT 0, so zero is a valid value the API refused to accept.
   app.post('/', {
-    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       body: {
         type: 'object',
@@ -229,7 +230,7 @@ export async function studentRoutes(app: FastifyInstance) {
   // into UPDATE students SET status = $n, so a bad value became a constraint violation (500)
   // rather than a 400. The allowed-key filter below still gates which columns can be written.
   app.patch('/:id', {
-    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       params: idParam,
       body: {
@@ -273,7 +274,7 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // DELETE /api/v1/students/:id
   app.delete('/:id', {
-    preHandler: [requireAuth, requireRole('hostel_owner')],
+    preHandler: [requireAuth, requireRole(OWNER_ONLY)],
     schema: { params: idParam },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -297,7 +298,7 @@ export async function studentRoutes(app: FastifyInstance) {
   // GET /api/v1/students/:id/reveal-cnic
   // Explicit, audited CNIC reveal — never returned by any list/detail endpoint.
   app.get('/:id/reveal-cnic', {
-    preHandler: [requireAuth, requireRole('hostel_owner', 'chain_manager')],
+    preHandler: [requireAuth, requireRole(SENSITIVE_READ)],
     schema: { params: idParam },
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
@@ -329,7 +330,7 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // POST /api/v1/students/import — bulk CSV import with preview/confirm
-  app.post('/import', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner', 'chain_manager')] }, async (request, reply) => {
+  app.post('/import', { preHandler: [requireAuth, requireRole(CAN_OPERATE)] }, async (request, reply) => {
     const file = await request.file();
     if (!file) {
       return reply.code(400).send({ success: false, code: 'IMPORT_INVALID_FILE', message: 'No CSV file uploaded' });

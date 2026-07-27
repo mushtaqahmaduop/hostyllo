@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CAN_OPERATE, CAN_READ, CHAIN_LEVEL } from '../lib/roles.js';
 
 export async function roomsRoutes(app: FastifyInstance) {
 
   // GET /rooms
   app.get('/rooms', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -73,7 +74,7 @@ export async function roomsRoutes(app: FastifyInstance) {
 
   // POST /rooms
   app.post('/rooms', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       body: {
         type: 'object',
@@ -163,7 +164,7 @@ export async function roomsRoutes(app: FastifyInstance) {
 
   // GET /rooms/:id
   app.get('/rooms/:id', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       params: {
         type: 'object',
@@ -217,7 +218,7 @@ export async function roomsRoutes(app: FastifyInstance) {
 
   // PATCH /rooms/:id
   app.patch('/rooms/:id', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       params: {
         type: 'object',
@@ -278,7 +279,7 @@ export async function roomsRoutes(app: FastifyInstance) {
 
   // DELETE /rooms/:id
   app.delete('/rooms/:id', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',
@@ -321,7 +322,7 @@ export async function roomsRoutes(app: FastifyInstance) {
 
   // POST /rooms/shift
   app.post('/rooms/shift', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       body: {
         type: 'object',
@@ -416,7 +417,7 @@ export async function roomsRoutes(app: FastifyInstance) {
 
   // PATCH /rooms/bulk-fee
   app.patch('/rooms/bulk-fee', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       body: {
         type: 'object',

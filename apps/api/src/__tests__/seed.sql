@@ -10,7 +10,16 @@ INSERT INTO users (id, hostel_id, name, email, password_hash, role) VALUES
   ('0a000010-0000-4000-8000-00000000a010', '0000000a-0000-4000-8000-00000000000a',
    'Owner A', 'owner-a@test.hostyllo.app', '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7anoAuEPJbk8ha/sfE.', 'hostel_owner'),
   ('0b000010-0000-4000-8000-00000000b010', '0000000b-0000-4000-8000-00000000000b',
-   'Owner B', 'owner-b@test.hostyllo.app', '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7anoAuEPJbk8ha/sfE.', 'hostel_owner')
+   'Owner B', 'owner-b@test.hostyllo.app', '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7anoAuEPJbk8ha/sfE.', 'hostel_owner'),
+  -- Hostel A also has one of every other role, so the PRD §4.2 matrix can be asserted end to end
+  -- rather than by reading the guards. `viewer` in particular existed only in the DB CHECK
+  -- constraint until 2026-07-27 — no endpoint admitted it, so such a user 403'd everywhere.
+  ('0a000011-0000-4000-8000-00000000a011', '0000000a-0000-4000-8000-00000000000a',
+   'Chain A', 'chain-a@test.hostyllo.app', '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7anoAuEPJbk8ha/sfE.', 'chain_manager'),
+  ('0a000012-0000-4000-8000-00000000a012', '0000000a-0000-4000-8000-00000000000a',
+   'Warden A', 'warden-a@test.hostyllo.app', '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7anoAuEPJbk8ha/sfE.', 'warden'),
+  ('0a000013-0000-4000-8000-00000000a013', '0000000a-0000-4000-8000-00000000000a',
+   'Viewer A', 'viewer-a@test.hostyllo.app', '$2b$12$7RlRAntjfQSoQXWgfKHALeDbKjapQRb.M/7anoAuEPJbk8ha/sfE.', 'viewer')
 ON CONFLICT (id) DO NOTHING;
 
 -- Hostel A data — A's OWN room + student, so tests can exercise real write paths (payments with
