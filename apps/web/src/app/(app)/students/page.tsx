@@ -1,9 +1,22 @@
 import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
+import { UserPlus } from 'lucide-react';
 import { formatPkr } from '@/lib/format';
-import { Notice, PageHeading, Pagination, TableFrame, Td, Th } from '@/components/ui';
+import { canOperate } from '@/lib/session';
+import {
+  ActionLink,
+  Notice,
+  PageHeading,
+  Pagination,
+  RowLink,
+  SearchForm,
+  TableFrame,
+  Td,
+  Th,
+  Tr,
+} from '@/components/ui';
 
-export const metadata = { title: 'Students · Hostyllo' };
+export const metadata = { title: 'Students' };
 
 /** Field names are the API's, verbatim — see GET /students in the API spec (Module 2). */
 type Student = {
@@ -25,10 +38,11 @@ const PAGE_SIZE = 25;
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; offset?: string }>;
+  searchParams: Promise<{ q?: string; offset?: string; added?: string }>;
 }) {
-  const { q, offset: rawOffset } = await searchParams;
+  const { q, offset: rawOffset, added } = await searchParams;
   const offset = Math.max(0, Number(rawOffset ?? 0) || 0);
+  const mayWrite = await canOperate();
 
   const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
   if (q) params.set('q', q);
@@ -50,44 +64,32 @@ export default async function StudentsPage({
 
   return (
     <>
-      <PageHeading title="Students" meta={`${list.total} active`} />
+      <PageHeading
+        title="Students"
+        meta={`${list.total} active`}
+        action={
+          mayWrite ? (
+            <ActionLink href="/students/new">
+              <UserPlus className="size-4" aria-hidden />
+              Add student
+            </ActionLink>
+          ) : undefined
+        }
+      />
+
+      {added && (
+        <div className="mb-5">
+          {/* Named rather than "Student added": the warden has just typed a name and wants to see
+              it echoed back, and it confirms the right record was created. */}
+          <Notice tone="teal">
+            {list.students.find((s) => s.student_id === added)?.full_name ?? 'Student'} was admitted.
+          </Notice>
+        </div>
+      )}
 
       {/* A plain GET form: search survives a page refresh, works without JavaScript, and keeps the
           query in the URL so a warden can bookmark or share it. */}
-      <form method="GET" style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
-        <input
-          type="search"
-          name="q"
-          defaultValue={q ?? ''}
-          placeholder="Search name or phone"
-          aria-label="Search students by name or phone"
-          style={{
-            flex: 1,
-            padding: 'var(--space-3)',
-            background: 'var(--surface-2)',
-            border: '1px solid var(--border-2)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text)',
-            fontSize: 16,
-            minHeight: 44,
-          }}
-        />
-        <button
-          type="submit"
-          style={{
-            padding: '0 var(--space-4)',
-            background: 'var(--gold)',
-            color: '#0b0e14',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            fontWeight: 600,
-            cursor: 'pointer',
-            minHeight: 44,
-          }}
-        >
-          Search
-        </button>
-      </form>
+      <SearchForm defaultValue={q} label="Search students by name or phone" />
 
       {shown === 0 ? (
         <Notice tone="muted">
@@ -96,29 +98,39 @@ export default async function StudentsPage({
       ) : (
         <TableFrame>
             <thead>
-              <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
+              <tr className="bg-surface-2 text-left">
                 <Th>Name</Th>
                 <Th>Room</Th>
                 <Th>Phone</Th>
                 <Th align="right">Rent</Th>
                 <Th align="right">Unpaid</Th>
+                {mayWrite && <Th align="right">{''}</Th>}
               </tr>
             </thead>
             <tbody>
               {list.students.map((s) => {
                 const unpaid = Number(s.unpaid_pkr ?? 0);
                 return (
-                  <tr key={s.student_id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <Tr key={s.student_id}>
                     <Td>{s.full_name}</Td>
                     <Td>{s.room_number ? `${s.room_number}${s.bed_label ? ` · ${s.bed_label}` : ''}` : '—'}</Td>
-                    <Td>{s.phone ?? '—'}</Td>
-                    <Td align="right">{formatPkr(s.rent_pkr)}</Td>
-                    <Td align="right">
-                      <span style={{ color: unpaid > 0 ? 'var(--red)' : 'var(--text-muted)' }}>
+                    <Td numeric>{s.phone ?? '—'}</Td>
+                    <Td align="right" numeric>
+                      {formatPkr(s.rent_pkr)}
+                    </Td>
+                    <Td align="right" numeric>
+                      <span className={unpaid > 0 ? 'font-semibold text-red' : 'text-text-muted'}>
                         {formatPkr(unpaid)}
                       </span>
                     </Td>
-                  </tr>
+                    {/* The overwhelmingly common next action from this screen: a student walks up,
+                        the warden finds their row, and takes the month's rent. */}
+                    {mayWrite && (
+                      <Td align="right">
+                        <RowLink href={`/payments/new?studentId=${s.student_id}`}>Take payment</RowLink>
+                      </Td>
+                    )}
+                  </Tr>
                 );
               })}
             </tbody>

@@ -279,6 +279,17 @@ yours — see tasks/phase2-proposal.md §3.
 - [ ] DEFERRED (no code consumer yet — not adding dead schema): warden flags
       (`can_edit/can_delete/can_settings`) for DELETE-gating; hostel branding fields
       (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
+- [ ] **`payments.notes` is accepted and silently discarded** — found 2026-07-27 while building the
+      web payment form. Both `POST /payments` (payments.ts:109) and `PATCH /payments/:id`
+      (payments.ts:401) declare `notes` in their JSON Schema, but migration 003 defines no `notes`
+      column and neither handler references one — the INSERT column list stops at `created_by`. A
+      client can send a note, receive 201, and have it vanish. This is the same defect class as the
+      `extra_charges` bug fixed in §0 (in the schema, never persisted), which is why it is worth
+      fixing rather than tolerating. Two honest options: **(a)** add the column in a migration and
+      persist it on create + PATCH, or **(b)** drop `notes` from both schemas so the contract stops
+      promising it. (a) is the more useful one — a warden recording "paid in two instalments, second
+      by JazzCash" has nowhere else to put it. Deliberately NOT fixed in the frontend slice: it is
+      an API + live-schema change, not a UI one. `apps/web` omits the field until this is resolved.
 
 ## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
 - [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts

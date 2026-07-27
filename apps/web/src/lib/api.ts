@@ -76,6 +76,12 @@ async function refresh(): Promise<string | null> {
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
+  /**
+   * Extra request headers. Needed for `x-idempotency-key`, which `POST /payments` requires — the
+   * API keys the payment row on it, so replaying the same key returns the original payment rather
+   * than creating a second one.
+   */
+  headers?: Record<string, string>;
 };
 
 /**
@@ -88,17 +94,24 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const jar = await cookies();
   const accessToken = jar.get(ACCESS_COOKIE)?.value;
 
-  const res = await fetch(`${API_BASE}/api/v1${path}`, {
-    method: options.method ?? 'GET',
-    headers: {
-      ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
-      ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
-    },
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    // Every response is tenant-scoped and frequently mutated; a cached page would leak one
-    // hostel's data into another's request.
-    cache: 'no-store',
-  });
+  // Built once and reused by the retry below. When the two calls were spelled out separately, the
+  // retry was one edit away from silently dropping a header the first call sent — and for
+  // `x-idempotency-key` that would turn a refresh-during-submit into a duplicate payment.
+  const send = (token: string | undefined) =>
+    fetch(`${API_BASE}/api/v1${path}`, {
+      method: options.method ?? 'GET',
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...options.headers,
+      },
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      // Every response is tenant-scoped and frequently mutated; a cached page would leak one
+      // hostel's data into another's request.
+      cache: 'no-store',
+    });
+
+  const res = await send(accessToken);
 
   if (res.status === 401) {
     const fresh = await refresh();
@@ -107,16 +120,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       // request and no path back into this branch. Server Components cannot set cookies, so the
       // rotated token is used for this request only; the next request refreshes again until a
       // route handler (which can write cookies) persists a new one.
-      const retry = await fetch(`${API_BASE}/api/v1${path}`, {
-        method: options.method ?? 'GET',
-        headers: {
-          authorization: `Bearer ${fresh}`,
-          ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
-        },
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
-        cache: 'no-store',
-      });
-      return unwrap<T>(retry);
+      return unwrap<T>(await send(fresh));
     }
     throw new ApiError(401, 'SESSION_EXPIRED', 'Your session has expired. Please sign in again.');
   }

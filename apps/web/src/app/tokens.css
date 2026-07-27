@@ -4,6 +4,10 @@
  * That document states these are "the single source of truth. Do not hardcode colors anywhere."
  * Treat this file as generated from the doc: if a value needs to change, change the doc first.
  * Dark is the default per the spec; light is opt-in via [data-theme="light"] on <html>.
+ *
+ * Only the values that actually change between themes live here. The static scales — radius,
+ * shadow, type — are declared in globals.css `@theme`, because Tailwind owns those namespaces and
+ * declaring `--radius-md` in both places would mean whichever loaded last silently won.
  */
 
 :root,
@@ -35,6 +39,14 @@
   --blue-subtle: rgba(59, 130, 246, 0.12);
 
   --focus-ring: 0 0 0 2px #0b0e14, 0 0 0 4px #c9a84c;
+
+  /*
+   * Text and icons that sit *on* a gold fill. Not in the spec's token list, but the spec's own
+   * button example hardcodes #0b0e14 for it — and that value is only legible on dark-mode gold
+   * (#c9a84c). Light mode's gold is #a07c2a, a much darker amber, where near-black text drops to
+   * roughly 2:1 contrast and fails WCAG AA. Naming it makes the pair switch with the theme.
+   */
+  --on-gold: #0b0e14;
 }
 
 :root[data-theme='light'] {
@@ -65,16 +77,14 @@
   --blue-subtle: rgba(37, 99, 235, 0.1);
 
   --focus-ring: 0 0 0 2px #f8fafc, 0 0 0 4px #a07c2a;
+
+  --on-gold: #ffffff;
 }
 
+/* The 4px spacing scale (spec §2). Kept out of `@theme` on purpose — Tailwind's own scale is
+   `--spacing`, a single multiplier, so these coexist rather than collide, and the existing
+   `var(--space-4)` call sites keep working unchanged. */
 :root {
-  --radius-xs: 2px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-full: 9999px;
-
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -85,8 +95,4 @@
   --space-10: 40px;
   --space-12: 48px;
   --space-16: 64px;
-
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
 }

@@ -1,9 +1,12 @@
 import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
+import { Receipt } from 'lucide-react';
 import { formatPkr, formatDate } from '@/lib/format';
-import { Notice, PageHeading, Pagination, Stat, StatGrid, StatusBadge, TableFrame, Td, Th } from '@/components/ui';
+import { canOperate } from '@/lib/session';
+import { cn } from '@/lib/utils';
+import { ActionLink, Notice, PageHeading, Pagination, Stat, StatGrid, StatusBadge, TableFrame, Td, Th } from '@/components/ui';
 
-export const metadata = { title: 'Payments · Hostyllo' };
+export const metadata = { title: 'Payments' };
 
 /** GET /payments — API spec Module 4. Money arrives as strings; formatPkr coerces. */
 type Payment = {
@@ -42,11 +45,12 @@ function currentMonth() {
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; status?: string; offset?: string }>;
+  searchParams: Promise<{ month?: string; status?: string; offset?: string; receipt?: string }>;
 }) {
-  const { month: rawMonth, status, offset: rawOffset } = await searchParams;
+  const { month: rawMonth, status, offset: rawOffset, receipt } = await searchParams;
   const month = rawMonth || currentMonth();
   const offset = Math.max(0, Number(rawOffset ?? 0) || 0);
+  const mayWrite = await canOperate();
 
   const listParams = new URLSearchParams({ month, limit: String(PAGE_SIZE), offset: String(offset) });
   if (status) listParams.set('status', status);
@@ -71,7 +75,26 @@ export default async function PaymentsPage({
 
   return (
     <>
-      <PageHeading title="Payments" meta={`${list.total} for ${month}`} />
+      <PageHeading
+        title="Payments"
+        meta={`${list.total} for ${month}`}
+        action={
+          mayWrite ? (
+            <ActionLink href="/payments/new">
+              <Receipt className="size-4" aria-hidden />
+              Record payment
+            </ActionLink>
+          ) : undefined
+        }
+      />
+
+      {receipt && (
+        <div className="mb-5">
+          {/* The receipt number is the thing worth showing — it is what a warden writes on the
+              paper slip and what a student quotes back when querying a payment later. */}
+          <Notice tone="teal">Payment recorded. Receipt {receipt}.</Notice>
+        </div>
+      )}
 
       {summary && (
         <StatGrid label="Month summary">
@@ -89,19 +112,17 @@ export default async function PaymentsPage({
 
       {/* GET form: filters live in the URL, so a month view can be bookmarked or shared, and the
           back button behaves. No JavaScript required to change month or status. */}
-      <form
-        method="GET"
-        style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}
-      >
-        <label htmlFor="month" style={srOnly}>
+      <form method="GET" className="mb-5 flex flex-wrap gap-2">
+        {/* Labels stay in the accessibility tree even where the control is self-evident visually. */}
+        <label htmlFor="month" className="sr-only">
           Month
         </label>
-        <input id="month" type="month" name="month" defaultValue={month} style={controlStyle} />
+        <input id="month" type="month" name="month" defaultValue={month} className={FILTER} />
 
-        <label htmlFor="status" style={srOnly}>
+        <label htmlFor="status" className="sr-only">
           Status
         </label>
-        <select id="status" name="status" defaultValue={status ?? ''} style={controlStyle}>
+        <select id="status" name="status" defaultValue={status ?? ''} className={FILTER}>
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
             <option key={s} value={s}>
@@ -110,7 +131,10 @@ export default async function PaymentsPage({
           ))}
         </select>
 
-        <button type="submit" style={{ ...controlStyle, background: 'var(--gold)', color: '#0b0e14', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+        <button
+          type="submit"
+          className="inline-flex min-h-11 items-center rounded-md bg-gold px-4 font-semibold text-on-gold shadow-sm transition-colors duration-150 hover:bg-gold-hover active:bg-gold-active"
+        >
           Apply
         </button>
       </form>
@@ -123,7 +147,7 @@ export default async function PaymentsPage({
       ) : (
         <TableFrame minWidth={780}>
           <thead>
-            <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
+            <tr className="bg-surface-2 text-left">
               <Th>Student</Th>
               <Th>Room</Th>
               <Th align="right">Due</Th>
@@ -140,19 +164,23 @@ export default async function PaymentsPage({
               return (
                 <tr
                   key={p.paymentId}
-                  style={{
-                    borderTop: '1px solid var(--border)',
+                  className={cn(
+                    'border-t border-border transition-colors duration-150 hover:bg-surface-2',
                     // A voided payment still counts for the audit trail but must not read as live
                     // money; dimming it is the cheapest way to say so without hiding the row.
-                    opacity: voided ? 0.55 : 1,
-                  }}
+                    voided && 'opacity-55',
+                  )}
                 >
                   <Td>{p.studentName}</Td>
                   <Td>{p.roomNumber ?? '—'}</Td>
-                  <Td align="right">{formatPkr(p.totalDuePkr)}</Td>
-                  <Td align="right">{formatPkr(p.amountPaidPkr)}</Td>
-                  <Td align="right">
-                    <span style={{ color: unpaid > 0 && !voided ? 'var(--red)' : 'var(--text-muted)' }}>
+                  <Td align="right" numeric>
+                    {formatPkr(p.totalDuePkr)}
+                  </Td>
+                  <Td align="right" numeric>
+                    {formatPkr(p.amountPaidPkr)}
+                  </Td>
+                  <Td align="right" numeric>
+                    <span className={unpaid > 0 && !voided ? 'font-semibold text-red' : 'text-text-muted'}>
                       {formatPkr(unpaid)}
                     </span>
                   </Td>
@@ -179,25 +207,6 @@ export default async function PaymentsPage({
   );
 }
 
-const controlStyle: React.CSSProperties = {
-  padding: 'var(--space-3)',
-  background: 'var(--surface-2)',
-  border: '1px solid var(--border-2)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--text)',
-  fontSize: 16,
-  minHeight: 44,
-};
-
-/** Labels stay in the accessibility tree even where the control is self-evident visually. */
-const srOnly: React.CSSProperties = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: 'hidden',
-  clip: 'rect(0,0,0,0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-};
+const FILTER =
+  'min-h-11 rounded-md border border-border-2 bg-surface-2 px-3 py-2 text-base text-text ' +
+  'transition-colors duration-150 hover:border-text-disabled';

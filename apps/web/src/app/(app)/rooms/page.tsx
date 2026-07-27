@@ -1,9 +1,10 @@
 import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
 import { formatPkr } from '@/lib/format';
+import { cn } from '@/lib/utils';
 import { Notice, PageHeading, Stat, StatGrid, StatusBadge } from '@/components/ui';
 
-export const metadata = { title: 'Rooms · Hostyllo' };
+export const metadata = { title: 'Rooms' };
 
 /** GET /rooms — API spec Module 3. Returns every room with its beds; there is no pagination. */
 type Bed = {
@@ -71,13 +72,7 @@ export default async function RoomsPage() {
       {data.rooms.length === 0 ? (
         <Notice tone="muted">No rooms yet.</Notice>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gap: 'var(--space-4)',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          }}
-        >
+        <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
           {data.rooms.map((room) => (
             <RoomCard key={room.roomId} room={room} />
           ))}
@@ -100,61 +95,46 @@ function RoomCard({ room }: { room: Room }) {
 
   return (
     <article
-      style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 'var(--space-4)',
-        opacity: room.isActive ? 1 : 0.6,
-      }}
+      className={cn(
+        'rounded-lg border border-border bg-surface p-4 shadow-sm transition-colors duration-150 hover:border-border-2',
+        !room.isActive && 'opacity-60',
+      )}
     >
-      <header style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-        <h2 style={{ fontSize: 18, margin: 0 }}>Room {room.number}</h2>
+      <header className="mb-1 flex items-baseline gap-2">
+        <h2 className="text-lg font-semibold">Room {room.number}</h2>
         {!room.isActive && <StatusBadge status="inactive" />}
       </header>
 
-      <p style={{ margin: '0 0 var(--space-3)', color: 'var(--text-muted)', fontSize: 14 }}>
+      <p className="mb-3 text-sm text-text-muted">
         {[room.floor && `Floor ${room.floor}`, room.roomType, formatPkr(room.defaultRentPkr)]
           .filter(Boolean)
           .join(' · ')}
       </p>
 
       {beds.length === 0 ? (
-        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 14 }}>No beds configured.</p>
+        <p className="text-sm text-text-muted">No beds configured.</p>
       ) : (
         <>
-          <ul
-            style={{
-              listStyle: 'none',
-              margin: '0 0 var(--space-3)',
-              padding: 0,
-              display: 'grid',
-              gap: 'var(--space-2)',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-            }}
-          >
+          <ul className="mb-3 grid list-none gap-2 p-0 [grid-template-columns:repeat(auto-fill,minmax(110px,1fr))]">
             {beds.map((bed) => {
               const occupied = bed.status === 'occupied';
               const maintenance = bed.status === 'maintenance';
               return (
                 <li
                   key={bed.bedId}
-                  style={{
-                    padding: 'var(--space-2)',
-                    borderRadius: 'var(--radius-md)',
-                    background: maintenance
-                      ? 'var(--amber-subtle)'
+                  className={cn(
+                    'rounded-md border p-2 text-[13px]',
+                    maintenance
+                      ? 'border-amber bg-amber-subtle'
                       : occupied
-                        ? 'var(--teal-subtle)'
-                        : 'var(--surface-2)',
-                    border: `1px solid ${maintenance ? 'var(--amber)' : occupied ? 'var(--teal)' : 'var(--border-2)'}`,
-                    fontSize: 13,
-                  }}
+                        ? 'border-teal bg-teal-subtle'
+                        : 'border-border-2 bg-surface-2',
+                  )}
                 >
-                  <div style={{ color: 'var(--text-muted)' }}>{bed.label}</div>
+                  <div className="text-text-muted">{bed.label}</div>
                   {/* Occupancy is never signalled by colour alone — the name or the word "Free"
                       carries it for anyone who cannot distinguish the fills. */}
-                  <div style={{ color: 'var(--text)', marginTop: 2, wordBreak: 'break-word' }}>
+                  <div className="mt-0.5 break-words text-text">
                     {bed.studentName ?? (maintenance ? 'Maintenance' : 'Free')}
                   </div>
                 </li>
@@ -162,7 +142,7 @@ function RoomCard({ room }: { room: Room }) {
             })}
           </ul>
 
-          <p style={{ margin: 0, fontSize: 13, color: free > 0 ? 'var(--teal)' : 'var(--text-muted)' }}>
+          <p className={cn('text-[13px]', free > 0 ? 'text-teal' : 'text-text-muted')}>
             {free > 0 ? `${free} bed${free === 1 ? '' : 's'} free` : 'Full'}
           </p>
         </>

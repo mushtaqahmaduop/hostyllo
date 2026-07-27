@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 /**
  * Sign-in form.
@@ -13,6 +15,7 @@ export function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [reveal, setReveal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -49,7 +52,7 @@ export function LoginForm({ next }: { next?: string }) {
 
   return (
     <form onSubmit={onSubmit} noValidate>
-      <label htmlFor="email" style={labelStyle}>
+      <label htmlFor="email" className={LABEL}>
         Email
       </label>
       <input
@@ -60,75 +63,67 @@ export function LoginForm({ next }: { next?: string }) {
         required
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        style={inputStyle}
+        className={CONTROL}
       />
 
-      <label htmlFor="password" style={{ ...labelStyle, marginTop: 'var(--space-4)' }}>
+      <label htmlFor="password" className={cn(LABEL, 'mt-4')}>
         Password
       </label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-        required
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={inputStyle}
-      />
+      <div className="relative">
+        <input
+          id="password"
+          name="password"
+          type={reveal ? 'text' : 'password'}
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className={cn(CONTROL, 'pr-12')}
+        />
+        {/*
+          A reveal toggle, because the alternative on a phone keyboard in poor light is a warden
+          mistyping a password three times and hitting the API's 10-per-15-minute login rate limit.
+          `aria-pressed` rather than a label swap so a screen reader announces the state change.
+        */}
+        <button
+          type="button"
+          onClick={() => setReveal((v) => !v)}
+          aria-pressed={reveal}
+          aria-label={reveal ? 'Hide password' : 'Show password'}
+          className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-md text-text-muted transition-colors duration-150 hover:text-text"
+        >
+          {reveal ? <EyeOff className="size-5" aria-hidden /> : <Eye className="size-5" aria-hidden />}
+        </button>
+      </div>
 
       {error && (
         // Inline, next to the thing that failed — the design system explicitly rules out alerts.
-        <p
-          role="alert"
-          style={{
-            margin: 'var(--space-4) 0 0',
-            padding: 'var(--space-3)',
-            background: 'var(--red-subtle)',
-            color: 'var(--red)',
-            borderRadius: 'var(--radius-md)',
-            fontSize: 14,
-          }}
-        >
-          {error}
+        <p role="alert" className="mt-4 flex items-start gap-2 rounded-md bg-red-subtle p-3 text-sm text-red">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>{error}</span>
         </p>
       )}
 
-      <button type="submit" disabled={pending} style={buttonStyle(pending)}>
+      <button
+        type="submit"
+        disabled={pending}
+        className={cn(
+          // 44px is the minimum comfortable touch target; the primary users are on phones.
+          'mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md text-base font-semibold shadow-sm transition-colors duration-150',
+          pending
+            ? 'cursor-progress bg-gold-active text-on-gold'
+            : 'bg-gold text-on-gold hover:bg-gold-hover active:bg-gold-active',
+        )}
+      >
+        {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
         {pending ? 'Signing in…' : 'Sign in'}
       </button>
     </form>
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  marginBottom: 'var(--space-2)',
-  fontSize: 14,
-  color: 'var(--text-muted)',
-};
+const LABEL = 'mb-2 block text-sm text-text-muted';
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: 'var(--space-3)',
-  background: 'var(--surface-2)',
-  border: '1px solid var(--border-2)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--text)',
-  fontSize: 16,
-};
-
-const buttonStyle = (pending: boolean): React.CSSProperties => ({
-  width: '100%',
-  marginTop: 'var(--space-6)',
-  padding: 'var(--space-3)',
-  background: pending ? 'var(--gold-active)' : 'var(--gold)',
-  color: '#0b0e14',
-  border: 'none',
-  borderRadius: 'var(--radius-md)',
-  fontWeight: 600,
-  fontSize: 16,
-  cursor: pending ? 'progress' : 'pointer',
-  // 44px is the minimum comfortable touch target; the primary users are on phones.
-  minHeight: 44,
-});
+const CONTROL =
+  'w-full min-h-11 rounded-md border border-border-2 bg-surface-2 px-3 py-2 text-base text-text ' +
+  'transition-colors duration-150 hover:border-text-disabled';
