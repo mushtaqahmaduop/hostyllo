@@ -2,19 +2,18 @@
 ## HOSTYLLO — Complete API Specification
 ### v1.0 · June 2026 · Traceable to PRD v15.0 Section 18 + Blueprint Section 6
 
-> ### ⚠️ COVERAGE — reconciled against code 2026-07-27
+> ### ✅ COVERAGE — reconciled against code 2026-07-27
 >
-> This document was written from the PRD before the API was built, and it has **not** kept pace.
-> Measured, not estimated: the code exposes **69 endpoints across 16 route modules**; this file
-> gives full contracts for **9 modules**. **25 implemented endpoints are documented nowhere below.**
+> This document was written from the PRD before the API was built and had not kept pace: it
+> specified 9 of the 16 route modules, leaving **25 live endpoints documented nowhere**. Modules
+> 10–17 below were written from the route implementations to close that gap, so **all 16 modules
+> are now specified**. Phase 2 is the frontend, and this is what it should be built against.
 >
-> They are listed in [Modules 10–17](#modules-1017--implemented-not-yet-fully-specified) with
-> method, path and role guard — enough to build against — but without request/response schemas.
-> Until those are written, **`apps/api/src/routes/` is the authority for those modules**, not this
-> file. This matters now: Phase 2 is the frontend, and it will be built against this document.
+> Roles throughout reflect PRD §4.2 as enforced by `apps/api/src/lib/roles.ts`. Several guards
+> changed on 2026-07-27 to match the matrix — see "A note on role consistency" at the end.
 >
-> One correction to what *is* documented: `GET /health` is served at **`/api/v1/health`**, not
-> `/health`, and there is a second probe, **`GET /api/v1/ready`** (503 when the DB or Redis is
+> One correction to what was already documented: `GET /health` is served at **`/api/v1/health`**,
+> not `/health`, and there is a second probe, **`GET /api/v1/ready`** (503 when the DB or Redis is
 > down — `/health` stays 200 so a transient blip cannot tear down a working deploy).
 
 ---
@@ -1408,50 +1407,218 @@ Performance target: < 200ms p95. Uses the single-query CTE defined in `04_DATABA
 
 ---
 
-## MODULES 10–17 — IMPLEMENTED, NOT YET FULLY SPECIFIED
+## MODULES 10–17 — OPERATIONS
 
-These 25 endpoints exist in `apps/api/src/routes/` and are live. They are **not** specified above.
-The table below is generated from the route definitions — method, path and the roles their
-`requireRole` guard admits — so it is accurate about *access*, but it does not define request or
-response bodies. **Read the route file for those.**
+> Written from the route implementations on 2026-07-27, closing the gap where these 25 live
+> endpoints were documented nowhere. Roles below are the PRD §4.2 matrix as enforced by
+> `apps/api/src/lib/roles.ts` — the one place the matrix now exists in code.
 
-All of them sit behind `requireAuth` and run inside `withTenant()`, so the tenant boundary applies
-exactly as it does everywhere else: another hostel's id returns 404, not 403.
+**Conventions for every endpoint in this section.** They all require `Authorization: Bearer
+<accessToken>` and run inside `withTenant()`, so the tenant boundary applies exactly as elsewhere:
+another hostel's id returns **404, never 403** — a 403 would confirm the row exists. Every list
+endpoint accepts `limit` (1–100, default 25) and `offset` (min 0, default 0) and returns
+`{ success, data: { <collection>, total, limit, offset } }`. Every request body is
+`additionalProperties: false`, so an unknown field is a **400 `VALIDATION_ERROR`**, not a silent
+drop. Money is PKR as a JSON number, converted from Postgres `NUMERIC` — never a string.
+Deletes are **soft** (`deleted_at`), and soft-deleted rows are excluded from every list.
 
-| Module | Method | Path | Roles |
-|---|---|---|---|
-| **10 · Cancellations** | GET | `/cancellations` | warden, hostel_owner, chain_manager |
-| | POST | `/cancellations` | warden, hostel_owner, chain_manager |
-| | POST | `/cancellations/:id/confirm` | hostel_owner, chain_manager |
-| | POST | `/cancellations/:id/restore` | hostel_owner, chain_manager |
-| **11 · Check-in/out log** | GET | `/checkin` | warden, hostel_owner, chain_manager |
-| | POST | `/checkin` | warden, hostel_owner, chain_manager |
-| **12 · Complaints** | GET | `/complaints` | warden, hostel_owner, chain_manager |
-| | POST | `/complaints` | warden, hostel_owner, chain_manager |
-| | PATCH | `/complaints/:id` | warden, hostel_owner, chain_manager |
-| **13 · Fines** | GET | `/fines` | warden, hostel_owner, chain_manager |
-| | POST | `/fines` | warden, hostel_owner, chain_manager |
-| | PATCH | `/fines/:id` | warden, hostel_owner, chain_manager |
-| | DELETE | `/fines/:id` (soft) | hostel_owner, chain_manager |
-| **14 · Maintenance** | GET | `/maintenance` | warden, hostel_owner, chain_manager |
-| | POST | `/maintenance` | warden, hostel_owner, chain_manager |
-| | PATCH | `/maintenance/:id` | warden, hostel_owner, chain_manager |
-| **15 · Notices** | GET | `/notices` | warden, hostel_owner, chain_manager |
-| | POST | `/notices` | warden, hostel_owner, chain_manager |
-| | PATCH | `/notices/:id` | warden, hostel_owner, chain_manager |
-| | DELETE | `/notices/:id` (soft) | hostel_owner, chain_manager |
-| **16 · Transfers** | GET | `/transfers` | hostel_owner, chain_manager |
-| | POST | `/transfers` | hostel_owner, chain_manager |
-| | PATCH | `/transfers/:id` | hostel_owner, chain_manager |
-| | DELETE | `/transfers/:id` (soft) | hostel_owner, chain_manager |
-| **17 · Settings** | GET | `/settings/hostel-info` | warden, hostel_owner, chain_manager |
-| | PATCH | `/settings/hostel-info` | hostel_owner, chain_manager |
+---
 
-> **Note on the Students module's role guards.** Documented above but worth repeating here because
-> it is visible in this table by contrast: every module listed above treats `chain_manager` as
-> owner-equivalent, but `students.ts` excludes it from list/read/create/update while *granting* it
-> `reveal-cnic` and bulk `import`. That inconsistency is flagged in `AUDIT_2026-07-27.md` §6 and is
-> awaiting a policy decision — do not copy either pattern into new modules until it is settled.
+### MODULE 10 — CANCELLATIONS (4 endpoints)
+
+The two-step vacate flow: a cancellation is *requested*, then *confirmed* by an owner or chain
+manager, which is what actually changes the student's lifecycle state. `restore` undoes it.
+
+#### GET /cancellations
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `status` (`pending` | `confirmed` | `restored`), `limit`, `offset`
+**Response:** `200` — `{ cancellations: [...], total, limit, offset }`, each entry
+`{ cancellationId, studentId, studentName, roomNumber, reason, status, vacateDate, confirmedAt, createdAt }`
+
+#### POST /cancellations
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `studentId` (uuid, **required**), `vacateDate` (date, **required**), `reason` (≤500)
+**Response:** `201` — `{ cancellationId, status, vacateDate }`
+**Errors:** `404 NOT_FOUND` (student) · `409 CAN_STUDENT_VACATED` · `409 CAN_ALREADY_PENDING`
+
+#### POST /cancellations/:id/confirm
+**Roles:** hostel_owner, chain_manager — a warden may request a vacate but not finalise it.
+**Response:** `200` — `{ status: "confirmed" }`. Also advances the student's lifecycle state.
+**Errors:** `404 NOT_FOUND` · `409 CAN_NOT_PENDING` (only a pending cancellation can be confirmed)
+
+#### POST /cancellations/:id/restore
+**Roles:** hostel_owner, chain_manager
+**Response:** `200` **Errors:** `404 NOT_FOUND` · `409 CAN_ALREADY_RESTORED`
+
+---
+
+### MODULE 11 — CHECK-IN / CHECK-OUT LOG (2 endpoints)
+
+#### GET /checkin
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `studentId` (uuid), `type` (`checkin` | `checkout`), `from` (date), `to` (date, **inclusive** — the query adds one day), `limit`, `offset`
+**Response:** `200` — `{ entries: [...], total, limit, offset }`, each
+`{ entryId, studentId, studentName, roomNumber, type, note, loggedAt }`, newest first
+
+#### POST /checkin
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `studentId` (uuid, **required**), `type` (`checkin` | `checkout`, **required**), `note` (≤500), `loggedAt` (timestamp — defaults to now, so back-dating is allowed)
+**Response:** `201` — `{ entryId, type, loggedAt }`
+**Errors:** `404 NOT_FOUND` · `409 CHK_STUDENT_VACATED`
+
+---
+
+### MODULE 12 — COMPLAINTS (3 endpoints)
+
+Student-raised issues. `studentId` is optional — a complaint can be anonymous or hostel-wide.
+
+#### GET /complaints
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `status` (`open` | `in_progress` | `resolved` | `closed`), `studentId` (uuid), `limit`, `offset`
+**Response:** `200` — `{ complaints: [...], total, limit, offset }`, each
+`{ complaintId, studentId, studentName, title, description, status, resolvedAt, createdAt }`
+
+#### POST /complaints
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `title` (1–200, **required**), `description` (≤2000), `studentId` (uuid)
+**Response:** `201` — `{ complaintId, status }` **Errors:** `404 NOT_FOUND` (student, if supplied)
+
+#### PATCH /complaints/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `title`, `description`, `status`. Setting `status` to `resolved` stamps `resolvedAt`.
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 13 — FINES (4 endpoints)
+
+#### GET /fines
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `studentId` (uuid), `isPaid` (boolean), `limit`, `offset`
+**Response:** `200` — `{ fines: [...], total, limit, offset, unpaidAmountPkr }`, each
+`{ fineId, studentId, studentName, roomNumber, reason, amountPkr, isPaid, paidAt, fineDate, createdAt }`.
+`unpaidAmountPkr` is the outstanding total across the **filtered** set, not the page.
+
+#### POST /fines
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `studentId` (uuid, **required**), `reason` (1–500, **required**), `amount` (number, **> 0**, **required**), `fineDate` (date, defaults to today)
+**Response:** `201` — `{ fineId, amountPkr, fineDate }`
+**Errors:** `404 NOT_FOUND` · `409 FIN_STUDENT_VACATED`
+
+#### PATCH /fines/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `reason`, `amount` (> 0), `isPaid`, `fineDate`. Setting `isPaid: true` stamps `paidAt`.
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+#### DELETE /fines/:id
+**Roles:** hostel_owner, chain_manager — soft delete. **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 14 — MAINTENANCE (3 endpoints)
+
+Room/facility work requests. `roomId` is optional — a request can be for common areas.
+
+#### GET /maintenance
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `status` (`open` | `in_progress` | `resolved` | `closed`), `priority` (`low` | `medium` | `high` | `urgent`), `roomId` (uuid), `limit`, `offset`
+**Response:** `200` — `{ requests: [...], total, limit, offset }`, each
+`{ requestId, roomId, roomNumber, title, description, priority, status, resolvedAt, createdAt }`
+
+#### POST /maintenance
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `title` (1–200, **required**), `description` (≤2000), `priority` (default `medium`), `roomId` (uuid)
+**Response:** `201` — `{ requestId, status, priority }` **Errors:** `404 NOT_FOUND` (room, if supplied)
+
+#### PATCH /maintenance/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `title`, `description`, `priority`, `status`. `resolved` stamps `resolvedAt`.
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 15 — NOTICES (4 endpoints)
+
+Hostel-wide notice board. Expiry is a display concern, not deletion: an expired notice is hidden
+from the default list but still exists.
+
+#### GET /notices
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `includeExpired` (boolean, default `false`), `limit`, `offset`
+**Response:** `200` — `{ notices: [...], total, limit, offset }`, each
+`{ noticeId, title, body, priority, expiresAt, createdAt }`
+
+#### POST /notices
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `title` (1–200, **required**), `body` (1–5000, **required**), `priority` (`low` | `normal` | `high` | `urgent`, default `normal`), `expiresAt` (timestamp)
+**Response:** `201` — `{ noticeId, priority, expiresAt }`
+
+> Note the enum differs from maintenance/complaints: notices use `normal`, those use `medium`.
+
+#### PATCH /notices/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `title`, `body`, `priority`, `expiresAt`
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+#### DELETE /notices/:id
+**Roles:** hostel_owner, chain_manager — soft delete. **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 16 — TRANSFERS (4 endpoints)
+
+Cash movements out of the hostel — owner drawings, bank deposits, inter-branch settlement. Not
+student payments, and not expenses. **Chain-level: no warden access at any verb**, including read.
+
+#### GET /transfers
+**Roles:** hostel_owner, chain_manager
+**Query:** `from` (date), `to` (date), `limit`, `offset`
+**Response:** `200` — `{ transfers: [...], total, limit, offset, totalAmountPkr }`, each
+`{ transferId, amountPkr, description, transferDate, createdAt }`
+
+#### POST /transfers
+**Roles:** hostel_owner, chain_manager
+**Body:** `amount` (number, **> 0**, **required**), `description` (≤500), `transferDate` (date, defaults to today)
+**Response:** `201` — `{ transferId, amountPkr, transferDate }`
+
+#### PATCH /transfers/:id
+**Roles:** hostel_owner, chain_manager
+**Body:** any subset of `amount` (> 0), `description`, `transferDate`. Writes an `audit_log` entry with the old and new values (INVARIANT-5).
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+#### DELETE /transfers/:id
+**Roles:** hostel_owner, chain_manager — soft delete. **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 17 — SETTINGS (2 endpoints)
+
+**Owner only, both verbs** — PRD §4.2 grants "Settings access" to `hostel_owner` alone. A chain
+manager cannot read this endpoint, which is why it is not in the viewer/warden set either.
+
+#### GET /settings/hostel-info
+**Roles:** hostel_owner
+**Response:** `200` — `{ hostelId, name, address, city, phone, email, logoUrl, timezone, currency, language, plan, planStatus, trialEndsAt }`
+**Errors:** `404 NOT_FOUND`
+
+#### PATCH /settings/hostel-info
+**Roles:** hostel_owner
+**Body:** any subset of `name` (1–200), `address` (≤500), `city` (≤100), `phone` (≤30), `email` (email, ≤254), `logoUrl` (≤1000), `timezone` (≤60), `currency` (exactly 3 chars), `language` (2–10). Omitted fields are left unchanged (`COALESCE`), so `null` cannot be used to clear a field.
+**Response:** `200` — the full updated object, same shape as GET
+**Errors:** `404 NOT_FOUND`
+**Audit:** writes a `settings_updated` `audit_log` entry with old and new values (INVARIANT-5).
+
+---
+
+### A note on role consistency
+
+Every module above takes its roles from `apps/api/src/lib/roles.ts`, which encodes PRD §4.2 in one
+place. That file exists because the matrix used to be inlined per endpoint and drifted: until
+2026-07-27 `chain_manager` could reveal a student's CNIC and bulk-import students but could not
+read one, could edit payments and reach settings (both denied by the PRD), and `viewer` — a role
+the database CHECK constraint permits — appeared in **zero** guards, so such an account logged in
+successfully and then received 403 from the entire product. `apps/api/src/__tests__/roles.test.ts`
+asserts the matrix against live responses so it cannot drift again silently.
 
 ---
 

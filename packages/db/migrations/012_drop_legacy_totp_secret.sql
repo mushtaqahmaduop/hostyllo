@@ -1,0 +1,21 @@
+-- 012_drop_legacy_totp_secret.sql
+--
+-- Removes the legacy plaintext `users.totp_secret` column from PRODUCTION only — it does not
+-- exist anywhere else, which is precisely the problem this migration closes.
+--
+-- Background: migration 009 RENAMEs `totp_secret` -> `totp_secret_enc`. Staging was built by the
+-- migration runner and therefore has only the renamed column. Production was migrated by hand
+-- before the runner existed, and someone had already added `totp_secret_enc` manually, so the
+-- RENAME could not run and an ADAPTED 009 was applied instead — leaving production carrying BOTH
+-- columns. The result (found in the 2026-07-27 audit) was that production and staging had
+-- different schemas, so a migration that passes on staging could still fail on production.
+--
+-- Verified immediately before applying: 0 of 2 production users had any value in `totp_secret`,
+-- and the application has never read it — auth.ts reads `totp_secret_enc` (migration 009 renamed
+-- the read path at the same time). Dropping it loses nothing.
+--
+-- IF EXISTS is what makes this safe to run everywhere: on staging, CI and any fresh database the
+-- column is already absent and this migration is a no-op, so the same ordered set of files now
+-- produces an identical schema in every environment.
+
+ALTER TABLE public.users DROP COLUMN IF EXISTS totp_secret;

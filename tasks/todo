@@ -50,7 +50,9 @@
       endpoints were documented nowhere.** Added a coverage banner + "Modules 10–17" table
       (method/path/roles, generated from the route files) so Phase 2 has something truthful to
       build against, and corrected `GET /health` → `/api/v1/health` + documented `/api/v1/ready`.
-      ⚠️ Writing the 25 missing request/response contracts is real work and a Phase-2 prerequisite.
+      ✅ **The 25 contracts are now written (PR #34)** — Modules 10–17 from the implementations:
+      query params, request bodies, response shapes, status + error codes, roles. All 16 modules
+      specified; the spec is again the thing to build the frontend against.
 - [x] **Stale counts corrected** — `00_SYSTEM_OVERVIEW`'s own "this is stale" banner had drifted
       (said 9 migrations / 6 workers; actual 11 / 5). `04_DATABASE_ARCHITECTURE` claimed authority
       over `packages/db/src/schema.sql`, which has never existed — the migrations are the schema. <!-- link-check-ignore -->
@@ -64,11 +66,12 @@
       external records this repo cannot rewrite. Revisit only if agents actually misnavigate.
 
 ### ⚠️ AUDIT FINDINGS NEEDING YOUR DECISION (details in docs/AUDIT_2026-07-27.md)
-- [ ] **🔴 Prod has NO `schema_migrations` ledger** — hand-migrated, never baselined. Staging has
-      all 11. Prod also still has legacy `users.totp_secret` (0 rows) that a from-scratch DB lacks,
-      so **staging is not a faithful rehearsal of prod**. Fix = `migrate.mjs baseline` against prod
-      then `DROP COLUMN totp_secret`. Both are prod writes → yours to authorise. Safe only while
-      there is no real data.
+- [x] **🔴 Prod migration ledger + schema drift — FIXED (PR #34, applied live).** `schema_migrations`
+      created on prod and baselined with all 12 filenames + real sha256 checksums. Legacy
+      `users.totp_secret` dropped via new **migration 012** (`DROP COLUMN IF EXISTS`, so it is a
+      no-op on staging/CI/fresh DBs — the same files now produce an identical schema everywhere).
+      Verified 0 of 2 users held a value before dropping. Post-state both projects: 12/12 tracked,
+      28/28 FORCE RLS, /health green.
 - [x] **🔴 Fastify 4 EOL → UPGRADED to 5.10.0** (PR #31, 2026-07-27). Plugins: cors 11, helmet 13,
       cookie 11, multipart 10 (retires the v10→v8 downgrade). Only code change: Fastify 5 widened
       `setErrorHandler`'s error param to `unknown` → annotated `FastifyError`. `fast-uri >=3.1.4`
@@ -97,9 +100,16 @@
       envelope every other response uses (`code` is undefined). Add `setNotFoundHandler` before
       the Phase-2 frontend starts consuming error shapes. Found during the Fastify 5 smoke test;
       deliberately kept out of the upgrade PR to keep that diff reviewable.
-- [ ] **🟠 Authorization matrix incoherent** — `chain_manager` can `reveal-cnic` and bulk-import
-      students but cannot list or read one; every other module treats it as owner-equivalent. And
-      the `viewer` role is in the DB CHECK but in **zero** `requireRole` calls — it 403s everywhere.
+- [x] **🟠 Authorization matrix — RESOLVED against PRD §4.2 (PR #34).** Drift was worse than the
+      audit found: **3 violations**, not 1. chain_manager was denied student read/write (matrix: ✓),
+      and *wrongly allowed* payment edit and settings access (matrix: — for both). `viewer` is a
+      real read-only role → GET access to operational data, but NOT audit-log or reveal-cnic (a
+      security log and a decrypted CNIC are not "reports"). Matrix now lives in one file,
+      `apps/api/src/lib/roles.ts`, instead of inlined at 64 call sites — that duplication is why it
+      drifted invisibly. `roles.test.ts` asserts it against live responses per role. Zero live
+      impact: prod has 2 users, both hostel_owner.
+      ⚠️ PRD §4.3 per-warden `can_delete`/`can_settings`/`can_edit` flags remain UNIMPLEMENTED (no
+      columns in any migration) — wardens get the role-level answer. Deliberate; wire in roles.ts.
 - [ ] 🟡 Isolation tests cover 3 of 16 route modules; PRD gate says every endpoint (~half a day).
 - [ ] 🟡 11 merged remote branches to delete.
 
