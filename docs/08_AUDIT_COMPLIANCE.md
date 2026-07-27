@@ -163,7 +163,7 @@ Required DPA clauses (per PRD v15.0 Section 34):
 | Controller obligations | Controller obtains student consent under PDPA 2023 |
 | Governing law | Laws of Pakistan. Disputes in courts of [founder's city]. |
 
-**Template file:** `docs/legal/DPA_template.md` — must be created before first paying client.
+**Template file:** `docs/legal/DPA_template.md` — must be created before first paying client. <!-- link-check-ignore -->
 
 **Process:** DPA sent with subscription confirmation email. Signed copy (PDF scan) retained. Receipt date logged in Super Admin tenant detail.
 

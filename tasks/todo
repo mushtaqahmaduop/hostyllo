@@ -39,6 +39,30 @@
       `@fastify/rate-limit`, `@otplib/preset-default`. Killed 3 CRITICAL CVEs incl. fast-jwt cache
       confusion. `pnpm audit` 42→36, criticals 5→2 (both non-runtime: vitest, bcrypt's tar).
 
+### DOC PASSES 2–3 — DONE (2026-07-27, PR #33)
+- [x] **Doc links are now CI-gated** — `scripts/check-doc-links.mjs` resolves every markdown link
+      and inline `path/file` mention across docs/, tasks/, .claude/ and root CLAUDE.md; wired as a
+      `Lint and Test` step. Written because **a third of them were already broken**: 14 dead refs
+      incl. three `docs/docs/` leftovers from the flattening and four pointers to `tasks/todo.md` / <!-- link-check-ignore -->
+      `tasks/lessons.md` (the real files have no extension). All 14 fixed; 113 refs now resolve. <!-- link-check-ignore -->
+      Deliberate references to things that don't exist carry `<!-- link-check-ignore -->`.
+- [x] **API spec reconciled against code** — it documented 9 of 16 route modules; **25 live
+      endpoints were documented nowhere.** Added a coverage banner + "Modules 10–17" table
+      (method/path/roles, generated from the route files) so Phase 2 has something truthful to
+      build against, and corrected `GET /health` → `/api/v1/health` + documented `/api/v1/ready`.
+      ⚠️ Writing the 25 missing request/response contracts is real work and a Phase-2 prerequisite.
+- [x] **Stale counts corrected** — `00_SYSTEM_OVERVIEW`'s own "this is stale" banner had drifted
+      (said 9 migrations / 6 workers; actual 11 / 5). `04_DATABASE_ARCHITECTURE` claimed authority
+      over `packages/db/src/schema.sql`, which has never existed — the migrations are the schema. <!-- link-check-ignore -->
+- [x] **docs/README.md index refreshed** — 25 docs, `AUDIT_2026-07-27.md` is now the
+      engineering-health authority, and the API-spec coverage gap is stated in the index itself.
+- [x] **Agent-doc consolidation** — already done in the 2026-07-22 pass; `.claude/` is 7 agents +
+      6 skills + README with no duplication. Nothing further to merge.
+- [ ] **Numbering collisions: still deliberate, not deferred.** Renaming is now *safe* (the link
+      checker would catch any dangling ref), but the cost/benefit does not justify it: the index
+      mandates citing by filename, and `09_BUILD_STATE_v15.md` is referenced from session notes and
+      external records this repo cannot rewrite. Revisit only if agents actually misnavigate.
+
 ### ⚠️ AUDIT FINDINGS NEEDING YOUR DECISION (details in docs/AUDIT_2026-07-27.md)
 - [ ] **🔴 Prod has NO `schema_migrations` ledger** — hand-migrated, never baselined. Staging has
       all 11. Prod also still has legacy `users.totp_secret` (0 rows) that a from-scratch DB lacks,

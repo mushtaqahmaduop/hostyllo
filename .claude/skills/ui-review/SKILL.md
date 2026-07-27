@@ -5,7 +5,7 @@ description: Review HOSTYLLO frontend (Next.js) work for design-token fidelity, 
 
 # UI Review
 
-Review against `docs/docs/04_UX_DESIGN_SYSTEM.md` and the design tokens in `CLAUDE.md`. Read the
+Review against `docs/04_UX_DESIGN_SYSTEM.md` and the design tokens in `CLAUDE.md`. Read the
 component code; check rendered behavior at 390px and desktop where possible.
 
 ## Steps

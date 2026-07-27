@@ -4,10 +4,12 @@
 
 > ⚠️ **BUILD-STATUS BELOW IS STALE (banner added 2026-07-22).** This brief was authored
 > pre-build and still says "Phase 0 — NOT STARTED." That is no longer true: the repo is in
-> **Phase 1, code ~95% authored** (16 route files, 9 migrations, 6 workers, 14/14 payment
-> tests green, tsc strict-clean). The architecture/product content in this brief is still
+> **Phase 1, code-complete and deployed** — 16 route modules / 69 endpoints, 11 migrations,
+> 5 workers, 40 tests green against real Postgres + Redis in CI, tsc strict-clean, live on Railway
+> with a staging→production pipeline. (Counts corrected 2026-07-27: this banner itself had drifted,
+> saying 9 migrations and 6 workers.) The architecture/product content in this brief is still
 > valid; only the build-status line is outdated. **Source of truth for build state:
-> `docs/09_BUILD_STATE_v15.md` (reconciled session 3).** Never treat this file's status as fact.
+> `docs/09_BUILD_STATE_v15.md`.** Never treat this file's status as fact.
 
 | Field | Value |
 |-------|-------|
@@ -15,7 +17,7 @@
 | Synthesized By | System Architect of Record |
 | Source Authority | All uploaded file sets — fully audited and cross-referenced |
 | PRD Authority | 01_MASTER_PRD_v15.md supersedes all prior versions |
-| Build Status | ~~Phase 0 — NOT STARTED~~ → **STALE. Actual: Phase 1, code ~95% authored — see `09_BUILD_STATE_v15.md`** |
+| Build Status | ~~Phase 0 — NOT STARTED~~ → **STALE. Actual: Phase 1 code-complete and deployed — see `09_BUILD_STATE_v15.md`** |
 | Classification | Confidential — Founder Only |
 
 ---

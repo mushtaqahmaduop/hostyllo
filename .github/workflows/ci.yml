@@ -44,6 +44,12 @@ jobs:
       - name: Typecheck (all packages, strict)
         run: pnpm -r --if-present run typecheck
 
+      # A dead doc pointer fails silently: nothing errors, an agent follows it, finds nothing, and
+      # works from memory instead. A third of the suite's references were broken when this was
+      # added — including paths left over from flattening docs/docs/ away.
+      - name: Doc links resolve
+        run: node scripts/check-doc-links.mjs
+
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest

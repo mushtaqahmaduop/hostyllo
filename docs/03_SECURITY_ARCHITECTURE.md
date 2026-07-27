@@ -444,7 +444,7 @@ railway scale --replicas=2 hostyllo-api
 ```
 
 **STEP 6 — POST-MORTEM (< 48 hours)**
-- Write full incident report in `tasks/lessons.md`.
+- Write full incident report in `tasks/lessons`.
 - Add new ESLint rule, CI check, or test to prevent recurrence.
 - Update this document with new controls if applicable.
 
