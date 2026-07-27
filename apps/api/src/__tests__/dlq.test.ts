@@ -16,6 +16,7 @@ import { HOSTEL_A_ID } from './fixtures.js';
 
 const HAS_DB = !!process.env.DATABASE_URL;
 const JOB_ID = 'dlq-roundtrip-test-0001';
+const RETRY_JOB_ID = 'dlq-retry-guard-test-0001';
 
 let pool: Pool;
 let moveToDLQ: (job: Job | undefined, err: Error) => Promise<void>;
@@ -33,11 +34,11 @@ beforeAll(async () => {
   if (!HAS_DB) return;
   ({ pool } = await import('../lib/db.js'));
   ({ moveToDLQ } = await import('../workers/dlq.js'));
-  await pool.query('DELETE FROM public.dlq_jobs WHERE job_id = $1', [JOB_ID]);
+  await pool.query('DELETE FROM public.dlq_jobs WHERE job_id = ANY($1)', [[JOB_ID, RETRY_JOB_ID]]);
 });
 
 afterAll(async () => {
-  if (HAS_DB && pool) await pool.query('DELETE FROM public.dlq_jobs WHERE job_id = $1', [JOB_ID]).catch(() => {});
+  if (HAS_DB && pool) await pool.query('DELETE FROM public.dlq_jobs WHERE job_id = ANY($1)', [[JOB_ID, RETRY_JOB_ID]]).catch(() => {});
 });
 
 describe.skipIf(!HAS_DB)('DLQ round-trip', () => {
@@ -59,5 +60,23 @@ describe.skipIf(!HAS_DB)('DLQ round-trip', () => {
 
   it('moveToDLQ is a no-op for an undefined job (never throws)', async () => {
     await expect(moveToDLQ(undefined, new Error('ignored'))).resolves.toBeUndefined();
+  });
+
+  it('does not record a job that still has retries left', async () => {
+    // BullMQ emits `failed` on every attempt. A job on attempt 1 of 3 is not dead yet, and
+    // writing it here is what made dlq_jobs report jobs that later succeeded.
+    const retrying = { ...fakeJob(), id: RETRY_JOB_ID, attemptsMade: 1, opts: { attempts: 3 } } as unknown as Job;
+    await moveToDLQ(retrying, new Error('transient: will be retried'));
+
+    const during = await pool.query('SELECT 1 FROM public.dlq_jobs WHERE job_id = $1', [RETRY_JOB_ID]);
+    expect(during.rows.length, 'a retryable failure must not be dead-lettered').toBe(0);
+
+    // Final attempt exhausted — now it is genuinely dead and must be recorded.
+    const exhausted = { ...retrying, attemptsMade: 3 } as unknown as Job;
+    await moveToDLQ(exhausted, new Error('permanent: retries exhausted'));
+
+    const after = await pool.query('SELECT error FROM public.dlq_jobs WHERE job_id = $1', [RETRY_JOB_ID]);
+    expect(after.rows.length, 'exhausted job must be dead-lettered').toBe(1);
+    expect(after.rows[0].error).toBe('permanent: retries exhausted');
   });
 });

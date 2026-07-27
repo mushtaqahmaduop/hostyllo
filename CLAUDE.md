@@ -22,11 +22,17 @@ HOSTYLLO — a multi-tenant SaaS hostel-management platform for Pakistan (global
 The tracker (`docs/09_BUILD_STATE_v15.md`) has drifted more than once — always verify.
 
 Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
-- 10 DB migrations (`packages/db/migrations/001–010`) — the 28-table schema + FORCE-RLS/app-role.
+- 11 DB migrations (`packages/db/migrations/001–011`) — the 28-table schema + FORCE-RLS/app-role
+  + function hardening. ⚠️ Live **production has no `schema_migrations` ledger** (hand-migrated,
+  never baselined) and carries a legacy `users.totp_secret` column that a migrated-from-scratch DB
+  does not have — staging and prod schemas are NOT identical. See `docs/AUDIT_2026-07-27.md`.
 - `packages/db`: canonical `withTenant.ts` (single pool layer), `paymentService.ts`, `formatters.ts` + tests.
 - `apps/api`: full Fastify server, **16 route modules** (auth, students, rooms, payments, expenses,
   dashboard, cancellations, maintenance, complaints, checkin, notices, transfers, fines, users,
-  settings, audit-log), auth middleware, global error handler, 6 workers.
+  settings, audit-log) totalling 64 endpoints, auth middleware, global error handler, and
+  **5 workers** (auto-cancel, billing-sync, email-send, pdf-receipts, rent-generate) plus the
+  `dlq.ts` helper. The "7 queues" in `docs/06_CLAUDE_MD_v15.md` counts two WhatsApp queues that
+  are not built — a Phase-2 feature, not missing Phase-1 work.
 - `packages/config/eslint-plugin-hostyllo` (withTenant + no-hostel-id-from-request rules).
 - `tsc --strict` clean; 14/14 payment unit tests green.
 
@@ -123,13 +129,16 @@ Invoke a skill with the Skill tool (e.g. `/security-audit`) when its procedure f
 
 ```bash
 # If payment code was touched — all 14 must pass, zero partial credit
-pnpm vitest packages/db/src/__tests__/paymentService.test.ts
+pnpm --filter @hostyllo/db exec vitest run src/__tests__/paymentService.test.ts
 
-# Cross-tenant isolation — after EVERY endpoint: A's JWT → B's data MUST return 404 (not 403/200)
-pnpm vitest packages/db/src/__tests__/isolation.test.ts
+# Cross-tenant isolation — after EVERY endpoint: A's JWT → B's data MUST return 404 (not 403/200).
+# Needs a LOCAL Postgres + Redis: globalSetup refuses any non-localhost DATABASE_URL, because it
+# applies every migration and seeds tenants. Without a DB the suite SKIPS and still exits 0 —
+# a green run proves nothing unless the log says the tests ran. CI is the real gate.
+pnpm --filter @hostyllo/api exec vitest run src/__tests__/isolation.test.ts
 
-# RLS must be on for every tenant table — must return 0 rows
-# SELECT tablename FROM pg_tables WHERE rowsecurity = false;
+# RLS must be ENABLE + FORCE on every tenant table. ENABLE alone lets the owner bypass it.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-rls-ci.sql
 ```
 
 ## CODE QUALITY
