@@ -11,7 +11,7 @@ Verify the system is safe to deploy. Read CI config and run the gate checks. Rep
 ## Steps
 1. Confirm CI pipeline order intact: `lint-and-typecheck → unit-tests → infra-gates → deploy`.
 2. Run/inspect each gate. Any failure = NO-GO with the specific blocker.
-3. Walk the current phase's Definition of Done (`docs/docs/09_BUILD_STATE_v15.md`) against the
+3. Walk the current phase's Definition of Done (`docs/09_BUILD_STATE_v15.md`) against the
    actual code — report true status (the tracker is known to be stale).
 
 ## Gates (all must pass)

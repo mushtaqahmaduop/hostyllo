@@ -8,7 +8,7 @@
 
 This document is the complete database architecture reference for HOSTYLLO. It covers all 28 tables, relationships, index strategy, query strategy, tenant isolation, RLS architecture, backup, archiving, data retention, migration strategy, performance, and failure recovery.
 
-**Authority:** PRD v15.0 Section 17 defines table inventory and invariants. This document is the build authority for `packages/db/src/schema.sql`.
+**Authority:** PRD v15.0 Section 17 defines table inventory and invariants. This document is the build authority for the migrations in `packages/db/migrations/` — there is no single `schema.sql`; the schema is the ordered set of migrations, applied by `packages/db/migrate.mjs` and tracked in the `schema_migrations` ledger.
 
 ---
 

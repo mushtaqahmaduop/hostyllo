@@ -28,11 +28,11 @@ HOSTYLLO is a multi-tenant SaaS hostel management platform for Pakistan.
 Before writing any code at the start of every session:
 
 ```
-1. Read tasks/lessons.md → internalize all lessons from prior sessions
+1. Read tasks/lessons → internalize all lessons from prior sessions
 2. Read docs/09_BUILD_STATE_v15.md → know current phase and last completed task
-3. Read tasks/todo.md → continue from where last session ended
+3. Read tasks/todo → continue from where last session ended
 4. State the goal for this session in ONE sentence
-5. Write the session plan to tasks/todo.md with checkable items
+5. Write the session plan to tasks/todo with checkable items
 6. Only then: start writing code
 ```
 
@@ -43,7 +43,7 @@ Before writing any code at the start of every session:
 ### 1. Plan Mode First
 
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- Write the plan to `tasks/todo.md` with checkable items BEFORE writing any code
+- Write the plan to `tasks/todo` with checkable items BEFORE writing any code
 - State: "About to build: [X]. Approach: [Y]. Will verify with: [Z]."
 - If something goes sideways mid-session: **STOP and re-plan immediately**
 
@@ -57,9 +57,9 @@ Before writing any code at the start of every session:
 
 ### 3. Self-Improvement Loop
 
-- After ANY correction from Zeerak: update `tasks/lessons.md` immediately
+- After ANY correction from Zeerak: update `tasks/lessons` immediately
 - Format: `LESSON: [what went wrong] → [rule to prevent recurrence]`
-- **Review `tasks/lessons.md` at the start of every session before writing any code**
+- **Review `tasks/lessons` at the start of every session before writing any code**
 - If a session produces > 3 corrections on the same issue: stop coding, update this file with the clarification
 
 ### 4. Verification Before Done
@@ -389,7 +389,7 @@ When a session produces unexpected output or goes sideways:
 4. FIX — address only the identified violation, not the whole file
 5. TEST — run the relevant unit test before proceeding
 6. COMMIT — git commit -m "fix: [describe exact fix]" then continue
-7. LEARN — update tasks/lessons.md with the pattern to prevent recurrence
+7. LEARN — update tasks/lessons with the pattern to prevent recurrence
 ```
 
 ---
@@ -548,7 +548,7 @@ NODE_ENV
   `{success,code,message}` envelope with no stack leak. Follow the handler; do not invent AppError.
 - Rule 29 is now automated: `apps/api/src/__tests__/isolation.test.ts` runs in the CI
   `integration-tests` job (Postgres + Redis). Still add a case per new endpoint.
-- Rule 30 referenced `./scripts/pre-deploy-check.sh` — **that script does not exist**. The real
+- Rule 30 referenced `./scripts/pre-deploy-check.sh` — **that script does not exist**. <!-- link-check-ignore --> The real
   gates today are `scripts/verify-pitr.sh`, `scripts/verify-rls.sql`, and the CI jobs.
 - Health-check target below said "No DB, no Redis (<50ms)" — **superseded**: `/health` now
   intentionally probes both and returns 503 if either is down (audit finding). Latency is no

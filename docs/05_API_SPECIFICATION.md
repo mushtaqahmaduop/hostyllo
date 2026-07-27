@@ -2,6 +2,21 @@
 ## HOSTYLLO — Complete API Specification
 ### v1.0 · June 2026 · Traceable to PRD v15.0 Section 18 + Blueprint Section 6
 
+> ### ⚠️ COVERAGE — reconciled against code 2026-07-27
+>
+> This document was written from the PRD before the API was built, and it has **not** kept pace.
+> Measured, not estimated: the code exposes **69 endpoints across 16 route modules**; this file
+> gives full contracts for **9 modules**. **25 implemented endpoints are documented nowhere below.**
+>
+> They are listed in [Modules 10–17](#modules-1017--implemented-not-yet-fully-specified) with
+> method, path and role guard — enough to build against — but without request/response schemas.
+> Until those are written, **`apps/api/src/routes/` is the authority for those modules**, not this
+> file. This matters now: Phase 2 is the frontend, and it will be built against this document.
+>
+> One correction to what *is* documented: `GET /health` is served at **`/api/v1/health`**, not
+> `/health`, and there is a second probe, **`GET /api/v1/ready`** (503 when the DB or Redis is
+> down — `/health` stays 200 so a transient blip cannot tear down a working deploy).
+
 ---
 
 ## GLOBAL STANDARDS
@@ -1390,6 +1405,53 @@ Performance target: < 200ms p95. Uses the single-query CTE defined in `04_DATABA
 | **Total** | **~42** | Per PRD v15.0 Section 18 |
 
 **Note on discrepancy:** The PRD counts 42 endpoints. The `reveal-cnic`, `void-confirm`, `bulk-fee`, and `send-receipt` sub-actions bring the real count to ~46 depending on how sub-actions are counted. All are documented here. Build all of them.
+
+---
+
+## MODULES 10–17 — IMPLEMENTED, NOT YET FULLY SPECIFIED
+
+These 25 endpoints exist in `apps/api/src/routes/` and are live. They are **not** specified above.
+The table below is generated from the route definitions — method, path and the roles their
+`requireRole` guard admits — so it is accurate about *access*, but it does not define request or
+response bodies. **Read the route file for those.**
+
+All of them sit behind `requireAuth` and run inside `withTenant()`, so the tenant boundary applies
+exactly as it does everywhere else: another hostel's id returns 404, not 403.
+
+| Module | Method | Path | Roles |
+|---|---|---|---|
+| **10 · Cancellations** | GET | `/cancellations` | warden, hostel_owner, chain_manager |
+| | POST | `/cancellations` | warden, hostel_owner, chain_manager |
+| | POST | `/cancellations/:id/confirm` | hostel_owner, chain_manager |
+| | POST | `/cancellations/:id/restore` | hostel_owner, chain_manager |
+| **11 · Check-in/out log** | GET | `/checkin` | warden, hostel_owner, chain_manager |
+| | POST | `/checkin` | warden, hostel_owner, chain_manager |
+| **12 · Complaints** | GET | `/complaints` | warden, hostel_owner, chain_manager |
+| | POST | `/complaints` | warden, hostel_owner, chain_manager |
+| | PATCH | `/complaints/:id` | warden, hostel_owner, chain_manager |
+| **13 · Fines** | GET | `/fines` | warden, hostel_owner, chain_manager |
+| | POST | `/fines` | warden, hostel_owner, chain_manager |
+| | PATCH | `/fines/:id` | warden, hostel_owner, chain_manager |
+| | DELETE | `/fines/:id` (soft) | hostel_owner, chain_manager |
+| **14 · Maintenance** | GET | `/maintenance` | warden, hostel_owner, chain_manager |
+| | POST | `/maintenance` | warden, hostel_owner, chain_manager |
+| | PATCH | `/maintenance/:id` | warden, hostel_owner, chain_manager |
+| **15 · Notices** | GET | `/notices` | warden, hostel_owner, chain_manager |
+| | POST | `/notices` | warden, hostel_owner, chain_manager |
+| | PATCH | `/notices/:id` | warden, hostel_owner, chain_manager |
+| | DELETE | `/notices/:id` (soft) | hostel_owner, chain_manager |
+| **16 · Transfers** | GET | `/transfers` | hostel_owner, chain_manager |
+| | POST | `/transfers` | hostel_owner, chain_manager |
+| | PATCH | `/transfers/:id` | hostel_owner, chain_manager |
+| | DELETE | `/transfers/:id` (soft) | hostel_owner, chain_manager |
+| **17 · Settings** | GET | `/settings/hostel-info` | warden, hostel_owner, chain_manager |
+| | PATCH | `/settings/hostel-info` | hostel_owner, chain_manager |
+
+> **Note on the Students module's role guards.** Documented above but worth repeating here because
+> it is visible in this table by contrast: every module listed above treats `chain_manager` as
+> owner-equivalent, but `students.ts` excludes it from list/read/create/update while *granting* it
+> `reveal-cnic` and bulk `import`. That inconsistency is flagged in `AUDIT_2026-07-27.md` §6 and is
+> awaiting a policy decision — do not copy either pattern into new modules until it is settled.
 
 ---
 

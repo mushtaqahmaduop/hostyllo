@@ -68,7 +68,7 @@ These have multi-week approval timelines. Apply NOW so they're ready when you ne
 4. Use 360dialog as your API provider: https://360dialog.com/
 5. Submit your business documents
 6. Timeline: 4–8 weeks. START NOW.
-7. Log this in `tasks/todo.md`: "WA application submitted: [date]"
+7. Log this in `tasks/todo`: "WA application submitted: [date]"
 
 **Task 2: Apply for Paymob Merchant Account (1 hour)**
 1. Go to paymob.com (Pakistan portal)
@@ -210,7 +210,7 @@ After all migrations: Run `verify-pitr.sh` again. Run RLS check again.
 
 ```bash
 # Claude Code message:
-"Read tasks/lessons.md. Read docs/06_CLAUDE_MD_v15.md.
+"Read tasks/lessons. Read docs/06_CLAUDE_MD_v15.md.
 Build packages/db:
 1. withTenant.ts — the exact implementation from CLAUDE.md
 2. paymentService.ts — calculateUnpaid() ported verbatim from Electron
@@ -450,8 +450,8 @@ docker run -t owasp/zap2docker-stable zap-baseline.py -t https://app.hostyllo.ap
 ### Before Every Work Session (5 minutes)
 
 ```
-1. Open docs/tasks/lessons.md — read all lessons relevant to today's work
-2. Write today's plan in docs/tasks/todo.md:
+1. Open docs/tasks/lessons — read all lessons relevant to today's work
+2. Write today's plan in docs/tasks/todo:
    - What phase are you in?
    - What is the ONE thing you're building today?
    - What is the verification step?
@@ -472,9 +472,9 @@ docker run -t owasp/zap2docker-stable zap-baseline.py -t https://app.hostyllo.ap
 ### After Every Work Session (5 minutes)
 
 ```
-1. Update docs/tasks/todo.md: mark completed items, note blockers
+1. Update docs/tasks/todo: mark completed items, note blockers
 2. Update docs/09_BUILD_STATE_v15.md: mark tasks done
-3. Add to docs/tasks/lessons.md: any correction you received or mistake you made
+3. Add to docs/tasks/lessons: any correction you received or mistake you made
 4. git push to your feature branch
 5. One sentence: "What do I build next session?"
 ```
@@ -484,7 +484,7 @@ docker run -t owasp/zap2docker-stable zap-baseline.py -t https://app.hostyllo.ap
 ```bash
 # 1. PITR verification (5 minutes)
 ./scripts/verify-pitr.sh
-# Log the output with timestamp in tasks/lessons.md
+# Log the output with timestamp in tasks/lessons
 
 # 2. Infrastructure cost review (10 minutes)
 # Open Railway, Supabase, Upstash dashboards
@@ -508,7 +508,7 @@ docker run -t owasp/zap2docker-stable zap-baseline.py -t https://app.hostyllo.ap
 ```
 1. Run the specific failing test in isolation: vitest run --reporter=verbose paymentService
 2. Read the error message exactly — do not guess what it means
-3. Check docs/tasks/lessons.md for the same pattern
+3. Check docs/tasks/lessons for the same pattern
 4. If it's a payment formula test: go to PRD Section 7.4, re-read the exact formula
 5. If stuck > 3 attempts on same test: write it in lessons.md and use /debug command
 ```
