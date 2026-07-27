@@ -54,6 +54,67 @@ describe.skipIf(!HAS_DB)('Auth — security invariants', () => {
     expect(JSON.parse(res.body).code).toBe('UNAUTHORIZED');
   });
 
+  // TOTP enrolment is the one authenticated write in auth.ts, so it goes through withTenant
+  // (INVARIANT-2) rather than the privileged pool. That means it is also the only auth path where
+  // the RLS-bound `hostyllo_app` role has to be able to read and update a users row — if the
+  // policy or the tenant context were wrong, this would silently affect 0 rows.
+  describe('POST /auth/totp/setup', () => {
+    // Dedicated IP: rl:login is keyed per IP and the shared budget is 10 per 15 minutes.
+    const login = () => app.inject({
+      method: 'POST', url: '/api/v1/auth/login', remoteAddress: '10.10.10.20',
+      payload: { email: OWNER_A_EMAIL, password: TEST_PASSWORD },
+    });
+
+    afterAll(async () => {
+      if (!HAS_DB) return;
+      await pool.query(
+        `UPDATE public.users
+            SET totp_secret_enc = NULL, totp_backup_codes = NULL, totp_enabled = false
+          WHERE email = $1`,
+        [OWNER_A_EMAIL],
+      );
+    });
+
+    it('writes the secret and the backup codes in one transaction', async () => {
+      const { accessToken } = JSON.parse((await login()).body).data;
+      const res = await app.inject({
+        method: 'POST', url: '/api/v1/auth/totp/setup',
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const { otpAuthUri, backupCodes } = JSON.parse(res.body).data;
+      expect(otpAuthUri).toContain('otpauth://');
+      expect(backupCodes).toHaveLength(8);
+
+      const { rows } = await pool.query(
+        'SELECT totp_secret_enc, totp_backup_codes, totp_enabled FROM public.users WHERE email = $1',
+        [OWNER_A_EMAIL],
+      );
+      // Both columns, or neither: they used to be two separate UPDATEs, so a failure between them
+      // left an account holding a TOTP secret with no way to recover it.
+      expect(rows[0].totp_secret_enc, 'secret must be persisted').toBeTruthy();
+      expect(rows[0].totp_secret_enc).not.toContain('otpauth'); // stored encrypted, not raw
+      const codes = typeof rows[0].totp_backup_codes === 'string'
+        ? JSON.parse(rows[0].totp_backup_codes)
+        : rows[0].totp_backup_codes;
+      expect(codes, 'backup codes must land in the same write').toHaveLength(8);
+      // Enrolment is not complete until /totp/verify succeeds.
+      expect(rows[0].totp_enabled).toBe(false);
+    });
+
+    it('refuses to re-enrol an account that already has TOTP enabled', async () => {
+      await pool.query('UPDATE public.users SET totp_enabled = true WHERE email = $1', [OWNER_A_EMAIL]);
+      const { accessToken } = JSON.parse((await login()).body).data;
+      const res = await app.inject({
+        method: 'POST', url: '/api/v1/auth/totp/setup',
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      expect(res.statusCode).toBe(409);
+      expect(JSON.parse(res.body).code).toBe('AUTH_TOTP_ALREADY_ENABLED');
+    });
+  });
+
   it('login rate-limit fires after 10 attempts from one IP', async () => {
     // Dedicated remoteAddress so these 11 attempts don't consume the default-IP budget the
     // other login tests (and isolation.test.ts) rely on — rl:login is keyed per IP.

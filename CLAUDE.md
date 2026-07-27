@@ -56,7 +56,15 @@ INVARIANT-6  Supabase PITR active before any client data — Free tier forbidden
 ```
 
 **How each is actually enforced (do not overstate):** INVARIANT-2 & 3 are the only two checked
-by the ESLint plugin (`packages/config/eslint-plugin-hostyllo`). INVARIANT-1 is enforced in
+by the ESLint plugin (`packages/config/eslint-plugin-hostyllo`), and only over
+`apps/api/src/routes/**` — workers and the pre-auth bootstrap use the privileged pool by design
+(migration 010 defines two connection identities), so the rules would report ~90 correct-by-design
+calls if run workspace-wide. The handful of privileged queries inside `src/routes` carry a
+line-level `eslint-disable` with a justification, and an exception that stops being needed fails
+the build (`reportUnusedDisableDirectives: 'error'`). The rules run in CI via `pnpm run lint` and
+have their own regression tests (`packages/config/eslint-plugin-hostyllo/index.test.js`) — until
+2026-07-27 the plugin was never loaded by any ESLint config, so both rules had in fact never run.
+INVARIANT-1 is enforced in
 `lib/jwt.ts` (`algorithms:['RS256']`); INVARIANT-4 by the schema; INVARIANT-5 by a DB trigger
 (`audit_log_immutable`, migration 006) + FORCE RLS (migration 010); INVARIANT-6 is operational
 (verify with `scripts/verify-pitr.sh`). The broader rules 1–30 live in `docs/06_CLAUDE_MD_v15.md`

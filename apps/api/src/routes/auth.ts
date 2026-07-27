@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcrypt';
 import { randomUUID, randomBytes } from 'crypto';
 import { generateSecret, generateURI, verify as verifyTotp } from 'otplib';
-import { pool } from '../lib/db.js';
+import { pool, withTenant } from '../lib/db.js';
 import { redis } from '../lib/redis.js';
 import { signAccessToken, signRefreshToken, verifyToken, type TokenPayload } from '../lib/jwt.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -54,6 +54,9 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(429).send({ success: false, code: 'RATE_LIMIT', message: 'Too many login attempts. Try again in 15 minutes.' });
     }
 
+    // The caller has no tenant context yet — this lookup by email is what establishes which
+    // hostel they belong to, so it cannot be scoped by hostel.
+    // eslint-disable-next-line hostyllo/require-with-tenant -- pre-auth, no tenant context exists
     const result = await pool.query(
       `SELECT u.id, u.hostel_id, u.role, u.email, u.password_hash,
               u.totp_enabled, u.display_name, u.theme, u.language,
@@ -88,6 +91,9 @@ export async function authRoutes(app: FastifyInstance) {
     const refreshToken = await signRefreshToken({ sub: user.id, hostelId: user.hostel_id, jti: refreshJti });
 
     await redis.set(`refresh:${refreshJti}`, user.id, 60 * 60 * 24 * 7);
+    // Login bookkeeping, keyed by the user id just authenticated — still outside any request
+    // tenant context (the access token is minted in this same handler).
+    // eslint-disable-next-line hostyllo/require-with-tenant -- pre-auth, no tenant context exists
     await pool.query('UPDATE public.users SET last_login_at = NOW() WHERE id = $1', [user.id]);
 
     reply.setCookie('refreshToken', refreshToken, {
@@ -137,6 +143,9 @@ export async function authRoutes(app: FastifyInstance) {
     await redis.del(`refresh:${payload.jti}`);
 
     // Re-query user to get current role — never trust stale token payload
+    // Refresh: the tenant is read FROM this row to build the new token, so the query cannot be
+    // scoped by it.
+    // eslint-disable-next-line hostyllo/require-with-tenant -- pre-auth, no tenant context exists
     const userRow = await pool.query(
       'SELECT role, hostel_id FROM public.users WHERE id = $1 AND deleted_at IS NULL AND is_active = true',
       [payload.sub]
@@ -216,6 +225,8 @@ export async function authRoutes(app: FastifyInstance) {
   }, async (request, reply) => {
     const { email } = request.body as { email: string };
 
+    // Password reset is unauthenticated — an email address is the only identifier available.
+    // eslint-disable-next-line hostyllo/require-with-tenant -- pre-auth, no tenant context exists
     const result = await pool.query(
       'SELECT id FROM public.users WHERE email = $1 AND deleted_at IS NULL LIMIT 1',
       [email.toLowerCase()]
@@ -246,37 +257,46 @@ export async function authRoutes(app: FastifyInstance) {
     preHandler: [requireAuth],
   }, async (request, reply) => {
     const userId = request.userId;
-    const userResult = await pool.query(
-      'SELECT email, totp_enabled FROM public.users WHERE id = $1 AND deleted_at IS NULL',
-      [userId]
-    );
 
-    const user = userResult.rows[0];
-    if (!user) return reply.code(404).send({ success: false, code: 'NOT_FOUND', message: 'User not found' });
-    if (user.totp_enabled) return reply.code(409).send({ success: false, code: 'AUTH_TOTP_ALREADY_ENABLED', message: 'TOTP already enabled' });
+    // Unlike the rest of this file, enrolment happens inside an authenticated request, so a tenant
+    // context exists and INVARIANT-2 applies: go through withTenant (RLS-bound `hostyllo_app`).
+    // Its transaction also makes the write atomic — the secret and the backup codes used to be two
+    // separate UPDATEs, so a failure between them left an account with a TOTP secret and no codes.
+    const result = await withTenant(request.hostelId, async (db) => {
+      const userResult = await db.query(
+        'SELECT email, totp_enabled FROM public.users WHERE id = $1 AND deleted_at IS NULL',
+        [userId]
+      );
 
-    const secret = generateSecret();
-    const otpAuthUri = generateURI({ issuer: 'HOSTYLLO', label: user.email, secret });
-    const encrypted = encryptSecret(secret);
+      const user = userResult.rows[0];
+      if (!user) return { error: 'NOT_FOUND' as const };
+      if (user.totp_enabled) return { error: 'ALREADY_ENABLED' as const };
 
-    await pool.query(
-      'UPDATE public.users SET totp_secret_enc = $1, totp_enabled = false WHERE id = $2',
-      [encrypted, userId]
-    );
+      const secret = generateSecret();
+      const otpAuthUri = generateURI({ issuer: 'HOSTYLLO', label: user.email, secret });
+      const encrypted = encryptSecret(secret);
 
-    const backupCodes = Array.from({ length: 8 }, () =>
-      randomBytes(8).toString('hex').toUpperCase()
-    );
+      const backupCodes = Array.from({ length: 8 }, () =>
+        randomBytes(8).toString('hex').toUpperCase()
+      );
+      const hashedCodes = await Promise.all(
+        backupCodes.map(c => bcrypt.hash(c, 10))
+      );
 
-    const hashedCodes = await Promise.all(
-      backupCodes.map(c => bcrypt.hash(c, 10))
-    );
-    await pool.query(
-      'UPDATE public.users SET totp_backup_codes = $1 WHERE id = $2',
-      [JSON.stringify(hashedCodes), userId]
-    );
+      await db.query(
+        'UPDATE public.users SET totp_secret_enc = $1, totp_enabled = false, totp_backup_codes = $2 WHERE id = $3',
+        [encrypted, JSON.stringify(hashedCodes), userId]
+      );
 
-    return reply.send({ success: true, data: { otpAuthUri, backupCodes } });
+      return { otpAuthUri, backupCodes };
+    });
+
+    if ('error' in result) {
+      if (result.error === 'NOT_FOUND') return reply.code(404).send({ success: false, code: 'NOT_FOUND', message: 'User not found' });
+      return reply.code(409).send({ success: false, code: 'AUTH_TOTP_ALREADY_ENABLED', message: 'TOTP already enabled' });
+    }
+
+    return reply.send({ success: true, data: { otpAuthUri: result.otpAuthUri, backupCodes: result.backupCodes } });
   });
 
   // POST /api/v1/auth/totp/verify
@@ -300,6 +320,9 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.code(401).send({ success: false, code: 'AUTH_INVALID_MFA_TOKEN', message: 'MFA token expired or invalid' });
     }
 
+    // Second login factor: the caller holds only an mfaToken, and hostel_id is read from this row
+    // in order to mint the access token.
+    // eslint-disable-next-line hostyllo/require-with-tenant -- pre-auth, no tenant context exists
     const userResult = await pool.query(
       `SELECT id, hostel_id, role, email, totp_secret_enc, display_name, theme, language
        FROM public.users
@@ -319,6 +342,8 @@ export async function authRoutes(app: FastifyInstance) {
     }
 
     await redis.del(`mfa:${mfaToken}`);
+    // Same pre-token stage as the SELECT above — the access token is only minted below this line.
+    // eslint-disable-next-line hostyllo/require-with-tenant -- pre-auth, no tenant context exists
     await pool.query('UPDATE public.users SET totp_enabled = true WHERE id = $1', [user.id]);
 
     const jti = randomUUID();
@@ -328,6 +353,9 @@ export async function authRoutes(app: FastifyInstance) {
     const refreshToken = await signRefreshToken({ sub: user.id, hostelId: user.hostel_id, jti: refreshJti });
 
     await redis.set(`refresh:${refreshJti}`, user.id, 60 * 60 * 24 * 7);
+    // Login bookkeeping, keyed by the user id just authenticated — still outside any request
+    // tenant context (the access token is minted in this same handler).
+    // eslint-disable-next-line hostyllo/require-with-tenant -- pre-auth, no tenant context exists
     await pool.query('UPDATE public.users SET last_login_at = NOW() WHERE id = $1', [user.id]);
 
     reply.setCookie('refreshToken', refreshToken, {

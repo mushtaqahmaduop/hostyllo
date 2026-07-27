@@ -140,19 +140,35 @@ If any supporting document conflicts with this PRD, this PRD wins.
 ### Phase 1 Definition of Done
 **Phase 2 does not begin until every item below is checked. No exceptions.**
 
-- [ ] All 28 tables created with RLS enabled
-- [ ] `verify-pitr.sh` returns exit 0 and result is logged with timestamp
-- [ ] All 14 payment unit tests pass in CI
-- [ ] Cross-tenant isolation test passes for every endpoint (JWT A → data B → 404)
-- [ ] `withTenant()` ESLint rule active and blocking violations in CI
-- [ ] `/health` endpoint returns `db: ok` and `redis: ok`
-- [ ] bcrypt rounds verified ≥ 12 in auth integration test
-- [ ] CNIC encrypted at rest — plaintext `cnic` column must not exist
-- [ ] Soft-delete verified: `deleted_at IS NOT NULL` records excluded from all list endpoints
-- [ ] Receipt counter atomic function deployed and tested for concurrency
-- [ ] BullMQ DLQ confirmed on all 7 queues
-- [ ] Sentry error tracking receiving events
-- [ ] No secrets in git — `git log -p | grep -iE "key|secret|password"` returns empty
+> Status reconciled against code and the live database on **2026-07-27**. Evidence, not optimism:
+> a box is only checked where something automated proves it on every run, or a live query was run.
+
+- [x] All 28 tables created with RLS enabled — CI gate `scripts/verify-rls-ci.sql` asserts ENABLE
+      **and FORCE** on every public table (ENABLE alone leaves the owner bypassing RLS)
+- [ ] `verify-pitr.sh` returns exit 0 and result is logged with timestamp — **FOUNDER**: needs the
+      Supabase Pro/PITR add-on on `eprrhckgtrerknenngdy` plus a Personal Access Token
+- [x] All 14 payment unit tests pass in CI — `Unit Tests` job, every run
+- [ ] Cross-tenant isolation test passes for every endpoint (JWT A → data B → 404) — **partial**:
+      `isolation.test.ts` covers students, rooms, payments; 13 of 16 route modules are unproven.
+      FORCE RLS makes a leak unlikely, but "unlikely" is what this gate exists to eliminate
+- [x] `withTenant()` ESLint rule active and blocking violations in CI — **2026-07-27**: the plugin
+      had never been loaded by any ESLint config, so the rules had never run. Now wired over
+      `src/routes/**` as `error`, with justified line-level exceptions for the pre-auth bootstrap
+- [x] `/health` endpoint returns `db: ok` and `redis: ok` — live since 2026-07-23
+- [x] bcrypt rounds verified ≥ 12 in auth integration test — `auth.test.ts`
+- [x] CNIC encrypted at rest — plaintext `cnic` column must not exist — **verified live 2026-07-27**
+      via Supabase MCP: the only column is `students.cnic_encrypted`, and 0 rows hold a value that
+      is not AES-GCM formatted (prod holds 1 student, 0 CNICs, so `backfill-cnic.mjs` is a no-op)
+- [x] Soft-delete verified: `deleted_at IS NOT NULL` records excluded from all list endpoints —
+      `soft-delete.test.ts`
+- [x] Receipt counter atomic function deployed and tested for concurrency — `receipt-counter.test.ts`
+- [ ] BullMQ DLQ confirmed on all 7 queues — **partial**: `moveToDLQ` is called in the `failed`
+      handler of all 5 workers (verified 2026-07-27) and `dlq.test.ts` proves the mechanism
+      round-trips, but there is no per-worker failure-injection test. **The PRD says 7 queues and
+      the repo has 5** — that discrepancy is unresolved: either this line is stale or 2 are missing
+- [x] Sentry error tracking receiving events — `HOSTYLLO-API-2` arriving proves the pipeline
+- [x] No secrets in git — `Secrets Scan` CI job green. ⚠️ Separately, `apps/api/.env` holds live
+      production credentials in the founder's working tree (gitignored, never committed) — C3
 
 ---
 
