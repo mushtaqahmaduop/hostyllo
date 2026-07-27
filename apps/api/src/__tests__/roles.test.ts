@@ -15,7 +15,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
   OWNER_A_EMAIL, CHAIN_A_EMAIL, WARDEN_A_EMAIL, VIEWER_A_EMAIL,
-  TEST_PASSWORD, HOSTEL_A_STUDENT_ID, HOSTEL_A_ROOM_ID, HOSTEL_A_BED_ID,
+  TEST_PASSWORD, HOSTEL_A_STUDENT_ID, HOSTEL_A_ROOM_ID,
 } from './fixtures.js';
 
 const HAS_DB = !!process.env.DATABASE_URL;
@@ -81,15 +81,24 @@ async function allowed(role: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   return code !== 403;
 }
 
-/** Schema-valid bodies, so denial is decided by the role guard rather than by validation. */
+/**
+ * Schema-valid bodies, so denial is decided by the role guard rather than by validation.
+ *
+ * Foreign keys point at ids that do NOT exist. These probes only need to get past validation and
+ * reach the guard; whether the handler then answers 201 or 404 is irrelevant, since `allowed()`
+ * asks only "was it 403". Using the seeded ids instead made these probes create real rows — the
+ * first version consumed hostel A's only free bed, and students.test.ts then failed inserting a
+ * student because the bed was taken. A permission test must not mutate the fixture set.
+ */
+const ABSENT = '00000000-0000-4000-8000-0000000000ff';
 const VALID_BODY: Record<string, Record<string, unknown>> = {
   '/api/v1/students': {
-    name: 'Role Probe', phone: '03001234567', room_id: HOSTEL_A_ROOM_ID,
-    bed_id: HOSTEL_A_BED_ID, monthly_fee: 8000, join_date: '2026-07-01',
+    name: 'Role Probe', phone: '03001234567', room_id: ABSENT,
+    bed_id: ABSENT, monthly_fee: 8000, join_date: '2026-07-01',
   },
-  '/api/v1/payments': { studentId: HOSTEL_A_STUDENT_ID, month: '2026-07', rent: 8000, paid: 0 },
-  '/api/v1/rooms': { number: 'ROLE-PROBE-1', capacity: 1, monthly_fee: 8000 },
-  '/api/v1/complaints': { title: 'Role probe' },
+  '/api/v1/payments': { studentId: ABSENT, month: '2026-07', rent: 8000, paid: 0 },
+  '/api/v1/rooms': { number: `role-probe-${ABSENT.slice(-6)}`, capacity: 1, monthly_fee: 8000 },
+  '/api/v1/complaints': { title: 'Role probe', studentId: ABSENT },
 };
 
 describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
@@ -134,9 +143,11 @@ describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
       ['POST', '/api/v1/students'],
       ['PATCH', `/api/v1/students/${HOSTEL_A_STUDENT_ID}`],
     ] as const)('can %s %s (PRD: add/edit student ✓)', async (method, url) => {
+      // PATCH sends an empty object: no required fields, so it passes validation and reaches the
+      // guard without renaming the seeded student out from under the other suites.
       const body = method === 'GET' ? undefined
         : method === 'POST' ? VALID_BODY['/api/v1/students']
-        : { name: 'Role Probe Renamed' }; // PATCH has no required fields
+        : {};
       expect(await allowed('chain', method, url, body)).toBe(true);
     });
 
@@ -162,7 +173,7 @@ describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
   describe('warden runs one hostel', () => {
     it('can record a payment and manage rooms (PRD: ✓)', async () => {
       expect(await allowed('warden', 'POST', '/api/v1/payments', VALID_BODY['/api/v1/payments'])).toBe(true);
-      expect(await allowed('warden', 'PATCH', `/api/v1/rooms/${HOSTEL_A_ROOM_ID}`, { monthly_fee: 8000 })).toBe(true);
+      expect(await allowed('warden', 'PATCH', `/api/v1/rooms/${HOSTEL_A_ROOM_ID}`, {})).toBe(true);
     });
 
     it('cannot move money between branches or administer users', async () => {
