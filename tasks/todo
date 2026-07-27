@@ -18,6 +18,42 @@
 - [ ] Full audit (APIs / platform / docs / repo / codebase) → then Phase 2.
 - [ ] Frontend (Vercel `hostyllo.web`) deploy is red — separate stream, untouched.
 
+## ★ SESSION 9 — INVARIANTS ENFORCED + FULL AUDIT (2026-07-27, PRs #29 / #30)
+> Full findings: `docs/AUDIT_2026-07-27.md`. PR #28 and #29 merged to Develop.
+- [x] **INVARIANT-2/3 now actually enforced** (PR #29). The plugin had never been loaded by any
+      ESLint config. Scoped to `src/routes/**` (option (a) from phase2-proposal §3); workers and
+      the pre-auth bootstrap use the privileged pool by design. 7 justified line-level disables;
+      `reportUnusedDisableDirectives: 'error'` so a stale one fails the build. Two rule bugs fixed:
+      `app.delete()` was read as a DB write, and `no-hostel-id-from-request` only matched `req`
+      while every route names it `request` — its "0 violations" meant nothing. Rules now have
+      RuleTester regression tests in CI.
+- [x] **Real violation found + fixed**: `POST /auth/totp/setup` runs authenticated → now uses
+      withTenant; its two UPDATEs collapsed into one statement in that transaction (a failure
+      between them left an account with a TOTP secret and no backup codes). 2 new tests.
+- [x] **CNIC gate CLOSED** — verified live: only `students.cnic_encrypted` exists, 0 non-AES-GCM
+      values. `backfill-cnic.mjs` is a no-op (prod holds 1 student, 0 CNICs). No founder action.
+- [x] **DLQ false-positive bug fixed** — workers called `moveToDLQ` on EVERY failed attempt, so a
+      job that later succeeded still wrote rows to `dlq_jobs`. Guard added inside `moveToDLQ`
+      (one definition of "exhausted" for all 5 workers) + test.
+- [x] **3 dead deps removed** — `@fastify/jwt` (never imported; all JWT via `jose`),
+      `@fastify/rate-limit`, `@otplib/preset-default`. Killed 3 CRITICAL CVEs incl. fast-jwt cache
+      confusion. `pnpm audit` 42→36, criticals 5→2 (both non-runtime: vitest, bcrypt's tar).
+
+### ⚠️ AUDIT FINDINGS NEEDING YOUR DECISION (details in docs/AUDIT_2026-07-27.md)
+- [ ] **🔴 Prod has NO `schema_migrations` ledger** — hand-migrated, never baselined. Staging has
+      all 11. Prod also still has legacy `users.totp_secret` (0 rows) that a from-scratch DB lacks,
+      so **staging is not a faithful rehearsal of prod**. Fix = `migrate.mjs baseline` against prod
+      then `DROP COLUMN totp_secret`. Both are prod writes → yours to authorise. Safe only while
+      there is no real data.
+- [ ] **🔴 Fastify 4.29.1 is EOL** — every remaining runtime CVE traces to it (body-validation
+      bypass, X-Forwarded spoofing, HTTP/2 DDoS, fast-uri host confusion) and every patch is on
+      5.x. Also blocks `@fastify/multipart` v8→v10. Schedule 4→5 as the first Phase-2 infra task.
+- [ ] **🟠 Authorization matrix incoherent** — `chain_manager` can `reveal-cnic` and bulk-import
+      students but cannot list or read one; every other module treats it as owner-equivalent. And
+      the `viewer` role is in the DB CHECK but in **zero** `requireRole` calls — it 403s everywhere.
+- [ ] 🟡 Isolation tests cover 3 of 16 route modules; PRD gate says every endpoint (~half a day).
+- [ ] 🟡 11 merged remote branches to delete.
+
 ## ★ SESSION 8 — PHASE 1 CODE BACKLOG CLOSED (2026-07-26, PR #28, branch `test/phase1-gate`)
 > Every item below is CI-verified on real Postgres+Redis. Suite: **7 files / 38 tests, 0 skipped.**
 - [x] **Isolation gate GREEN** (run 30224319107) — isolation 10/10, auth 5/5, dlq 2/2. Verified
