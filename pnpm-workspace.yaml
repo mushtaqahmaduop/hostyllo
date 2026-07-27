@@ -1,7 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+# Packages permitted to run install scripts. pnpm 10+ blocks all of them by default and fails a
+# frozen install with ERR_PNPM_IGNORED_BUILDS when an unlisted one appears — so adding a dependency
+# that compiles or downloads a binary means adding it here too.
+# `sharp` arrives with Next 16 (image optimisation).
 allowBuilds:
   bcrypt: true
   esbuild: true
   msgpackr-extract: true
+  sharp: true

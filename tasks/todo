@@ -122,6 +122,8 @@
       but it must live in `pnpm-workspace.yaml` (pnpm 10+ stopped reading `pnpm.overrides` from
       package.json) and be written to the lockfile BY pnpm 11 — CI fails
       `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` otherwise. Blocked on the dev-env drift below.
+      **This drift has now cost three CI cycles** (overrides location, engines.node runtime pick,
+      and `allowBuilds` for sharp) — each passed locally on pnpm 9 and failed on CI's pnpm 11.
 - [x] **`engines.node` broke the staging deploy — FIXED (PR #32).** The Fastify 5 merge failed to
       deploy: Railway's railpack **reads `engines.node` to CHOOSE the runtime**, so the `">=20"`
       added for Fastify 5 made it install Node **20.20.2** — and pnpm 11.1.1 (from
