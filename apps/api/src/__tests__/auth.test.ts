@@ -104,8 +104,11 @@ describe.skipIf(!HAS_DB)('Auth — security invariants', () => {
     });
 
     it('refuses to re-enrol an account that already has TOTP enabled', async () => {
-      await pool.query('UPDATE public.users SET totp_enabled = true WHERE email = $1', [OWNER_A_EMAIL]);
+      // Token first, flag second: once totp_enabled is true, login switches to the two-step MFA
+      // flow and returns an mfaToken instead of an accessToken — logging in after the UPDATE
+      // would leave this request unauthenticated and assert 401 rather than the 409 under test.
       const { accessToken } = JSON.parse((await login()).body).data;
+      await pool.query('UPDATE public.users SET totp_enabled = true WHERE email = $1', [OWNER_A_EMAIL]);
       const res = await app.inject({
         method: 'POST', url: '/api/v1/auth/totp/setup',
         headers: { authorization: `Bearer ${accessToken}` },
