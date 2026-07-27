@@ -40,6 +40,18 @@ export async function canOperate(): Promise<boolean> {
   return role === null || role !== 'viewer';
 }
 
+/**
+ * Whether to offer the CNIC reveal — mirrors `SENSITIVE_READ` (owner and chain manager only).
+ *
+ * Unlike `canOperate`, an unknown role returns **false**. The asymmetry is deliberate: revealing a
+ * national identity number is an audited, privileged action, so the safe default when we cannot
+ * tell who is asking is to not draw the button. The API enforces it regardless.
+ */
+export async function canRevealCnic(): Promise<boolean> {
+  const role = await sessionRole();
+  return role === 'hostel_owner' || role === 'chain_manager';
+}
+
 /** Display name and role for the header. Both are cosmetic; neither is trusted for a decision. */
 export async function sessionUser(): Promise<{ name: string | null; role: Role | null }> {
   const jar = await cookies();

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
@@ -112,7 +113,16 @@ export default async function StudentsPage({
                 const unpaid = Number(s.unpaid_pkr ?? 0);
                 return (
                   <Tr key={s.student_id}>
-                    <Td>{s.full_name}</Td>
+                    <Td>
+                      {/* The name is the link, not the whole row: a row-wide click target would
+                          swallow the "Take payment" link sitting inside it. */}
+                      <Link
+                        href={`/students/${s.student_id}`}
+                        className="font-medium text-text hover:text-gold"
+                      >
+                        {s.full_name}
+                      </Link>
+                    </Td>
                     <Td>{s.room_number ? `${s.room_number}${s.bed_label ? ` · ${s.bed_label}` : ''}` : '—'}</Td>
                     <Td numeric>{s.phone ?? '—'}</Td>
                     <Td align="right" numeric>

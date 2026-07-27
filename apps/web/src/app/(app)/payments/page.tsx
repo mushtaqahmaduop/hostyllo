@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
 import { Receipt } from 'lucide-react';
@@ -110,6 +111,12 @@ export default async function PaymentsPage({
         </StatGrid>
       )}
 
+      <p className="mb-5">
+        <Link href={`/payments/defaulters?month=${month}`} className="text-[15px]">
+          See who still owes for {month} →
+        </Link>
+      </p>
+
       {/* GET form: filters live in the URL, so a month view can be bookmarked or shared, and the
           back button behaves. No JavaScript required to change month or status. */}
       <form method="GET" className="mb-5 flex flex-wrap gap-2">
@@ -171,7 +178,11 @@ export default async function PaymentsPage({
                     voided && 'opacity-55',
                   )}
                 >
-                  <Td>{p.studentName}</Td>
+                  <Td>
+                    <Link href={`/students/${p.studentId}`} className="font-medium text-text hover:text-gold">
+                      {p.studentName}
+                    </Link>
+                  </Td>
                   <Td>{p.roomNumber ?? '—'}</Td>
                   <Td align="right" numeric>
                     {formatPkr(p.totalDuePkr)}

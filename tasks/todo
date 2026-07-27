@@ -290,6 +290,16 @@ yours — see tasks/phase2-proposal.md §3.
       promising it. (a) is the more useful one — a warden recording "paid in two instalments, second
       by JazzCash" has nowhere else to put it. Deliberately NOT fixed in the frontend slice: it is
       an API + live-schema change, not a UI one. `apps/web` omits the field until this is resolved.
+- [ ] **`GET /payments/defaulters` omits `paymentId`** — found 2026-07-28 while building the
+      defaulters screen (payments.ts:263-281). The endpoint returns `studentId` but not the id of
+      the payment row that is actually outstanding, which blocks the screen's whole purpose: every
+      defaulter *already has* a payment row for that month (the query filters on status
+      pending/partial), so settling one is `PATCH /payments/:id`, never `POST /payments` — a POST
+      hits the duplicate-month guard (payments.ts:145-154) and 409s on every row. With no payment
+      id in the response there is nothing to deep-link a settle action to, so `apps/web` ships the
+      list with rows linking to the student instead of a "collect" button that could not work.
+      FIX: add `p.id as "paymentId"` to the SELECT. One line, no schema change, unblocks the
+      collect flow. Pairs with the still-unbuilt payment-edit UI (`PATCH /payments/:id`).
 
 ## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
 - [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts
