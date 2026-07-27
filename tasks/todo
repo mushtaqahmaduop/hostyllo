@@ -45,9 +45,26 @@
       so **staging is not a faithful rehearsal of prod**. Fix = `migrate.mjs baseline` against prod
       then `DROP COLUMN totp_secret`. Both are prod writes → yours to authorise. Safe only while
       there is no real data.
-- [ ] **🔴 Fastify 4.29.1 is EOL** — every remaining runtime CVE traces to it (body-validation
-      bypass, X-Forwarded spoofing, HTTP/2 DDoS, fast-uri host confusion) and every patch is on
-      5.x. Also blocks `@fastify/multipart` v8→v10. Schedule 4→5 as the first Phase-2 infra task.
+- [x] **🔴 Fastify 4 EOL → UPGRADED to 5.10.0** (PR #31, 2026-07-27). Plugins: cors 11, helmet 13,
+      cookie 11, multipart 10 (retires the v10→v8 downgrade). Only code change: Fastify 5 widened
+      `setErrorHandler`'s error param to `unknown` → annotated `FastifyError`. `fast-uri >=3.1.4`
+      `engines.node: >=20` added (Railway picks its own runtime). **Audit 42 → 28 findings,
+      criticals 5 → 2**; the fastify/find-my-way advisories are gone and the rest is dev
+      (vitest/vite/postcss) or build-time (tar, brace-expansion via bcrypt node-pre-gyp).
+- [ ] **fast-uri override still owed** — Fastify 5.10.0 resolves `fast-uri` 3.1.2 transitively via
+      ajv/the fastify compilers; needs ≥3.1.4 (host confusion). Fix is a pnpm `overrides` entry,
+      but it must live in `pnpm-workspace.yaml` (pnpm 10+ stopped reading `pnpm.overrides` from
+      package.json) and be written to the lockfile BY pnpm 11 — CI fails
+      `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` otherwise. Blocked on the dev-env drift below.
+- [ ] **Dev-env drift** — repo declares `packageManager: pnpm@11.1.1`; the dev machine runs pnpm
+      9.15.9 on Node 20.19.2, and pnpm 11 refuses to start on Node 20
+      (`ERR_UNKNOWN_BUILTIN_MODULE`). CI runs pnpm 11 / Node 22. Anything touching overrides or
+      lockfile config passes locally and fails in CI. Install Node 22 locally (nvm) and use
+      corepack, or pin CI's pnpm to the version this machine can actually run.
+- [ ] 🟡 Unknown routes return Fastify's default 404 body, not the `{success,code,message}`
+      envelope every other response uses (`code` is undefined). Add `setNotFoundHandler` before
+      the Phase-2 frontend starts consuming error shapes. Found during the Fastify 5 smoke test;
+      deliberately kept out of the upgrade PR to keep that diff reviewable.
 - [ ] **🟠 Authorization matrix incoherent** — `chain_manager` can `reveal-cnic` and bulk-import
       students but cannot list or read one; every other module treats it as owner-equivalent. And
       the `viewer` role is in the DB CHECK but in **zero** `requireRole` calls — it 403s everywhere.
