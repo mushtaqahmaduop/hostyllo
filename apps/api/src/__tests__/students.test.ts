@@ -120,4 +120,26 @@ describe.skipIf(!HAS_DB)('students.ts — monthly_fee of 0 is a valid fee', () =
     expect(r.rows).toHaveLength(1);
     expect(Number(r.rows[0].monthly_fee)).toBe(0);
   });
+
+  // Same request, different property: creating that student must also mark the bed occupied.
+  // Until 2026-07-27 it did not — beds.status was only ever written by /rooms/shift and
+  // cancellation-restore, so every student added through the normal flow left their bed 'vacant'.
+  // Double-booking was still prevented (that check reads the students table), but the dashboard
+  // and /rooms both derive occupancy from beds.status, so a full hostel reported 0%. Found by
+  // building the dashboard against real data, not by any test.
+  it('marks the assigned bed occupied, and frees it again on delete', async () => {
+    const bed = await pool.query('SELECT status FROM public.beds WHERE id = $1', [HOSTEL_A_BED_ID]);
+    expect(bed.rows[0]?.status, 'creating a student must occupy the bed').toBe('occupied');
+
+    const student = await pool.query('SELECT id FROM public.students WHERE phone = $1', [ZERO_FEE_PHONE]);
+    const del = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/students/${student.rows[0].id}`,
+      headers: { authorization: `Bearer ${tokenA}` },
+    });
+    expect(del.statusCode, del.body).toBe(200);
+
+    const after = await pool.query('SELECT status FROM public.beds WHERE id = $1', [HOSTEL_A_BED_ID]);
+    expect(after.rows[0]?.status, 'deleting the student must free the bed').toBe('vacant');
+  });
 });

@@ -18,6 +18,45 @@
 - [ ] Full audit (APIs / platform / docs / repo / codebase) → then Phase 2.
 - [ ] Frontend (Vercel `hostyllo.web`) deploy is red — separate stream, untouched.
 
+## ★ SESSION 10 — PHASE 2 STARTED: apps/web scaffolded (2026-07-27, PR #35)
+- [x] **`apps/web` exists and works end-to-end against the live staging API** — Next.js 16 App
+      Router, TypeScript strict, in the pnpm workspace + turbo (lint/build/typecheck all wired).
+      Verified by running the built app against staging: middleware redirects, login through the
+      proxy, and the dashboard + students screens rendering real seeded data.
+- [x] **Auth is a server-side proxy, deliberately.** The browser never calls the API directly.
+      Reason: the API's refresh cookie is `sameSite: 'strict'` + `path=/api/v1/auth/refresh`, and
+      Vercel↔Railway are *different sites*, so a browser would never send it — every session would
+      have died at the 15-minute access-token expiry with no obvious cause. Refreshing server-side
+      avoids it and keeps working once app./api.hostyllo.app make them same-site. Tokens also never
+      touch client JS (httpOnly cookies this app owns).
+- [x] **Design tokens transcribed verbatim** from `docs/04_UX_DESIGN_SYSTEM.md` §2 into
+      `src/app/tokens.css` (dark default). 44px touch targets, 16px inputs (no iOS zoom), inline
+      errors not alerts, zoom left enabled — per that doc's warden-on-a-cheap-Android brief.
+- [x] **Screens:** login, dashboard (6 KPIs + needs-attention), students (search + pagination).
+- [x] **Next.js 16, not 14** as the docs specify. Deliberate: scaffolding a new app on an older
+      major right after fixing the Fastify EOL would repeat the mistake. Note Next 16 removed the
+      `eslint` config key — linting is a separate CI step.
+
+### 🐞 BUG FOUND BY BUILDING THE FRONTEND — FIXED (PR #35)
+- [x] **`POST /students` never marked the assigned bed occupied.** `beds.status` was only ever
+      written by `/rooms/shift` and cancellation-restore, so every student added through the normal
+      flow left their bed `'vacant'`. Double-booking was still prevented (that check reads the
+      students table), but **the dashboard and `/rooms` both derive occupancy from `beds.status`,
+      so a full hostel reported 0%**. Found by rendering the real dashboard, not by any test.
+      Fixed on create + released on soft-delete, with a regression test.
+- [ ] ⚠️ **Related, NOT fixed:** `PATCH /students/:id` can change `bed_id` without moving
+      `beds.status`. `/rooms/shift` is the intended path for moves; decide whether PATCH should
+      reject a `bed_id` change or maintain the status itself.
+- [ ] ⚠️ **API returns money as strings** (`revenuePkr: "11000.00"`, `activeStudents: "3"`) — pg
+      NUMERIC/COUNT not coerced in `dashboard.ts`. The web client defends with `Number()`, but the
+      API spec says numbers. Same class as the payment string-concat bug fixed in July.
+
+### ⚠️ STAGING DEMO DATA (remove whenever you like)
+- Staging had **zero** rows, so a demo tenant was seeded to verify the screens: hostel
+  "Demo Hostel (staging)", login `demo@hostyllo.app` / `Test@1234`, 2 rooms, 3 beds, 3 students,
+  3 payments. **Every id starts with `dced0`** — `DELETE FROM ... WHERE id::text LIKE 'dced0%'`.
+  Staging only; production untouched.
+
 ## ★ SESSION 9 — INVARIANTS ENFORCED + FULL AUDIT (2026-07-27, PRs #29 / #30)
 > Full findings: `docs/AUDIT_2026-07-27.md`. PR #28 and #29 merged to Develop.
 - [x] **INVARIANT-2/3 now actually enforced** (PR #29). The plugin had never been loaded by any
