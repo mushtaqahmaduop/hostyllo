@@ -219,6 +219,19 @@ export async function studentRoutes(app: FastifyInstance) {
         RETURNING id
       `, [name, father_name, cnic ? encryptField(cnic) : null, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee, join_date]);
 
+      // Keep beds.status in step with the assignment. Without this the column is only ever written
+      // by /rooms/shift and cancellation-restore, so a student added through the normal flow left
+      // their bed marked 'vacant' — which is what the dashboard and /rooms count occupancy from.
+      // Double-booking was never possible (the check above reads the students table), but the
+      // occupancy KPI was understated by every student ever created, showing 0% on a full hostel.
+      if (bed_id) {
+        await db.query(
+          `UPDATE public.beds SET status = 'occupied', updated_at = NOW()
+           WHERE id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid`,
+          [bed_id]
+        );
+      }
+
       return row.rows[0];
     });
 
@@ -286,10 +299,22 @@ export async function studentRoutes(app: FastifyInstance) {
       );
       if (unpaid.rows[0]) throw Object.assign(new Error('Pending payments'), { code: 'STU_PENDING_PAYMENTS', status: 409 });
 
-      await db.query(
-        `UPDATE public.students SET deleted_at = NOW(), status = 'vacated', updated_at = NOW() WHERE id = $1`,
+      const removed = await db.query(
+        `UPDATE public.students SET deleted_at = NOW(), status = 'vacated', updated_at = NOW()
+         WHERE id = $1 RETURNING bed_id`,
         [id]
       );
+
+      // Release the bed, mirroring the assignment on create. Without this the bed stays
+      // 'occupied' forever and occupancy drifts upward instead of down.
+      const freedBedId = removed.rows[0]?.bed_id;
+      if (freedBedId) {
+        await db.query(
+          `UPDATE public.beds SET status = 'vacant', updated_at = NOW()
+           WHERE id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid`,
+          [freedBedId]
+        );
+      }
     });
 
     return reply.send({ success:true, data: null });
