@@ -12,10 +12,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@fastify/cookie": "^9.4.0",
-    "@fastify/cors": "^9.0.0",
-    "@fastify/helmet": "^11.0.0",
-    "@fastify/multipart": "^8.3.0",
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/cors": "^11.3.0",
+    "@fastify/helmet": "^13.1.0",
+    "@fastify/multipart": "^10.1.0",
     "@hostyllo/db": "workspace:*",
     "@sentry/node": "^8",
     "@types/bcrypt": "^5.0.2",
@@ -23,7 +23,7 @@
     "bcrypt": "^5.1.1",
     "bullmq": "^5.78.0",
     "dotenv": "^17.4.2",
-    "fastify": "^4.28.0",
+    "fastify": "^5.10.0",
     "ioredis": "^5.4.1",
     "jose": "^5.9.3",
     "otplib": "^13.4.1",

@@ -45,9 +45,16 @@
       so **staging is not a faithful rehearsal of prod**. Fix = `migrate.mjs baseline` against prod
       then `DROP COLUMN totp_secret`. Both are prod writes → yours to authorise. Safe only while
       there is no real data.
-- [ ] **🔴 Fastify 4.29.1 is EOL** — every remaining runtime CVE traces to it (body-validation
-      bypass, X-Forwarded spoofing, HTTP/2 DDoS, fast-uri host confusion) and every patch is on
-      5.x. Also blocks `@fastify/multipart` v8→v10. Schedule 4→5 as the first Phase-2 infra task.
+- [x] **🔴 Fastify 4 EOL → UPGRADED to 5.10.0** (PR #31, 2026-07-27). Plugins: cors 11, helmet 13,
+      cookie 11, multipart 10 (retires the v10→v8 downgrade). Only code change: Fastify 5 widened
+      `setErrorHandler`'s error param to `unknown` → annotated `FastifyError`. `fast-uri >=3.1.4`
+      pnpm override clears the last transitive advisory; `engines.node: >=20` added (Railway picks
+      its own runtime). **Audit 42 → 26 findings, zero runtime high/critical** — all that remains
+      is dev (vitest/vite/postcss) and build-time (tar, brace-expansion via bcrypt node-pre-gyp).
+- [ ] 🟡 Unknown routes return Fastify's default 404 body, not the `{success,code,message}`
+      envelope every other response uses (`code` is undefined). Add `setNotFoundHandler` before
+      the Phase-2 frontend starts consuming error shapes. Found during the Fastify 5 smoke test;
+      deliberately kept out of the upgrade PR to keep that diff reviewable.
 - [ ] **🟠 Authorization matrix incoherent** — `chain_manager` can `reveal-cnic` and bulk-import
       students but cannot list or read one; every other module treats it as owner-equivalent. And
       the `viewer` role is in the DB CHECK but in **zero** `requireRole` calls — it 403s everywhere.

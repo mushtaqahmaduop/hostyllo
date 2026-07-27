@@ -1,4 +1,4 @@
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
@@ -33,7 +33,9 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Global error handler — never leak stack traces, always return the {success,code,message}
   // envelope. Fastify schema-validation failures arrive with `error.validation` set.
-  app.setErrorHandler((error, request, reply) => {
+  // Fastify 5 no longer infers FastifyError here — the handler's error parameter widened to
+  // `unknown`, so it is annotated explicitly rather than cast at each use site.
+  app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error.validation) {
       return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: error.message });
     }
@@ -45,7 +47,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
     return reply.code(status).send({
       success: false,
-      code: (error as { code?: string }).code ?? 'ERROR',
+      code: error.code ?? 'ERROR',
       message: error.message,
     });
   });
