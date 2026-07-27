@@ -18,6 +18,55 @@
 - [ ] Full audit (APIs / platform / docs / repo / codebase) → then Phase 2.
 - [ ] Frontend (Vercel `hostyllo.web`) deploy is red — separate stream, untouched.
 
+## ★ SESSION 8 — PHASE 1 CODE BACKLOG CLOSED (2026-07-26, PR #28, branch `test/phase1-gate`)
+> Every item below is CI-verified on real Postgres+Redis. Suite: **7 files / 38 tests, 0 skipped.**
+- [x] **Isolation gate GREEN** (run 30224319107) — isolation 10/10, auth 5/5, dlq 2/2. Verified
+      from the job log that the tests RAN: with `DATABASE_URL` unset they skip and CI still
+      reports success, so the green tick alone proves nothing.
+- [x] **pg pools kept warm** (`191318b`) — `/ready` was ~425ms of TCP+TLS handshake to Supabase
+      Mumbai on every probe, because pg's 10s default idle timeout left the pool cold at a 5-min
+      probe interval. `allowExitOnIdle` is what makes `idleTimeoutMillis: 0` safe here (nothing
+      calls `pool.end()`, so unreaped sockets would hang the Vitest run). `connectionTimeoutMillis`
+      added so a Supabase that accepts TCP but never authenticates returns 503 instead of hanging.
+- [x] **globalSetup refuses a non-local DB** (`fd9dfed`) — it applies all 10 migrations and seeds
+      tenants, and `apps/api/.env` holds the PRODUCTION Supabase URL while Vitest loads `.env` into
+      `process.env`. A plain `pnpm --filter @hostyllo/api test` on a dev machine would have seeded
+      production. Fails closed, localhost only, no escape hatch. **Do not weaken this.**
+- [x] RLS CI gate (§2) · workspace-wide typecheck (`161794a`) · payment extras + audit tests (§0)
+      · students.ts JSON-Schema validation (§1.5) — details in each section.
+
+### ⚠️ FINDING — INVARIANT-2/3 ARE NOT ENFORCED (found 2026-07-26, NOT fixed, needs your call)
+**`apps/api/eslint.config.js` never loads `eslint-plugin-hostyllo`.** It registers only
+`@typescript-eslint`. So `require-with-tenant` and `no-hostel-id-from-request` — the two rules
+CLAUDE.md names as the enforcement for INVARIANT-2 and INVARIANT-3 — have **never run in CI**.
+`@hostyllo/config` is not even a dependency of `apps/api`, so the config could not import it.
+
+This makes two documented claims false, and they should be corrected either way:
+  - CLAUDE.md: "INVARIANT-2 & 3 are the only two checked by the ESLint plugin"
+  - PRD Phase 2 entry gate: "`withTenant()` ESLint rule active and blocking violations in CI"
+
+Measured before reporting (probe config, since deleted; `eslint.config.js` untouched):
+  - `hostyllo/require-with-tenant` → **90 errors**
+  - `hostyllo/no-hostel-id-from-request` → **0 errors** (INVARIANT-3 does look genuinely respected)
+
+NOT wired up, deliberately. The rule matches any `.query/.select/.insert/.update/.delete` member
+call, so most of the 90 are legitimate or false positives: privileged-pool use in workers and the
+auth bootstrap (correct by design — see migration 010's two connection identities), the test files
+and globalSetup, and 2 hits in `lib/crypto.ts`, which has no DB access at all. Turning it on as
+`error` today just reddens CI.
+
+**Decision needed:** scope the rule to `src/routes/**` only, or refine it to recognise the
+privileged pool, before enabling. That is a design call about where the boundary sits, so it is
+yours — see tasks/phase2-proposal.md §3.
+
+### Founder-blocked — nothing further can proceed on these without you
+- [ ] **Rotate live secrets (C3)** — see line above; credentials still sit in a working-tree `.env`.
+- [ ] **CNIC encryption verified** — needs a live-DB check + one run of `scripts/backfill-cnic.mjs`.
+- [ ] **Sentry**: close `HOSTYLLO-API-2` and confirm the `hostyllo-uptime` cron monitor is deleted.
+      Root cause was fixed in code (`9764e80`); the monitor itself is a dashboard action.
+- [ ] **Supabase Pro + PITR** (INVARIANT-6) and the red Vercel frontend deploy.
+- [ ] **Merge PR #28** — the loop does not merge. Review and promote when you are happy.
+
 ## 0. Payment defects — FIXED 2026-07-22 (14/14 unit tests green)
 - [x] Remove leftover AI comment at `apps/api/src/routes/payments.ts:5`
 - [x] `POST /payments`: `extra_charges` in schema (label+amount, max 20) + persisted into `payment_extra_charges`
@@ -28,7 +77,12 @@
 - [x] BONUS: migration 003 CHECK said `'voided'` but all code uses `'void'` → void-confirm would
       have violated the constraint at runtime. Migration fixed. ⚠️ If a live DB already has the
       old constraint applied, it needs `ALTER TABLE ... DROP/ADD CONSTRAINT`.
-- [ ] Integration tests covering extras persistence + audit rows (needs live DB — see section 2)
+- [x] Integration tests covering extras persistence + audit rows — **DONE 2026-07-26** (`df21115`,
+      `apps/api/src/__tests__/payments.test.ts`, 6 tests green in CI). Covers: extra_charges rows
+      persisted with label+amount; total_due includes them; payment_created audit row carries the
+      extras; PATCH recalculates from the REAL extras (edits to the total that would apply if
+      extras were dropped, so the old bug flips both unpaid and status); payment_updated audit row
+      holds old+new state; audit_log rejects UPDATE and DELETE (INVARIANT-5, live trigger).
 
 ## 0.5 NEW bugs discovered during the fix (not yet fixed)
 - [x] FIXED 2026-07-22: `workers/billing-sync.ts` (5×) + `workers/email-send.ts` (1×) audit_log
@@ -73,7 +127,13 @@
       GET/POST/PATCH student routes still exclude `chain_manager` while import/reveal-cnic
       include it — an authorization-policy inconsistency for the owner to decide (add
       chain_manager to student read/write? left unchanged).
-- [ ] students.ts pre-existing routes still lack JSON-Schema validation (hand-rolled checks only)
+- [x] students.ts JSON-Schema validation — **DONE 2026-07-26** (`d892d11`, 7 tests green in CI).
+      Params/querystring/body schemas on every route. Fixed three 500s-that-should-be-400s
+      (`/students/not-a-uuid` → uuid cast failure; `?limit=abc` → `LIMIT NaN`; PATCH `status` →
+      CHECK violation) and one guard wrong the other way: `!monthly_fee` rejected a fee of 0, so a
+      scholarship/free bed could not be recorded — column is NUMERIC(10,2) NOT NULL DEFAULT 0.
+      Status enum mirrors migration 002's CHECK. No `maximum` on limit on purpose: the handler
+      already clamps to 100, and a 400 there would be a silent contract change for callers.
 - [ ] DEFERRED (no code consumer yet — not adding dead schema): warden flags
       (`can_edit/can_delete/can_settings`) for DELETE-gating; hostel branding fields
       (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
@@ -137,12 +197,25 @@
       regression coverage on every push.
 
 ## 2. Verification gate (turn 🟡 → ✅)
-- [ ] Live/local Postgres + Redis for integration tests
-- [ ] `isolation.test.ts` green (JWT A → data B → 404 everywhere)
-- [ ] RLS CI check: `SELECT tablename FROM pg_tables WHERE rowsecurity=false` → 0 rows
+- [x] Live/local Postgres + Redis for integration tests — CI `integration-tests` job supplies
+      ephemeral postgres:16 + redis:7 service containers. NOT runnable on a dev machine: there is
+      no local PG/Redis/Docker, and `apps/api/.env` holds the PRODUCTION Supabase URL. globalSetup
+      now refuses any non-localhost DATABASE_URL (commit `fd9dfed`) — it applies all 10 migrations
+      and seeds tenants, so pointing it at prod would have injected test data into the live DB.
+- [x] `isolation.test.ts` green (JWT A → data B → 404 everywhere) — **10/10, CI run 30224319107
+      (PR #28), 2026-07-26.** Whole suite: 25 passed / 5 files / 0 skipped, against real PG+Redis
+      with `DATABASE_URL_APP=hostyllo_app` so FORCE-RLS is actually exercised. Verified from the
+      job log that the tests RAN — a missing DATABASE_URL makes them skip and still report success.
+- [x] RLS CI check — **DONE 2026-07-26** (`87871e9` + `6717069`). `scripts/verify-rls-ci.sql`,
+      wired as a CI step after the integration suite (globalSetup is what applies the migrations).
+      Checks `relforcerowsecurity`, not just `relrowsecurity` — ENABLE alone leaves the owner
+      bypassing RLS, which is what made the pre-010 policies decorative. Asserts the core tables
+      exist first, because `string_agg` over zero rows returns NULL and the gate would otherwise
+      pass vacuously on a schema where the migrations silently failed.
 - [x] `/health` returns `db: ok` + `redis: ok` — **LIVE 2026-07-23**
-- [ ] DLQ round-trip → row in `dlq_jobs`
-- [ ] CNIC encryption verified (no plaintext column)
+- [x] DLQ round-trip → row in `dlq_jobs` — `dlq.test.ts` 2/2 green in the same CI run.
+- [ ] CNIC encryption verified (no plaintext column) — BLOCKED on founder: needs a live-DB check
+      that no plaintext CNIC remains + `scripts/backfill-cnic.mjs` run once against prod.
 
 ## 3. Founder-only (external dashboards — Claude can't verify)
 - [x] Railway (API + Redis) live · Sentry wired · uptime monitor active · branch rulesets working

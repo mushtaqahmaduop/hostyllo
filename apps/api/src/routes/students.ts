@@ -15,10 +15,40 @@ interface PreviewRow {
   errors?: string[];
 }
 
+// Shared schema fragments. Before these, every :id route passed the raw string straight into a
+// uuid column, so `/students/not-a-uuid` produced a Postgres "invalid input syntax for type uuid"
+// — a 500 for what is plainly a client error. `status` mirrors the CHECK constraint in migration
+// 002 so an invalid value is a 400 here rather than a constraint violation (500) at the DB.
+const STUDENT_STATUSES = ['active', 'vacating', 'vacated'] as const;
+
+const idParam = {
+  type: 'object',
+  required: ['id'],
+  properties: { id: { type: 'string', format: 'uuid' } },
+} as const;
+
 export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students
-  app.get('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
+  // No `maximum` on limit on purpose: the handler already clamps with Math.min(limit, 100), and
+  // turning an over-large limit into a 400 would be a silent contract change for existing callers.
+  // The schema's job here is the type — `limit=abc` used to reach SQL as NaN and 500.
+  app.get('/', {
+    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    schema: {
+      querystring: {
+        type: 'object',
+        properties: {
+          q:       { type: 'string' },
+          status:  { type: 'string', enum: [...STUDENT_STATUSES], default: 'active' },
+          room_id: { type: 'string', format: 'uuid' },
+          limit:   { type: 'integer', minimum: 1, default: 25 },
+          offset:  { type: 'integer', minimum: 0, default: 0 },
+        },
+        additionalProperties: false,
+      },
+    },
+  }, async (request, reply) => {
     const { q, status = 'active', room_id, limit = 25, offset = 0 } = request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
@@ -68,11 +98,18 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // GET /api/v1/students/search
-  app.get('/search', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
+  app.get('/search', {
+    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    schema: {
+      querystring: {
+        type: 'object',
+        required: ['q'],
+        properties: { q: { type: 'string', minLength: 2 } },
+        additionalProperties: false,
+      },
+    },
+  }, async (request, reply) => {
     const { q } = request.query as Record<string, string | undefined>;
-    if (!q || q.length < 2) {
-      return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: 'q must be at least 2 characters' });
-    }
 
     const result = await withTenant(request.hostelId, async (db) => {
       const rows = await db.query(`
@@ -97,7 +134,10 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // GET /api/v1/students/:id
-  app.get('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
+  app.get('/:id', {
+    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    schema: { params: idParam },
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const result = await withTenant(request.hostelId, async (db) => {
@@ -130,16 +170,38 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // POST /api/v1/students
-  app.post('/', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
+  // monthly_fee is `minimum: 0`, not truthy-checked. The previous guard was `!monthly_fee`, which
+  // rejected a legitimate fee of 0 (scholarship / free bed) as "Missing required fields" — the
+  // column is NUMERIC(10,2) NOT NULL DEFAULT 0, so zero is a valid value the API refused to accept.
+  app.post('/', {
+    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['name', 'phone', 'room_id', 'bed_id', 'monthly_fee', 'join_date'],
+        properties: {
+          name:              { type: 'string', minLength: 1, maxLength: 200 },
+          father_name:       { type: 'string', maxLength: 200 },
+          cnic:              { type: 'string', maxLength: 50 },
+          phone:             { type: 'string', minLength: 1, maxLength: 30 },
+          emergency_contact: { type: 'string', maxLength: 30 },
+          email:             { type: 'string', format: 'email', maxLength: 200 },
+          address:           { type: 'string', maxLength: 500 },
+          room_id:           { type: 'string', format: 'uuid' },
+          bed_id:            { type: 'string', format: 'uuid' },
+          monthly_fee:       { type: 'number', minimum: 0 },
+          admission_fee:     { type: 'number', minimum: 0, default: 0 },
+          join_date:         { type: 'string' },
+        },
+        additionalProperties: false,
+      },
+    },
+  }, async (request, reply) => {
     const { name, father_name, cnic, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee = 0, join_date } = request.body as {
       name?: string; father_name?: string; cnic?: string; phone?: string;
       emergency_contact?: string; email?: string; address?: string;
       room_id?: string; bed_id?: string; monthly_fee?: number; admission_fee?: number; join_date?: string;
     };
-
-    if (!name || !phone || !room_id || !bed_id || !monthly_fee || !join_date) {
-      return reply.code(400).send({ success: false, code: 'VALIDATION_ERROR', message: 'Missing required fields' });
-    }
 
     const result = await withTenant(request.hostelId, async (db) => {
       const bedCheck = await db.query(
@@ -163,7 +225,30 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // PATCH /api/v1/students/:id
-  app.patch('/:id', { preHandler: [requireAuth, requireRole('warden', 'hostel_owner')] }, async (request, reply) => {
+  // `status` is constrained to the migration-002 CHECK values. It was previously forwarded raw
+  // into UPDATE students SET status = $n, so a bad value became a constraint violation (500)
+  // rather than a 400. The allowed-key filter below still gates which columns can be written.
+  app.patch('/:id', {
+    preHandler: [requireAuth, requireRole('warden', 'hostel_owner')],
+    schema: {
+      params: idParam,
+      body: {
+        type: 'object',
+        minProperties: 1,
+        properties: {
+          name:              { type: 'string', minLength: 1, maxLength: 200 },
+          father_name:       { type: 'string', maxLength: 200 },
+          phone:             { type: 'string', minLength: 1, maxLength: 30 },
+          emergency_contact: { type: 'string', maxLength: 30 },
+          email:             { type: 'string', format: 'email', maxLength: 200 },
+          address:           { type: 'string', maxLength: 500 },
+          monthly_fee:       { type: 'number', minimum: 0 },
+          status:            { type: 'string', enum: [...STUDENT_STATUSES] },
+        },
+        additionalProperties: false,
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const body = request.body as Record<string, unknown>;
 
@@ -187,7 +272,10 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // DELETE /api/v1/students/:id
-  app.delete('/:id', { preHandler: [requireAuth, requireRole('hostel_owner')] }, async (request, reply) => {
+  app.delete('/:id', {
+    preHandler: [requireAuth, requireRole('hostel_owner')],
+    schema: { params: idParam },
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     await withTenant(request.hostelId, async (db) => {
@@ -208,7 +296,10 @@ export async function studentRoutes(app: FastifyInstance) {
 
   // GET /api/v1/students/:id/reveal-cnic
   // Explicit, audited CNIC reveal — never returned by any list/detail endpoint.
-  app.get('/:id/reveal-cnic', { preHandler: [requireAuth, requireRole('hostel_owner', 'chain_manager')] }, async (request, reply) => {
+  app.get('/:id/reveal-cnic', {
+    preHandler: [requireAuth, requireRole('hostel_owner', 'chain_manager')],
+    schema: { params: idParam },
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const result = await withTenant(request.hostelId, async (db) => {

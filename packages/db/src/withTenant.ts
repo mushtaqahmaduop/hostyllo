@@ -28,6 +28,28 @@ function buildSsl(): pg.PoolConfig['ssl'] {
   return { rejectUnauthorized: true };
 }
 
+// Connection tuning shared by both pools — kept in one place so they cannot drift.
+//
+// `idleTimeoutMillis: 0` (never reap idle connections) exists because pg's 10s default made the
+// pool cold on essentially every request at low traffic: the only caller between deploys is the
+// 5-minute UptimeRobot probe, so each /ready paid a fresh TCP + TLS handshake (verified against
+// the pinned DATABASE_CA_CERT) + auth to Supabase Mumbai — measured at ~425ms server-side, of
+// which the actual `SELECT 1` is a rounding error. Warm connections make that one round trip.
+//
+// `allowExitOnIdle` is what makes idleTimeoutMillis:0 safe: pg unrefs idle sockets so they never
+// pin the event loop. Without it, sockets that are never reaped keep Node alive forever and the
+// Vitest integration run would hang after the last test (nothing calls pool.end()).
+//
+// `connectionTimeoutMillis` bounds the handshake. Previously unset = wait indefinitely, so a
+// Supabase that accepts TCP but never completes auth would hang /ready past the monitor's own
+// timeout — reported as "no response" instead of the 503 the readiness contract promises.
+const POOL_TUNING = {
+  idleTimeoutMillis: 0,
+  allowExitOnIdle: true,
+  keepAlive: true,
+  connectionTimeoutMillis: 5_000,
+} satisfies Partial<pg.PoolConfig>;
+
 // Privileged (system) pool — connects as the role in DATABASE_URL (the Supabase `postgres`
 // role). Under migration 010's policies the `postgres` role bypasses RLS via the
 // `current_user = 'postgres'` escape, so it is intentionally CROSS-TENANT. Use ONLY for the
@@ -37,6 +59,7 @@ export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: buildSsl(),
   max: 15,
+  ...POOL_TUNING,
 });
 
 // Per-request (tenant) pool — connects as the least-privilege `hostyllo_app` role when
@@ -45,7 +68,7 @@ export const pool = new Pool({
 // leaking. Falls back to the privileged pool when DATABASE_URL_APP is unset (dev / pre-migration)
 // — behaviour identical to before, but DB-level enforcement stays inactive until the role is set.
 const tenantPool = process.env.DATABASE_URL_APP
-  ? new Pool({ connectionString: process.env.DATABASE_URL_APP, ssl: buildSsl(), max: 20 })
+  ? new Pool({ connectionString: process.env.DATABASE_URL_APP, ssl: buildSsl(), max: 20, ...POOL_TUNING })
   : pool;
 
 export async function withTenant<T>(
