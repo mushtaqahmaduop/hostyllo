@@ -56,6 +56,14 @@
       but it must live in `pnpm-workspace.yaml` (pnpm 10+ stopped reading `pnpm.overrides` from
       package.json) and be written to the lockfile BY pnpm 11 — CI fails
       `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` otherwise. Blocked on the dev-env drift below.
+- [x] **`engines.node` broke the staging deploy — FIXED (PR #32).** The Fastify 5 merge failed to
+      deploy: Railway's railpack **reads `engines.node` to CHOOSE the runtime**, so the `">=20"`
+      added for Fastify 5 made it install Node **20.20.2** — and pnpm 11.1.1 (from
+      `packageManager`) needs ≥22.13, so `pnpm install` died with
+      `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite`. Before that field existed railpack defaulted to a
+      newer Node, so a *loose lower bound pinned the build to the oldest allowed version*. Now
+      `">=22.13"` — the real floor, set by pnpm 11, and what CI already runs. Prod was unaffected
+      (deploys from `main`); staging kept serving the previous good build.
 - [ ] **Dev-env drift** — repo declares `packageManager: pnpm@11.1.1`; the dev machine runs pnpm
       9.15.9 on Node 20.19.2, and pnpm 11 refuses to start on Node 20
       (`ERR_UNKNOWN_BUILTIN_MODULE`). CI runs pnpm 11 / Node 22. Anything touching overrides or
