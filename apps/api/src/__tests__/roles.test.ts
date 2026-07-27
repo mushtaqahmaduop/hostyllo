@@ -15,7 +15,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
   OWNER_A_EMAIL, CHAIN_A_EMAIL, WARDEN_A_EMAIL, VIEWER_A_EMAIL,
-  TEST_PASSWORD, HOSTEL_A_STUDENT_ID, HOSTEL_A_ROOM_ID,
+  TEST_PASSWORD, HOSTEL_A_STUDENT_ID, HOSTEL_A_ROOM_ID, HOSTEL_A_BED_ID,
 } from './fixtures.js';
 
 const HAS_DB = !!process.env.DATABASE_URL;
@@ -49,16 +49,48 @@ afterAll(async () => {
   if (app) await app.close();
 });
 
-/** A 403 means the guard rejected the role. Anything else means it let the role through. */
-async function allowed(role: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: Record<string, unknown>) {
+/**
+ * A 403 means the guard rejected the role; anything else means it let the role through (a 404 or
+ * a 409 from the handler still proves the guard passed).
+ *
+ * Fastify validates the body BEFORE preHandler runs, so a request that fails schema validation
+ * returns 400 without the role guard ever executing. Denial cases must therefore send a
+ * schema-valid payload — otherwise the test passes for the wrong reason and would keep passing if
+ * the guard were removed entirely.
+ */
+async function status(role: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: Record<string, unknown>) {
   const res = await app.inject({
     method,
     url,
-    headers: { authorization: `Bearer ${token[role]}` },
+    headers: {
+      authorization: `Bearer ${token[role]}`,
+      // POST /payments declares x-idempotency-key as a required header, and headers are validated
+      // in the same pass as the body — omitting it would 400 before the guard, same trap as above.
+      'x-idempotency-key': `role-probe-${role}-${method}-${url}`,
+    },
     payload: payload ?? undefined,
   });
-  return res.statusCode !== 403;
+  return res.statusCode;
 }
+
+async function allowed(role: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: Record<string, unknown>) {
+  const code = await status(role, method, url, payload);
+  // A 400 means validation rejected the request before the guard was consulted, so this helper
+  // cannot tell whether the role would have been allowed. Fail loudly rather than assert nothing.
+  expect(code, `${method} ${url} as ${role} returned 400 — the body never reached the role guard, so this assertion proves nothing`).not.toBe(400);
+  return code !== 403;
+}
+
+/** Schema-valid bodies, so denial is decided by the role guard rather than by validation. */
+const VALID_BODY: Record<string, Record<string, unknown>> = {
+  '/api/v1/students': {
+    name: 'Role Probe', phone: '03001234567', room_id: HOSTEL_A_ROOM_ID,
+    bed_id: HOSTEL_A_BED_ID, monthly_fee: 8000, join_date: '2026-07-01',
+  },
+  '/api/v1/payments': { studentId: HOSTEL_A_STUDENT_ID, month: '2026-07', rent: 8000, paid: 0 },
+  '/api/v1/rooms': { number: 'ROLE-PROBE-1', capacity: 1, monthly_fee: 8000 },
+  '/api/v1/complaints': { title: 'Role probe' },
+};
 
 describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
   describe('viewer is read-only, not locked out', () => {
@@ -81,7 +113,7 @@ describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
       ['POST', '/api/v1/rooms'],
       ['POST', '/api/v1/complaints'],
     ] as const)('cannot write %s %s', async (method, url) => {
-      expect(await allowed('viewer', method, url, {})).toBe(false);
+      expect(await allowed('viewer', method, url, VALID_BODY[url])).toBe(false);
     });
 
     it('cannot read the audit log (a security log is not a report)', async () => {
@@ -102,7 +134,10 @@ describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
       ['POST', '/api/v1/students'],
       ['PATCH', `/api/v1/students/${HOSTEL_A_STUDENT_ID}`],
     ] as const)('can %s %s (PRD: add/edit student ✓)', async (method, url) => {
-      expect(await allowed('chain', method, url, method === 'GET' ? undefined : {})).toBe(true);
+      const body = method === 'GET' ? undefined
+        : method === 'POST' ? VALID_BODY['/api/v1/students']
+        : { name: 'Role Probe Renamed' }; // PATCH has no required fields
+      expect(await allowed('chain', method, url, body)).toBe(true);
     });
 
     it('cannot delete a student (PRD: —)', async () => {
@@ -126,8 +161,8 @@ describe.skipIf(!HAS_DB)('Role matrix — PRD §4.2', () => {
 
   describe('warden runs one hostel', () => {
     it('can record a payment and manage rooms (PRD: ✓)', async () => {
-      expect(await allowed('warden', 'POST', '/api/v1/payments', {})).toBe(true);
-      expect(await allowed('warden', 'PATCH', `/api/v1/rooms/${HOSTEL_A_ROOM_ID}`, {})).toBe(true);
+      expect(await allowed('warden', 'POST', '/api/v1/payments', VALID_BODY['/api/v1/payments'])).toBe(true);
+      expect(await allowed('warden', 'PATCH', `/api/v1/rooms/${HOSTEL_A_ROOM_ID}`, { monthly_fee: 8000 })).toBe(true);
     });
 
     it('cannot move money between branches or administer users', async () => {
