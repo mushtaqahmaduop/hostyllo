@@ -1,6 +1,7 @@
 import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
 import { formatPkr, formatPct } from '@/lib/format';
+import { Notice, PageHeading, Stat, StatGrid } from '@/components/ui';
 
 export const metadata = { title: 'Dashboard · Hostyllo' };
 
@@ -38,32 +39,22 @@ export default async function DashboardPage() {
     // Anything else is a real failure and is shown rather than hidden behind an empty state —
     // "Never hide failures" (UX design system §1).
     return (
-      <ErrorPanel
-        message={error instanceof ApiError ? error.message : 'Could not load the dashboard.'}
-      />
+      <Notice tone="red">{error instanceof ApiError ? error.message : 'Could not load the dashboard.'}</Notice>
     );
   }
 
   return (
     <>
-      <h1 style={{ fontSize: 24, margin: '0 0 var(--space-6)', letterSpacing: '-0.02em' }}>Dashboard</h1>
+      <PageHeading title="Dashboard" />
 
-      <section
-        aria-label="Key figures"
-        style={{
-          display: 'grid',
-          gap: 'var(--space-4)',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          marginBottom: 'var(--space-8)',
-        }}
-      >
+      <StatGrid label="Key figures">
         <Stat label="Active students" value={String(stats.activeStudents)} />
         <Stat label="Occupancy" value={formatPct(stats.occupancyPct)} hint={`${stats.occupiedBeds} of ${stats.totalBeds} beds`} />
         <Stat label="Revenue this month" value={formatPkr(stats.revenuePkr)} tone="teal" />
-        <Stat label="Pending" value={formatPkr(stats.pendingPkr)} tone={stats.pendingPkr > 0 ? 'amber' : undefined} />
+        <Stat label="Pending" value={formatPkr(stats.pendingPkr)} tone={Number(stats.pendingPkr) > 0 ? 'amber' : undefined} />
         <Stat label="Expenses" value={formatPkr(stats.expensesPkr)} />
-        <Stat label="Net fund" value={formatPkr(stats.netFundPkr)} tone={stats.netFundPkr < 0 ? 'red' : 'teal'} />
-      </section>
+        <Stat label="Net fund" value={formatPkr(stats.netFundPkr)} tone={Number(stats.netFundPkr) < 0 ? 'red' : 'teal'} />
+      </StatGrid>
 
       <section aria-label="Needs attention">
         <h2 style={{ fontSize: 16, color: 'var(--text-muted)', margin: '0 0 var(--space-3)' }}>Needs attention</h2>
@@ -84,34 +75,6 @@ export default async function DashboardPage() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  tone?: 'teal' | 'amber' | 'red';
-}) {
-  const color = tone ? `var(--${tone})` : 'var(--text)';
-  return (
-    <div
-      style={{
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 'var(--space-4)',
-      }}
-    >
-      <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 600, color, letterSpacing: '-0.01em' }}>{value}</div>
-      {hint && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 'var(--space-1)' }}>{hint}</div>}
-    </div>
-  );
-}
-
 function Alert({ count, singular, plural }: { count: number; singular: string; plural: string }) {
   if (!count) return null;
   return (
@@ -129,18 +92,3 @@ function Alert({ count, singular, plural }: { count: number; singular: string; p
   );
 }
 
-function ErrorPanel({ message }: { message: string }) {
-  return (
-    <div
-      role="alert"
-      style={{
-        padding: 'var(--space-4)',
-        background: 'var(--red-subtle)',
-        color: 'var(--red)',
-        borderRadius: 'var(--radius-md)',
-      }}
-    >
-      {message}
-    </div>
-  );
-}

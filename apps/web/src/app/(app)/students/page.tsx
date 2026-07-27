@@ -1,7 +1,7 @@
 import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
 import { formatPkr } from '@/lib/format';
-import Link from 'next/link';
+import { Notice, PageHeading, Pagination, TableFrame, Td, Th } from '@/components/ui';
 
 export const metadata = { title: 'Students · Hostyllo' };
 
@@ -47,16 +47,10 @@ export default async function StudentsPage({
   }
 
   const shown = list.students.length;
-  const from = list.total === 0 ? 0 : offset + 1;
 
   return (
     <>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-3)', marginBottom: 'var(--space-5)' }}>
-        <h1 style={{ fontSize: 24, margin: 0, letterSpacing: '-0.02em' }}>Students</h1>
-        <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          {list.total} active
-        </span>
-      </div>
+      <PageHeading title="Students" meta={`${list.total} active`} />
 
       {/* A plain GET form: search survives a page refresh, works without JavaScript, and keeps the
           query in the URL so a warden can bookmark or share it. */}
@@ -100,8 +94,7 @@ export default async function StudentsPage({
           {q ? `No students match “${q}”.` : 'No students yet.'}
         </Notice>
       ) : (
-        <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, minWidth: 640 }}>
+        <TableFrame>
             <thead>
               <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
                 <Th>Name</Th>
@@ -129,92 +122,17 @@ export default async function StudentsPage({
                 );
               })}
             </tbody>
-          </table>
-        </div>
+        </TableFrame>
       )}
 
-      {list.total > PAGE_SIZE && (
-        <nav
-          aria-label="Pagination"
-          style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}
-        >
-          <PageLink q={q} offset={offset - PAGE_SIZE} disabled={offset === 0}>
-            Previous
-          </PageLink>
-          <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            {from}–{offset + shown} of {list.total}
-          </span>
-          <PageLink q={q} offset={offset + PAGE_SIZE} disabled={offset + shown >= list.total}>
-            Next
-          </PageLink>
-        </nav>
-      )}
+            <Pagination
+        basePath="/students"
+        params={{ q }}
+        offset={offset}
+        shown={shown}
+        total={list.total}
+        pageSize={PAGE_SIZE}
+      />
     </>
-  );
-}
-
-function PageLink({
-  q,
-  offset,
-  disabled,
-  children,
-}: {
-  q?: string;
-  offset: number;
-  disabled: boolean;
-  children: React.ReactNode;
-}) {
-  const style: React.CSSProperties = {
-    padding: 'var(--space-2) var(--space-3)',
-    border: '1px solid var(--border-2)',
-    borderRadius: 'var(--radius-md)',
-    minHeight: 44,
-    display: 'inline-flex',
-    alignItems: 'center',
-    color: disabled ? 'var(--text-disabled)' : 'var(--text)',
-  };
-
-  if (disabled) {
-    return (
-      <span aria-disabled="true" style={style}>
-        {children}
-      </span>
-    );
-  }
-
-  const params = new URLSearchParams();
-  if (q) params.set('q', q);
-  if (offset > 0) params.set('offset', String(offset));
-  const query = params.toString();
-
-  return (
-    <Link href={query ? `/students?${query}` : '/students'} style={style}>
-      {children}
-    </Link>
-  );
-}
-
-function Th({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
-  return (
-    <th style={{ padding: 'var(--space-3)', fontWeight: 600, color: 'var(--text-muted)', fontSize: 13, textAlign: align }}>
-      {children}
-    </th>
-  );
-}
-
-function Td({ children, align = 'left' }: { children: React.ReactNode; align?: 'left' | 'right' }) {
-  return <td style={{ padding: 'var(--space-3)', textAlign: align }}>{children}</td>;
-}
-
-function Notice({ tone, children }: { tone: 'red' | 'amber' | 'muted'; children: React.ReactNode }) {
-  const color = tone === 'muted' ? 'var(--text-muted)' : `var(--${tone})`;
-  const background = tone === 'muted' ? 'var(--surface)' : `var(--${tone}-subtle)`;
-  return (
-    <div
-      role={tone === 'muted' ? undefined : 'alert'}
-      style={{ padding: 'var(--space-4)', background, color, borderRadius: 'var(--radius-md)' }}
-    >
-      {children}
-    </div>
   );
 }

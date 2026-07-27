@@ -32,7 +32,12 @@
 - [x] **Design tokens transcribed verbatim** from `docs/04_UX_DESIGN_SYSTEM.md` §2 into
       `src/app/tokens.css` (dark default). 44px touch targets, 16px inputs (no iOS zoom), inline
       errors not alerts, zoom left enabled — per that doc's warden-on-a-cheap-Android brief.
-- [x] **Screens:** login, dashboard (6 KPIs + needs-attention), students (search + pagination).
+- [x] **Screens:** login, dashboard (6 KPIs + needs-attention), students (search + pagination),
+      **payments** (month/status filters + month summary strip, voided rows dimmed) and **rooms**
+      (bed-occupancy grid — the "where can I put someone" view, per blueprint Module 3). PR #36.
+- [x] **Shared list primitives** extracted to `apps/web/src/components/ui.tsx` once there were three list
+      screens (table frame, notice, pagination that carries filters forward, status badge, stat
+      grid). Dashboard and students refactored onto them in the same pass.
 - [x] **Next.js 16, not 14** as the docs specify. Deliberate: scaffolding a new app on an older
       major right after fixing the Fastify EOL would repeat the mistake. Note Next 16 removed the
       `eslint` config key — linting is a separate CI step.
@@ -55,7 +60,8 @@
 - Staging had **zero** rows, so a demo tenant was seeded to verify the screens: hostel
   "Demo Hostel (staging)", login `demo@hostyllo.app` / `Test@1234`, 2 rooms, 3 beds, 3 students,
   3 payments. **Every id starts with `dced0`** — `DELETE FROM ... WHERE id::text LIKE 'dced0%'`.
-  Staging only; production untouched.
+  Staging only; production untouched. Bed rows were later set to 'occupied' to match their student
+  assignments, since they had been inserted directly rather than through POST /students.
 
 ## ★ SESSION 9 — INVARIANTS ENFORCED + FULL AUDIT (2026-07-27, PRs #29 / #30)
 > Full findings: `docs/AUDIT_2026-07-27.md`. PR #28 and #29 merged to Develop.
