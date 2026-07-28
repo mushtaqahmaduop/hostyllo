@@ -19,7 +19,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
-import { OWNER_A_EMAIL, TEST_PASSWORD, HOSTEL_A_STUDENT_ID } from './fixtures.js';
+import { OWNER_A_EMAIL, HOSTEL_A_STUDENT_ID, LOGIN_IP, loginAs } from './fixtures.js';
 
 const HAS_DB = !!process.env.DATABASE_URL;
 
@@ -48,12 +48,7 @@ beforeAll(async () => {
   app = await buildApp();
   await app.ready();
 
-  const login = await app.inject({
-    method: 'POST',
-    url: '/api/v1/auth/login',
-    payload: { email: OWNER_A_EMAIL, password: TEST_PASSWORD },
-  });
-  tokenA = login.json().data.accessToken;
+  tokenA = await loginAs(app, OWNER_A_EMAIL, LOGIN_IP.numericTypes);
 
   // Partially paid, so it carries a non-zero figure in every one of due / paid / unpaid.
   const created = await app.inject({

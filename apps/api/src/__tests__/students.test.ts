@@ -18,7 +18,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import {
-  OWNER_A_EMAIL, TEST_PASSWORD,
+  OWNER_A_EMAIL, LOGIN_IP, loginAs,
   HOSTEL_A_STUDENT_ID, HOSTEL_A_ROOM_ID, HOSTEL_A_BED_ID,
 } from './fixtures.js';
 
@@ -43,12 +43,7 @@ beforeAll(async () => {
 
   app = await buildApp();
   await app.ready();
-  const res = await app.inject({
-    method: 'POST',
-    url: '/api/v1/auth/login',
-    payload: { email: OWNER_A_EMAIL, password: TEST_PASSWORD },
-  });
-  tokenA = JSON.parse(res.body).data?.accessToken ?? '';
+  tokenA = await loginAs(app, OWNER_A_EMAIL, LOGIN_IP.students);
 });
 
 afterAll(async () => {
