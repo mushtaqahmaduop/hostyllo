@@ -232,6 +232,32 @@ bundle, because the browser only ever talks to this app's own route handlers. Se
 ⚠️ **A green build does not prove it is set.** `/login` renders without it; only the authenticated
 screens fetch. Verify by signing in and reaching `/dashboard`.
 
+### Why GitHub still showed red after the fix
+
+Actions was green and Vercel was green, yet the repo's **Environments** panel kept showing
+`Preview` and `Production` as failed. Both were stale records frozen at **2026-07-22**, because the
+project had:
+
+```
+gitProviderOptions = { "createDeployments": "disabled", "gitCommitStatus": false }
+```
+
+Vercel was deploying but **reporting nothing back to GitHub**, so the last thing GitHub ever heard
+was a failure from six days earlier under the broken configuration. GitHub's Environments panel
+shows the *latest* record per environment, and nothing was superseding it.
+
+Both options are now **enabled**, and a `Develop` deploy wrote a `success` record for `4fc0013`.
+
+The two stale `Production` records were marked `inactive` via the GitHub API — they were deployments
+of a July commit under the old misconfiguration, not live production:
+
+```bash
+gh api -X POST repos/mushtaqahmaduop/hostyllo/deployments/<id>/statuses -f state=inactive
+```
+
+`Production` will show green on the first real production deploy — Vercel's production branch is
+`main`, so that happens when `Develop` merges to `main`.
+
 ### Preview URLs are behind Vercel Authentication
 
 Fetching a preview URL returns `200` with Vercel's own SSO page (`<title>Login – Vercel</title>`),
