@@ -56,12 +56,15 @@ beforeAll(async () => {
   tokenA = login.json().data.accessToken;
 
   // Partially paid, so it carries a non-zero figure in every one of due / paid / unpaid.
-  await app.inject({
+  const created = await app.inject({
     method: 'POST',
     url: '/api/v1/payments',
     headers: { authorization: `Bearer ${tokenA}`, 'x-idempotency-key': `numeric-test-${MONTH}` },
     payload: { studentId: HOSTEL_A_STUDENT_ID, month: MONTH, rent: RENT, paid: PART_PAID },
   });
+  // Without this, a failed setup shows up as an empty result set and reads as "the field is
+  // missing" rather than "the row was never created".
+  expect(created.statusCode, created.body).toBe(201);
 });
 
 afterAll(async () => {

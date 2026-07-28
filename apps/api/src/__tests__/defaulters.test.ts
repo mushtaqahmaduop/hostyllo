@@ -64,7 +64,12 @@ beforeAll(async () => {
     headers: { ...auth(), 'x-idempotency-key': `defaulters-test-${MONTH}` },
     payload: { studentId: HOSTEL_A_STUDENT_ID, month: MONTH, rent: RENT, paid: PART_PAID },
   });
-  createdPaymentId = created.json().data.id;
+  // Asserted here rather than left to fail downstream: reading the wrong field off this response
+  // surfaced as a 400 "params/id must match format uuid" three tests later, which points at the
+  // PATCH route instead of at the setup that actually went wrong.
+  expect(created.statusCode, created.body).toBe(201);
+  createdPaymentId = created.json().data.paymentId;
+  expect(createdPaymentId, 'setup must yield a payment id').toMatch(/^[0-9a-f-]{36}$/);
 });
 
 afterAll(async () => {
