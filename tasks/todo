@@ -111,14 +111,20 @@
       delimiter inside JSX, so the table's signature leading threshold bar never rendered. Moved to
       a real `.hs-row-threshold` rule in `base.css`, driven by `data-threshold`.
 
-### ⚠️ SPEC DEFECT — corrected in code, needs a decision in the doc
-- [ ] **`15_UI_SPEC_v1.md` §4.3 names the wrong locale.** It asks for lakh/crore grouping
-      "via `Intl.NumberFormat('en-PK')`" and prints `PKR 12,84,500` in its own §5 mockup. Measured:
-      `en-PK` → `1,284,500`, and its currency form renders the symbol as **`Rs`**, which the same
-      section explicitly bans. `en-IN` is the locale that produces the grouping the spec wants.
-      `apps/web/src/lib/format.ts` uses `en-IN` for digits and renders the `PKR` prefix separately (which also
-      satisfies "never `₨`, never `Rs.`"). **Amend §4.3 to say `en-IN`** so the next reader does not
-      "fix" it back.
+### ✅ SPEC DEFECT — found, corrected in code, then corrected in the doc (closed 2026-07-28)
+- [x] **`15_UI_SPEC_v1.md` §4.3 named the wrong locale.** It asked for lakh/crore grouping
+      "via `Intl.NumberFormat('en-PK')`" while printing `PKR 12,84,500` in its own §5 sketch.
+      Measured on Node 20: `en-PK` → `1,284,500`, and its currency form renders the symbol as
+      **`Rs`**, which the same section explicitly bans; `en-IN` → `12,84,500`. §4.3 now says
+      `en-IN` and carries a note with the measurement so the next reader does not "fix" it back.
+      The same bullet's `fmtPKR()` reference went with it — that helper has **never existed in
+      this repo**; it is a rule inherited from the HOSTIX-APP Electron codebase, where the
+      formatter did emit a symbol. Here it does not, so "never pair it with a `pkr` span" was not
+      merely stale but the exact inverse of what §4.3's symbol-treatment bullet requires. §17's
+      Definition of Done updated to match.
+      ⚠️ `13_PRODUCTION_READINESS.md` still carries a pre-build `fmtPkr`/`fmtPkrShort` code sample
+      that hardcodes `en-PK` — harmless (nothing imports it, that doc is roadmap not status) but
+      it will read as authoritative to anyone who lands there first.
 
 ### NEXT, in the spec's own order
 - [ ] **Command palette (⌘K / Ctrl+K)** — §7.11 calls it non-negotiable. Not built; needs a search

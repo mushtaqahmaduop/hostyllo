@@ -2,23 +2,27 @@
  * Display formatting — the numeric doctrine, docs/15_UI_SPEC_v1.md §4.3.
  *
  * ─────────────────────────────────────────────────────────────────────────────────────────────
- * A deliberate correction to the spec, made once, here.
+ * Why `en-IN` and not `en-PK`, given the product is Pakistani.
  *
- * §4.3 says: "`PKR 1,25,430` — Pakistani lakh/crore grouping via `Intl.NumberFormat('en-PK')`".
- * Those two halves contradict each other. Measured on Node 20 / ICU:
+ * Because it is the only one of the two that produces Pakistani grouping. Measured on Node 20 /
+ * ICU:
  *
- *     en-PK → "1,284,500"   currency → "Rs 1,284,500"
- *     en-IN → "12,84,500"   currency → "PKR 12,84,500"
+ *     en-PK → "1,284,500"   currency style → "Rs 1,284,500"
+ *     en-IN → "12,84,500"   currency style → "PKR 12,84,500"
  *
- * `en-PK` uses Western three-digit grouping, and its currency form renders the symbol as "Rs" —
- * which §4.3 bans in the very next bullet. `en-IN` is the locale that actually produces the lakh
- * grouping the spec asks for and prints in its own §5 mockup ("PKR 12,84,500").
+ * `en-PK` uses Western three-digit grouping, and its currency form renders the symbol as "Rs",
+ * which §4.3 bans outright. `en-IN` carries the lakh/crore grouping that Pakistani business
+ * practice actually uses. §4.3 originally specified `en-PK`; it was corrected to `en-IN` on
+ * 2026-07-28 and carries a note explaining the measurement, so this is the spec, not a deviation
+ * from it.
  *
- * So: grouping comes from `en-IN`, and the currency style is not used at all. The digits are
- * formatted alone and the "PKR" prefix is rendered by the `<Money>` component in caption/tertiary
- * type (§4.3 "the numerals carry the weight"). That also settles the old CLAUDE.md rule about
- * never pairing `fmtPKR()` with a `pkr` span — the formatter no longer emits a symbol, so the two
- * cannot be doubled up.
+ * The currency *style* is never used either way: digits are formatted alone here, and the "PKR"
+ * prefix is rendered by the `<Money>` component in caption/tertiary type, because §4.3 wants the
+ * numerals to carry the weight. Keeping the symbol out of the formatter is also what makes it
+ * impossible to double it up by putting a prefix span beside a formatted string.
+ *
+ * §13 keeps `en-PK` as the app's *display* locale — that is a different thing (language and
+ * regional conventions), and it is correct there.
  * ─────────────────────────────────────────────────────────────────────────────────────────────
  */
 

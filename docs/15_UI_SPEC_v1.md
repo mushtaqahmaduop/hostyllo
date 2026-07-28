@@ -150,7 +150,8 @@ Three tiers, applied without exception:
 
 **Non-negotiables**
 - `font-variant-numeric: tabular-nums` is **globally on** for every number-bearing element. Proportional digits in a live-updating figure cause visible jitter — the fastest way to look cheap.
-- **Currency:** `PKR 1,25,430` — Pakistani lakh/crore grouping via `Intl.NumberFormat('en-PK')`. Use the existing `fmtPKR()` helper. Never `fmtPKR()` and a `pkr` span together (existing CLAUDE.md rule).
+- **Currency:** `PKR 1,25,430` — Pakistani lakh/crore grouping via **`Intl.NumberFormat('en-IN')`**, and **never** the `currency` style. Use `formatAmount()` from `apps/web/src/lib/format.ts`, which returns grouped digits only; the `PKR` prefix is rendered separately by `<Money>` per the next bullet.
+  > **Corrected 2026-07-28 — this bullet said `en-PK` and named an `fmtPKR()` helper.** Both were wrong. Measured on Node 20 / ICU: `en-PK` → `1,284,500` (Western three-digit grouping) and its currency style renders the symbol as **`Rs`**, which the next bullet explicitly bans; `en-IN` → `12,84,500`, which is the grouping this section asks for and the figure printed in §5's own layout sketch. `fmtPKR()` has never existed in this repo — it is a rule inherited from the HOSTIX-APP Electron codebase, where the formatter *did* emit a symbol and pairing it with a `pkr` span therefore doubled it. Here the formatter emits no symbol at all, so that pairing rule does not apply and its inverse is mandatory: digits and prefix are always separate elements.
 - **Symbol treatment:** `PKR` set in `--hs-type-caption`, `--hs-text-tertiary`, as a superscript-aligned prefix; the numerals carry the weight. Never render `₨` (inconsistent glyph coverage) and never `Rs.`
 - **Zero ≠ empty.** A real zero renders `PKR 0`; unknown/not-yet-loaded renders `—` in `--hs-text-tertiary`. Never `0` as a placeholder.
 - **Deltas** always carry a baseline: `▲ 12.4% vs last month`. Arrow + colour + baseline, or nothing.
@@ -457,7 +458,7 @@ The agent must not generate any of these, regardless of how conventional they ar
 - [ ] Renders correctly in **both** themes; no flash on reload in either.
 - [ ] Zero hardcoded colours, sizes, or durations — tokens only.
 - [ ] All six states from §10 implemented and screenshot-verified.
-- [ ] Every number is tabular, correctly grouped (lakh/crore), and uses `fmtPKR()` where currency.
+- [ ] Every number is tabular, correctly grouped (lakh/crore via `en-IN`, §4.3), and renders through `<Money>` / `<Num>` / `<Pct>` rather than a hand-formatted string.
 - [ ] Every delta shows its comparison baseline; every derived metric has a definition on hover.
 - [ ] Exactly one hero figure; at most one donut; amber appears only on action-required states.
 - [ ] Keyboard-only pass completes every action; focus is always visible; focus returns correctly after dialogs.
