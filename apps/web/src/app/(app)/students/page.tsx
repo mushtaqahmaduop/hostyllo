@@ -1,21 +1,23 @@
 import Link from 'next/link';
-import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
-import { UserPlus } from 'lucide-react';
-import { formatPkr } from '@/lib/format';
+
+import { api, ApiError } from '@/lib/api';
 import { canOperate } from '@/lib/session';
+import { PageHeader } from '@/components/patterns/page-header';
+import { SearchForm } from '@/components/patterns/search-form';
+import { Pagination } from '@/components/patterns/pagination';
+import { Money } from '@/components/patterns/money';
+import { EmptyState, FilteredEmptyState, ErrorState } from '@/components/patterns/states';
+import { Alert, AlertDescription } from '@/components/ui-kit/alert';
+import { Button } from '@/components/ui-kit/button';
 import {
-  ActionLink,
-  Notice,
-  PageHeading,
-  Pagination,
-  RowLink,
-  SearchForm,
-  TableFrame,
-  Td,
-  Th,
-  Tr,
-} from '@/components/ui';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui-kit/table';
 
 export const metadata = { title: 'Students' };
 
@@ -56,98 +58,128 @@ export default async function StudentsPage({
     if (error instanceof ApiError && error.status === 403) {
       // A viewer or chain manager hitting a guard they do not pass. Say so plainly rather than
       // showing an empty table, which would read as "this hostel has no students".
-      return <Notice tone="amber">Your role does not have access to the student list.</Notice>;
+      return (
+        <>
+          <PageHeader title="Students" />
+          <Alert tone="attention">
+            <AlertDescription>
+              Your role does not have access to the student list. Ask the hostel owner to change it.
+            </AlertDescription>
+          </Alert>
+        </>
+      );
     }
-    return <Notice tone="red">{error instanceof ApiError ? error.message : 'Could not load students.'}</Notice>;
+    return (
+      <>
+        <PageHeader title="Students" />
+        <ErrorState
+          title="Couldn't load students"
+          body="Check your connection and try again."
+          detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+          retryHref="/students"
+        />
+      </>
+    );
   }
 
   const shown = list.students.length;
 
   return (
     <>
-      <PageHeading
+      <PageHeader
+        eyebrow={`${list.total} active`}
         title="Students"
-        meta={`${list.total} active`}
-        action={
+        actions={
           mayWrite ? (
-            <ActionLink href="/students/new">
-              <UserPlus className="size-4" aria-hidden />
-              Add student
-            </ActionLink>
+            <Button asChild variant="primary">
+              <Link href="/students/new">Add student</Link>
+            </Button>
           ) : undefined
         }
       />
 
       {added && (
-        <div className="mb-5">
-          {/* Named rather than "Student added": the warden has just typed a name and wants to see
-              it echoed back, and it confirms the right record was created. */}
-          <Notice tone="teal">
+        // Named rather than "Student added": the warden has just typed a name and wants to see it
+        // echoed back — it confirms the right record was created (§14).
+        <Alert tone="positive" className="mb-6">
+          <AlertDescription>
             {list.students.find((s) => s.student_id === added)?.full_name ?? 'Student'} was admitted.
-          </Notice>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* A plain GET form: search survives a page refresh, works without JavaScript, and keeps the
-          query in the URL so a warden can bookmark or share it. */}
       <SearchForm defaultValue={q} label="Search students by name or phone" />
 
       {shown === 0 ? (
-        <Notice tone="muted">
-          {q ? `No students match “${q}”.` : 'No students yet.'}
-        </Notice>
+        q ? (
+          <FilteredEmptyState what="students" clearHref="/students" />
+        ) : (
+          <EmptyState
+            title="No students yet"
+            body="Add your first student to start tracking rooms and dues."
+            action={mayWrite ? { label: 'Add student', href: '/students/new' } : undefined}
+          />
+        )
       ) : (
-        <TableFrame>
-            <thead>
-              <tr className="bg-surface-2 text-left">
-                <Th>Name</Th>
-                <Th>Room</Th>
-                <Th>Phone</Th>
-                <Th align="right">Rent</Th>
-                <Th align="right">Unpaid</Th>
-                {mayWrite && <Th align="right">{''}</Th>}
-              </tr>
-            </thead>
-            <tbody>
-              {list.students.map((s) => {
-                const unpaid = Number(s.unpaid_pkr ?? 0);
-                return (
-                  <Tr key={s.student_id}>
-                    <Td>
-                      {/* The name is the link, not the whole row: a row-wide click target would
-                          swallow the "Take payment" link sitting inside it. */}
-                      <Link
-                        href={`/students/${s.student_id}`}
-                        className="font-medium text-text hover:text-gold"
-                      >
-                        {s.full_name}
-                      </Link>
-                    </Td>
-                    <Td>{s.room_number ? `${s.room_number}${s.bed_label ? ` · ${s.bed_label}` : ''}` : '—'}</Td>
-                    <Td numeric>{s.phone ?? '—'}</Td>
-                    <Td align="right" numeric>
-                      {formatPkr(s.rent_pkr)}
-                    </Td>
-                    <Td align="right" numeric>
-                      <span className={unpaid > 0 ? 'font-semibold text-red' : 'text-text-muted'}>
-                        {formatPkr(unpaid)}
-                      </span>
-                    </Td>
-                    {/* The overwhelmingly common next action from this screen: a student walks up,
-                        the warden finds their row, and takes the month's rent. */}
-                    {mayWrite && (
-                      <Td align="right">
-                        <RowLink href={`/payments/new?studentId=${s.student_id}`}>Take payment</RowLink>
-                      </Td>
-                    )}
-                  </Tr>
-                );
-              })}
-            </tbody>
-        </TableFrame>
+        <Table stickyFirstColumn minWidth={800}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Room</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead numeric>Rent</TableHead>
+              <TableHead numeric>Unpaid</TableHead>
+              {mayWrite && <TableHead numeric>Action</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.students.map((s) => {
+              const unpaid = Number(s.unpaid_pkr ?? 0);
+              return (
+                <TableRow key={s.student_id}>
+                  <TableCell>
+                    {/* The name is the link, not the whole row: a row-wide click target would
+                        swallow the "Take payment" link sitting inside it. */}
+                    <Link
+                      href={`/students/${s.student_id}`}
+                      className="font-medium text-fg hover:text-brand-text"
+                    >
+                      {s.full_name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-mono text-mono text-fg-secondary">
+                    {s.room_number
+                      ? `${s.room_number}${s.bed_label ? ` · ${s.bed_label}` : ''}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="font-mono text-mono">{s.phone ?? '—'}</TableCell>
+                  <TableCell numeric>
+                    <Money value={s.rent_pkr} tier="ledger" />
+                  </TableCell>
+                  <TableCell numeric>
+                    <Money
+                      value={unpaid}
+                      tier="ledger"
+                      className={unpaid > 0 ? 'font-semibold text-attention-text' : 'text-fg-tertiary'}
+                    />
+                  </TableCell>
+                  {/* The overwhelmingly common next action from this screen: a student walks up,
+                      the warden finds their row, and takes the month's rent. */}
+                  {mayWrite && (
+                    <TableCell className="text-end">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/payments/new?studentId=${s.student_id}`}>Take payment</Link>
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
 
-            <Pagination
+      <Pagination
         basePath="/students"
         params={{ q }}
         offset={offset}

@@ -1,43 +1,55 @@
 import type { Metadata, Viewport } from 'next';
-import { Figtree, DM_Mono, Noto_Nastaliq_Urdu } from 'next/font/google';
+import { cookies } from 'next/headers';
+import { Geist, Newsreader, JetBrains_Mono, Noto_Naskh_Arabic } from 'next/font/google';
 import { Toaster } from '@/components/ui-kit/sonner';
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
 
 /**
- * Fonts per docs/04_UX_DESIGN_SYSTEM.md §3.
+ * Fonts per docs/15_UI_SPEC_v1.md §4.1.
  *
- * The spec writes these as `@import` from fonts.googleapis.com. They are loaded through
- * `next/font` instead, which self-hosts the files at build time. That is a deliberate upgrade, not
- * a deviation: it removes a render-blocking round trip to a third-party origin — the single worst
- * thing you can do to first paint on the slow Pakistani mobile connections this product is built
- * for — and `display: swap` plus the size-adjusted fallback keeps text readable while the real
- * face arrives, instead of a blank screen.
+ * Loaded through `next/font`, which downloads and self-hosts the files at build time — the spec
+ * requires self-hosting because the CSP forbids external font origins, and a render-blocking round
+ * trip to a third-party CDN is the single worst thing you can do to first paint on the connections
+ * this product is built for.
+ *
+ * Geist deliberately, not Inter: §4.1 calls Inter "the default tell" on template dashboards.
  */
-const figtree = Figtree({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-figtree',
-  display: 'swap',
-});
-
-/** Money, CNIC and receipt numbers (spec §3 type scale). */
-const dmMono = DM_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-dm-mono',
+const geist = Geist({
+  subsets: ['latin', 'latin-ext'],
+  variable: '--font-geist',
   display: 'swap',
 });
 
 /**
- * Urdu (spec §12). Nastaliq is a large face and is not needed by the English UI, so it is left to
- * load lazily — `preload: false` keeps roughly a megabyte off the critical path for the majority
- * of sessions that never render an Urdu string.
+ * Page titles, the hero figure's companions and empty-state headlines. Editorial serif, used with
+ * restraint — never below 20px, never for UI chrome (§4.1).
+ *
+ * `preload: false` is the spec's own instruction: §4.1 preloads only the two Geist weights used
+ * above the fold, to hold first paint inside the 180 KB font budget.
  */
-const nastaliq = Noto_Nastaliq_Urdu({
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  variable: '--font-newsreader',
+  display: 'swap',
+  preload: false,
+});
+
+/** Tier 2 of the numeric doctrine (§4.3): ledger cells, IDs, receipt numbers, CNIC, timestamps. */
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains-mono',
+  display: 'swap',
+  preload: false,
+});
+
+/**
+ * Urdu (§4.1). Naskh, not Nastaliq: Nastaliq's slanted baseline breaks table row rhythm, and this
+ * product is a ledger first. Nastaliq stays permitted in printed receipt templates only.
+ */
+const notoNaskh = Noto_Naskh_Arabic({
   subsets: ['arabic'],
-  weight: ['400'],
-  variable: '--font-nastaliq',
+  variable: '--font-noto-naskh',
   display: 'swap',
   preload: false,
 });
@@ -50,30 +62,68 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  // Pinch-zoom stays available: the users this is built for are often reading small numbers in
-  // poor light, and disabling zoom would be an accessibility failure, not a polish decision.
+  // Pinch-zoom stays available. These users are often reading small numbers in poor light, and
+  // disabling zoom would be an accessibility failure, not a polish decision (§12).
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0b0e14' },
-    { media: '(prefers-color-scheme: light)', color: '#f8fafc' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B0B0F' },
+    { media: '(prefers-color-scheme: light)', color: '#F7F7F8' },
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * §3.3, verbatim. Runs before first paint and before React, so the correct theme is on the
+ * document even when the stored preference is `system` — which the server cannot resolve.
+ * "Zero flash is a Definition-of-Done item."
+ */
+const THEME_SCRIPT = `(function () {
+  try {
+    var t = document.cookie.match(/hs-theme=(light|dark|system)/);
+    var v = t ? t[1] : 'system';
+    var dark = v === 'dark' || (v === 'system' &&
+      matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', dark);
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+  } catch (e) {}
+})();`;
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  /*
+   * The cookie is what makes SSR render the right theme (§3.3). An explicit `dark` can be honoured
+   * in the server's own HTML, so the markup is already correct before a single byte of script
+   * runs. `system` cannot be resolved on the server — only the inline script above knows the
+   * device preference — so it falls through to light and the script corrects it pre-paint.
+   */
+  const theme = (await cookies()).get('hs-theme')?.value;
+
   return (
     // `suppressHydrationWarning` is required by next-themes and scoped to this one element: the
-    // theme script sets `data-theme` before React hydrates, so the server's markup legitimately
+    // theme script mutates the class before React hydrates, so the server's markup legitimately
     // differs here and nowhere else.
     <html
       lang="en"
+      dir="ltr"
       suppressHydrationWarning
-      className={`${figtree.variable} ${dmMono.variable} ${nastaliq.variable}`}
+      className={[
+        geist.variable,
+        newsreader.variable,
+        jetbrainsMono.variable,
+        notoNaskh.variable,
+        theme === 'dark' ? 'dark' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
+      <head>
+        {/* §3.3: native scrollbars, form controls and the UA's own colours follow the theme. */}
+        <meta name="color-scheme" content="light dark" />
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <ThemeProvider>
           {children}
-          {/* Spec §4.10. Bottom-centre on mobile so a confirmation never lands under the thumb
-              that is still on the button that produced it. */}
-          <Toaster position="bottom-center" richColors closeButton />
+          {/* §7.10: bottom-right, one at a time. `richColors` is off — the spec's success toast is
+              a quiet neutral surface with a green dot, never a green banner. */}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

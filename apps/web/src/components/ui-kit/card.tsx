@@ -1,92 +1,88 @@
-import * as React from "react"
+import * as React from 'react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
-function Card({ className, ...props }: React.ComponentProps<"div">) {
+/**
+ * Card — docs/15_UI_SPEC_v1.md §6.
+ *
+ * Flat on the canvas with a hairline border: elevation `e0`, where "90% of the UI lives". Shadows
+ * are reserved for things that genuinely float (menus, dialogs, toasts), and the hover-lift is on
+ * the §16 hard-NO list — `translateY` plus a growing shadow is the single most template-looking
+ * effect there is.
+ *
+ * `threshold` opts the card into the signature leading-edge bar (§2). Set `data-state="attention"`
+ * on it to turn that bar amber when the card holds something a human must act on.
+ */
+function Card({
+  className,
+  threshold,
+  ...props
+}: React.ComponentProps<'div'> & { threshold?: boolean }) {
   return (
     <div
       data-slot="card"
       className={cn(
-        "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
-        className
+        'flex flex-col rounded-lg border border-hairline bg-surface text-fg',
+        threshold && 'hs-threshold',
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
-function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
+/* §5 vertical rhythm: 16 inside cards, 8 from a label to its value. */
+function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-header"
       className={cn(
-        "@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6",
-        className
+        'flex items-start justify-between gap-4 p-4 has-[+[data-slot=card-content]]:pb-0',
+        className,
       )}
       {...props}
     />
-  )
+  );
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** §4.2: a card title is `h2` in the scale — 20/28 Geist 600. Max three sizes per card. */
+function CardTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-title"
-      className={cn("leading-none font-semibold", className)}
+      className={cn('text-h2 font-semibold text-fg', className)}
       {...props}
     />
-  )
+  );
 }
 
-function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
+function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn('text-body-sm text-fg-secondary', className)}
       {...props}
     />
-  )
+  );
 }
 
-function CardAction({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-action"
-      className={cn(
-        "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
-        className
-      )}
-      {...props}
-    />
-  )
+function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="card-action" className={cn('shrink-0', className)} {...props} />;
 }
 
-function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="card-content"
-      className={cn("px-6", className)}
-      {...props}
-    />
-  )
+function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
+  return <div data-slot="card-content" className={cn('p-4', className)} {...props} />;
 }
 
-function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
+/** A footer is separated by a hairline, never by a tinted bar — structure comes from rules (§2). */
+function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-footer"
-      className={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+      className={cn('flex items-center gap-3 border-t border-hairline p-4', className)}
       {...props}
     />
-  )
+  );
 }
 
-export {
-  Card,
-  CardHeader,
-  CardFooter,
-  CardTitle,
-  CardAction,
-  CardDescription,
-  CardContent,
-}
+export { Card, CardHeader, CardFooter, CardTitle, CardAction, CardDescription, CardContent };

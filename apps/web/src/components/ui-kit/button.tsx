@@ -1,64 +1,126 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "radix-ui"
+import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
+import { Slot } from 'radix-ui';
+import { Loader2 } from 'lucide-react';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
+/**
+ * Button — docs/15_UI_SPEC_v1.md §7.5.
+ *
+ * Four variants, and only four. Primary is indigo because indigo means "you can act on this"
+ * (§3.2), and there is at most one per view. Never a gradient, never a shadow on a primary — both
+ * are on the §16 hard-NO list, and a shadow in particular reads as a marketing page's call to
+ * action rather than an operator's control.
+ *
+ * Focus is left to the global `:focus-visible` rule in tokens.css (2px indigo ring, 2px offset).
+ * shadcn's stock button sets `outline-none` and rebuilds the ring from a box-shadow; that is not
+ * done here, because §12 requires one visible focus treatment everywhere and the token file is
+ * where it belongs.
+ */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  [
+    'relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap',
+    'rounded-md font-medium',
+    // §9: background and border only. No transform, no scale on hover — the press below is the
+    // system's single scale transform.
+    'transition-[background-color,border-color,color] duration-instant ease-standard',
+    'active:scale-[.98] active:duration-instant',
+    'disabled:pointer-events-none disabled:opacity-50',
+    "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  ],
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
-        outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        primary: 'bg-brand text-fg-on-brand hover:bg-brand-hover active:bg-brand-active',
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost:
-          "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline",
+          'border border-hairline-strong bg-surface text-fg hover:bg-surface-hover active:bg-surface-active',
+        ghost: 'bg-transparent text-fg-secondary hover:bg-surface-hover hover:text-fg',
+        /*
+         * Red text on a surface, not a red slab. A destructive action in a table row or a toolbar
+         * is a choice the user is considering, not one they have committed to — §7.5 reserves the
+         * solid red fill for the confirm dialog, where the decision is actually being made.
+         */
+        destructive:
+          'border border-hairline bg-surface text-negative-text hover:bg-negative-tint hover:border-negative/40',
+        'destructive-solid': 'bg-negative text-fg-on-brand hover:opacity-90',
+        /* Inline links inside prose. Underline on hover only, so ledger text stays quiet. */
+        link: 'bg-transparent text-brand-text underline-offset-4 hover:underline',
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        // §7.5 heights: 36 default, 32 compact/toolbar, 44 mobile. Padding 12/16.
+        default: 'h-[var(--hs-control-h)] px-4 text-body',
+        sm: 'h-[var(--hs-control-h-sm)] gap-1.5 px-3 text-body-sm',
+        touch: 'h-[var(--hs-control-h-touch)] px-4 text-body',
+        icon: 'size-[var(--hs-control-h)]',
+        'icon-sm': 'size-[var(--hs-control-h-sm)]',
+        'icon-touch': 'size-[var(--hs-control-h-touch)]',
       },
     },
     defaultVariants: {
-      variant: "default",
-      size: "default",
+      variant: 'secondary',
+      size: 'default',
     },
-  }
-)
+  },
+);
+
+type ButtonProps = React.ComponentProps<'button'> &
+  VariantProps<typeof buttonVariants> & {
+    asChild?: boolean;
+    /** Swaps the label for a spinner. The button keeps its width — see below. */
+    loading?: boolean;
+  };
 
 function Button({
   className,
-  variant = "default",
-  size = "default",
+  variant = 'secondary',
+  size = 'default',
   asChild = false,
+  loading = false,
+  disabled,
+  children,
   ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-  }) {
-  const Comp = asChild ? Slot.Root : "button"
+}: ButtonProps) {
+  const Comp = asChild ? Slot.Root : 'button';
+
+  /*
+   * §7.5: "Loading state swaps the label for a spinner while preserving the button's width (no
+   * layout shift)." The label stays in the DOM at zero opacity rather than being replaced, so the
+   * button is still sized by its own text — a spinner-only button would collapse to ~36px and
+   * shove everything beside it sideways at the exact moment the user is watching for a result.
+   *
+   * `asChild` skips it: the caller owns the rendered element and the wrapper spans would land
+   * inside someone else's component.
+   */
+  if (asChild) {
+    return (
+      <Comp
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size }), className)}
+        {...props}
+      >
+        {children}
+      </Comp>
+    );
+  }
 
   return (
-    <Comp
+    <button
       data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-loading={loading || undefined}
+      disabled={disabled || loading}
+      // The result is announced by the toast (§7.10); this keeps a screen reader from reading a
+      // half-updated label while the request is in flight.
+      aria-busy={loading || undefined}
+      className={cn(buttonVariants({ variant, size }), className)}
       {...props}
-    />
-  )
+    >
+      <span className={cn('inline-flex items-center gap-2', loading && 'invisible')}>{children}</span>
+      {loading && (
+        <Loader2 className="absolute animate-spin motion-reduce:animate-none" aria-hidden />
+      )}
+    </button>
+  );
 }
 
-export { Button, buttonVariants }
+export { Button, buttonVariants };

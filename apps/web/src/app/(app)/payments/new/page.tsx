@@ -1,10 +1,23 @@
 import { randomUUID } from 'node:crypto';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+
 import { api, ApiError } from '@/lib/api';
 import { canOperate } from '@/lib/session';
-import { formatPkr } from '@/lib/format';
-import { Notice, PageHeading, RowLink, SearchForm, TableFrame, Td, Th, Tr } from '@/components/ui';
+import { PageHeader } from '@/components/patterns/page-header';
+import { SearchForm } from '@/components/patterns/search-form';
+import { Money } from '@/components/patterns/money';
+import { EmptyState, FilteredEmptyState, ErrorState } from '@/components/patterns/states';
+import { Alert, AlertDescription } from '@/components/ui-kit/alert';
+import { Button } from '@/components/ui-kit/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui-kit/table';
 import { PaymentForm } from './payment-form';
 
 export const metadata = { title: 'Record payment' };
@@ -40,21 +53,32 @@ export default async function NewPaymentPage({
   searchParams: Promise<{ studentId?: string; q?: string; month?: string }>;
 }) {
   if (!(await canOperate())) {
-    return <Notice tone="amber">Your role cannot record payments.</Notice>;
+    return (
+      <>
+        <PageHeader title="Record payment" />
+        <Alert tone="attention">
+          <AlertDescription>
+            Your role cannot record payments. Ask the hostel owner to change it.
+          </AlertDescription>
+        </Alert>
+      </>
+    );
   }
 
   const { studentId, q, month } = await searchParams;
 
   return (
     <>
-      <PageHeading title="Record payment" />
-      <Link href="/payments" className="text-sm text-text-muted">
-        ← Back to payments
-      </Link>
+      <PageHeader
+        title="Record payment"
+        actions={
+          <Button asChild variant="ghost">
+            <Link href="/payments">Cancel</Link>
+          </Button>
+        }
+      />
 
-      <div className="mt-5">
-        {studentId ? <ForStudent studentId={studentId} month={month} /> : <StudentPicker q={q} />}
-      </div>
+      {studentId ? <ForStudent studentId={studentId} month={month} /> : <StudentPicker q={q} />}
     </>
   );
 }
@@ -66,13 +90,32 @@ async function ForStudent({ studentId, month }: { studentId: string; month?: str
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/login');
     if (error instanceof ApiError && error.status === 404) {
-      return <Notice tone="red">That student does not exist. Search for them again.</Notice>;
+      return (
+        <ErrorState
+          title="That student does not exist"
+          body="They may have been removed. Search for them again."
+          retryHref="/payments/new"
+        />
+      );
     }
-    return <Notice tone="red">{error instanceof ApiError ? error.message : 'Could not load that student.'}</Notice>;
+    return (
+      <ErrorState
+        title="Couldn't load that student"
+        body="Check your connection and try again. Nothing has been recorded."
+        detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+        retryHref={`/payments/new?studentId=${studentId}`}
+      />
+    );
   }
 
   if (student.status === 'vacated') {
-    return <Notice tone="amber">{student.full_name} has vacated. No new payment can be recorded against them.</Notice>;
+    return (
+      <Alert tone="attention">
+        <AlertDescription>
+          {student.full_name} has vacated. No new payment can be recorded against them.
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   // Karachi, not the server's clock: a Railway container runs in UTC, and between midnight and 5am
@@ -82,18 +125,16 @@ async function ForStudent({ studentId, month }: { studentId: string; month?: str
 
   return (
     <>
-      <div className="mb-5 rounded-lg border border-border bg-surface p-4">
-        <div className="text-[13px] text-text-muted">Paying for</div>
-        <div className="text-lg font-semibold">{student.full_name}</div>
-        <div className="mt-0.5 text-sm text-text-muted">
-          {[
-            student.room_number ? `Room ${student.room_number}` : null,
-            student.bed_label,
-            `${formatPkr(student.monthly_fee)} / month`,
-          ]
+      <div className="hs-threshold mb-6 rounded-lg border border-hairline bg-surface p-6">
+        <p className="hs-eyebrow">Paying for</p>
+        <p className="mt-2 text-h2 font-semibold text-fg">{student.full_name}</p>
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-body-sm text-fg-secondary">
+          {[student.room_number ? `Room ${student.room_number}` : null, student.bed_label]
             .filter(Boolean)
             .join(' · ')}
-        </div>
+          <span aria-hidden>·</span>
+          <Money value={student.monthly_fee} /> / month
+        </p>
       </div>
 
       {/*
@@ -119,7 +160,9 @@ async function StudentPicker({ q }: { q?: string }) {
 
   if (q) {
     try {
-      const result = await api<{ students: SearchHit[] }>(`/students?q=${encodeURIComponent(q)}&limit=20`);
+      const result = await api<{ students: SearchHit[] }>(
+        `/students?q=${encodeURIComponent(q)}&limit=20`,
+      );
       hits = result.students;
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) redirect('/login');
@@ -129,39 +172,64 @@ async function StudentPicker({ q }: { q?: string }) {
 
   return (
     <>
-      <SearchForm defaultValue={q} label="Search for the student who is paying" autoFocus />
+      <SearchForm defaultValue={q} label="Search for the student who is paying" />
 
-      {failed && <Notice tone="red">{failed}</Notice>}
+      {failed && (
+        <ErrorState
+          title="Couldn't search students"
+          body="Check your connection and try again."
+          detail={failed}
+          retryHref="/payments/new"
+        />
+      )}
 
-      {!failed && q && hits.length === 0 && <Notice tone="muted">No students match “{q}”.</Notice>}
+      {!failed && !q && (
+        <EmptyState
+          title="Who is paying?"
+          body="Search by name or phone number to find the student, then record their payment."
+        />
+      )}
 
-      {!failed && !q && <Notice tone="muted">Search for the student who is paying.</Notice>}
+      {!failed && q && hits.length === 0 && (
+        <FilteredEmptyState what="students" clearHref="/payments/new" />
+      )}
 
       {hits.length > 0 && (
-        <TableFrame minWidth={520}>
-          <thead>
-            <tr className="bg-surface-2 text-left">
-              <Th>Name</Th>
-              <Th>Room</Th>
-              <Th align="right">Unpaid</Th>
-              <Th align="right">{''}</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {hits.map((s) => (
-              <Tr key={s.student_id}>
-                <Td>{s.full_name}</Td>
-                <Td>{s.room_number ?? '—'}</Td>
-                <Td align="right" numeric>
-                  {formatPkr(s.unpaid_pkr)}
-                </Td>
-                <Td align="right">
-                  <RowLink href={`/payments/new?studentId=${s.student_id}`}>Select</RowLink>
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </TableFrame>
+        <Table minWidth={560}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Room</TableHead>
+              <TableHead numeric>Unpaid</TableHead>
+              <TableHead numeric>Action</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {hits.map((s) => {
+              const unpaid = Number(s.unpaid_pkr ?? 0);
+              return (
+                <TableRow key={s.student_id}>
+                  <TableCell className="font-medium">{s.full_name}</TableCell>
+                  <TableCell className="font-mono text-mono text-fg-secondary">
+                    {s.room_number ?? '—'}
+                  </TableCell>
+                  <TableCell numeric>
+                    <Money
+                      value={unpaid}
+                      tier="ledger"
+                      className={unpaid > 0 ? 'font-semibold text-attention-text' : 'text-fg-tertiary'}
+                    />
+                  </TableCell>
+                  <TableCell className="text-end">
+                    <Button asChild variant="ghost" size="sm">
+                      <Link href={`/payments/new?studentId=${s.student_id}`}>Select</Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       )}
     </>
   );

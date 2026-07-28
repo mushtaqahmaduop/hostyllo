@@ -1,0 +1,237 @@
+/* ============================================================
+   HOSTYLLO — Base layer
+   Resets, defaults and the shadcn bridge. No values live here:
+   everything is a var(--hs-*) from tokens.css (UI spec §15).
+   ============================================================ */
+
+/*
+ * shadcn/ui ships components with `dark:` classes that key off a `.dark` class by default — which
+ * is exactly what UI spec §3.3 asks for, so the variant is redefined only to make the descendant
+ * form explicit (`.dark *`), matching how Radix portals render outside the themed subtree.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * shadcn's own semantic variable names, mapped onto HOSTYLLO tokens.
+ *
+ * Two reasons this block exists rather than hand-recolouring each component:
+ *   1. A component pasted from shadcn arrives in HOSTYLLO's palette with no edits. Without it,
+ *      every new component lands in default slate and quietly becomes a second design system.
+ *   2. Some components set inline styles that read `var(--popover)` / `var(--radius)` directly
+ *      (Sonner is one). Those are not Tailwind namespaces, so `@theme inline` alone leaves them
+ *      resolving to nothing — the component renders transparent on transparent.
+ *
+ * Declared as references, so they follow the theme switch like everything else.
+ *
+ * `--primary` is the indigo brand and `--accent` is a *surface* tint, not the brass editorial
+ * accent: shadcn uses `accent` for hover/highlight backgrounds (menu items, calendar cells), and
+ * pointing it at brass would paint every dropdown hover in a colour the spec reserves for
+ * non-interactive editorial marks (§3.2).
+ */
+:root {
+  --background: var(--hs-canvas);
+  --foreground: var(--hs-text-primary);
+  --card: var(--hs-surface);
+  --card-foreground: var(--hs-text-primary);
+  --popover: var(--hs-surface-raised);
+  --popover-foreground: var(--hs-text-primary);
+  --primary: var(--hs-brand);
+  --primary-foreground: var(--hs-text-on-brand);
+  --secondary: var(--hs-surface-sunken);
+  --secondary-foreground: var(--hs-text-primary);
+  --muted: var(--hs-surface-sunken);
+  --muted-foreground: var(--hs-text-secondary);
+  --accent: var(--hs-surface-hover);
+  --accent-foreground: var(--hs-text-primary);
+  --destructive: var(--hs-negative);
+  --destructive-foreground: var(--hs-text-on-brand);
+  --border: var(--hs-hairline);
+  --input: var(--hs-hairline);
+  --ring: var(--hs-focus-ring);
+  --radius: var(--hs-radius-lg);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent-surface: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /*
+   * §11 primary QA target is a 1366×768 laptop, so the UI base is 14px per the §4.2 scale — not
+   * the 16px a mobile-first brief would pick. Inputs get 16px back explicitly below, which is the
+   * only place the browser's zoom-on-focus behaviour is triggered.
+   */
+  html {
+    font-size: 100%;
+  }
+
+  /*
+   * Links are indigo because indigo means "you can act on this" (§3.2). Underlines are on by
+   * default in prose and suppressed for the navigational links that carry their own affordance.
+   */
+  a {
+    color: var(--hs-brand-text);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--hs-brand-hover);
+  }
+
+  button {
+    font: inherit;
+  }
+
+  /*
+   * §4.1: Naskh, not Nastaliq. Nastaliq's slanted baseline breaks table row rhythm, and this
+   * product is a ledger before it is anything else.
+   */
+  [lang='ur'],
+  .urdu {
+    font-family: var(--hs-font-urdu);
+    line-height: 1.9;
+  }
+
+  /*
+   * §11: an input below 16px makes iOS Safari zoom the viewport on focus, which strands the user
+   * mid-form on a horizontally scrolled page. The UI scale stays at 14; only the controls that
+   * take typed input are lifted.
+   */
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+  @media (max-width: 639px) {
+    input:not([type='checkbox']):not([type='radio']),
+    textarea,
+    select {
+      font-size: 1rem;
+    }
+  }
+
+  /* Selection reads as an action, so it uses the brand tint rather than the browser default. */
+  ::selection {
+    background: var(--hs-brand-tint-strong);
+  }
+}
+
+/*
+ * Named durations (§9).
+ *
+ * Tailwind v4 has a theme namespace for easings (`--ease-*`) but none for durations, so mapping
+ * `--duration-fast` in `@theme` compiles to nothing at all and every `duration-fast` in a
+ * component is silently dropped — which is exactly what happened on the first build here, and is
+ * invisible until you diff the generated CSS. Explicit utilities instead.
+ *
+ * Both properties are set on purpose: `transition-duration` for transitions, and `--tw-duration`
+ * because tw-animate-css's `animate-in`/`animate-out` read the animation's length from that
+ * variable. One without the other silently half-works.
+ */
+@utility duration-instant {
+  --tw-duration: var(--hs-dur-instant);
+  transition-duration: var(--hs-dur-instant);
+}
+@utility duration-fast {
+  --tw-duration: var(--hs-dur-fast);
+  transition-duration: var(--hs-dur-fast);
+}
+@utility duration-base {
+  --tw-duration: var(--hs-dur-base);
+  transition-duration: var(--hs-dur-base);
+}
+@utility duration-slow {
+  --tw-duration: var(--hs-dur-slow);
+  transition-duration: var(--hs-dur-slow);
+}
+@utility duration-deliberate {
+  --tw-duration: var(--hs-dur-deliberate);
+  transition-duration: var(--hs-dur-deliberate);
+}
+
+@layer components {
+  /*
+   * The Threshold Rule on a table row (§7.4).
+   *
+   * Written as CSS rather than as `[&>*:first-child]:border-s-2` utilities because Tailwind v4's
+   * scanner treats `>` as a delimiter inside JSX and drops any candidate containing it — the
+   * classes compile to nothing and the bar simply never appears. The `[&_td:first-child]:` form
+   * without `>` does work, but it matches nested tables too, which a ledger inside a drawer would
+   * eventually hit.
+   *
+   * The transparent border is always present so that colouring it changes a colour and never a
+   * width: the columns cannot shift under the operator's eye when they tick a checkbox.
+   */
+  .hs-row-threshold > *:first-child {
+    border-inline-start: var(--hs-threshold-w) solid transparent;
+  }
+  .hs-row-threshold[data-threshold='brand'] > *:first-child {
+    border-inline-start-color: var(--hs-brand);
+  }
+  .hs-row-threshold[data-threshold='attention'] > *:first-child {
+    border-inline-start-color: var(--hs-attention);
+  }
+
+  /*
+   * Density (§5). `data-density` is set on the app shell and read by the table row height, so a
+   * ledger page can default to Compact without every table taking a prop.
+   */
+  [data-density='comfortable'] {
+    --hs-row-h: var(--hs-row-h-comfortable);
+  }
+  [data-density='compact'] {
+    --hs-row-h: var(--hs-row-h-compact);
+  }
+
+  /*
+   * §4.3 Tier 2 without the forced right-alignment of `.hs-ledger`. IDs, CNICs and receipt numbers
+   * are mono and tabular but read left-to-right in their column; only quantities align on the end
+   * edge, and those use `.hs-ledger`.
+   */
+  .hs-code {
+    font-family: var(--hs-font-mono);
+    font-size: var(--hs-type-mono);
+    line-height: var(--hs-lh-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /*
+   * The brass rule that opens an empty state (§10). Non-interactive, editorial — the one place
+   * the accent colour is allowed to carry meaning on its own.
+   */
+  .hs-rule {
+    display: block;
+    inline-size: var(--hs-space-8);
+    block-size: 2px;
+    background: var(--hs-accent);
+    border-radius: var(--hs-radius-full);
+  }
+}

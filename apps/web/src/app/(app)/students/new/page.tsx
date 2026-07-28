@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+
 import { api, ApiError } from '@/lib/api';
 import { canOperate } from '@/lib/session';
-import { Notice, PageHeading } from '@/components/ui';
+import { PageHeader } from '@/components/patterns/page-header';
+import { ErrorState } from '@/components/patterns/states';
+import { Alert, AlertDescription } from '@/components/ui-kit/alert';
+import { Button } from '@/components/ui-kit/button';
 import { StudentForm, type RoomOption } from './student-form';
 
 export const metadata = { title: 'Add student' };
@@ -19,7 +23,16 @@ type Room = {
 
 export default async function NewStudentPage() {
   if (!(await canOperate())) {
-    return <Notice tone="amber">Your role cannot add students.</Notice>;
+    return (
+      <>
+        <PageHeader title="Add student" />
+        <Alert tone="attention">
+          <AlertDescription>
+            Your role cannot add students. Ask the hostel owner to change it.
+          </AlertDescription>
+        </Alert>
+      </>
+    );
   }
 
   let data: { rooms: Room[] };
@@ -28,9 +41,15 @@ export default async function NewStudentPage() {
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/login');
     return (
-      <Notice tone="red">
-        {error instanceof ApiError ? error.message : 'Could not load rooms, so there is nothing to admit into.'}
-      </Notice>
+      <>
+        <PageHeader title="Add student" />
+        <ErrorState
+          title="Couldn't load rooms"
+          body="A student needs a bed, and the room list didn't load. Check your connection and try again."
+          detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+          retryHref="/students/new"
+        />
+      </>
     );
   }
 
@@ -56,21 +75,24 @@ export default async function NewStudentPage() {
 
   return (
     <>
-      <PageHeading title="Add student" />
-      <Link href="/students" className="text-sm text-text-muted">
-        ← Back to students
-      </Link>
+      <PageHeader
+        title="Add student"
+        actions={
+          <Button asChild variant="ghost">
+            <Link href="/students">Cancel</Link>
+          </Button>
+        }
+      />
 
-      <div className="mt-5">
-        {rooms.length === 0 && (
-          <div className="mb-5">
-            <Notice tone="amber">
-              Every bed is occupied. Free one up, or add a room, before admitting a student.
-            </Notice>
-          </div>
-        )}
-        <StudentForm rooms={rooms} today={today} />
-      </div>
+      {rooms.length === 0 && (
+        <Alert tone="attention" className="mb-6">
+          <AlertDescription>
+            Every bed is occupied. Free one up, or add a room, before admitting a student.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <StudentForm rooms={rooms} today={today} />
     </>
   );
 }

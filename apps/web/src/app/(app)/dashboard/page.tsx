@@ -1,35 +1,29 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import {
-  AlertTriangle,
-  BedDouble,
-  CheckCircle2,
-  CircleDollarSign,
-  Clock,
-  Receipt,
-  TrendingDown,
-  UserPlus,
-  Users,
-  Wallet,
-} from 'lucide-react';
+
 import { api, ApiError } from '@/lib/api';
-import { formatPkr, formatPct } from '@/lib/format';
 import { canOperate } from '@/lib/session';
-import { Notice, PageHeading, Stat, StatGrid } from '@/components/ui';
+import { PageHeader } from '@/components/patterns/page-header';
+import { HeroPanel } from '@/components/patterns/hero-panel';
+import { StatStrip, StatItem } from '@/components/patterns/stat-strip';
+import { NeedsAttention, type AttentionItem } from '@/components/patterns/needs-attention';
+import { Money, Num, Pct } from '@/components/patterns/money';
+import { ErrorState } from '@/components/patterns/states';
+import { Button } from '@/components/ui-kit/button';
 
 export const metadata = { title: 'Dashboard' };
 
 /** Shapes come from GET /dashboard/stats and /dashboard/alerts (API spec, Module 6). */
 type Stats = {
   month: string;
-  activeStudents: number;
-  occupiedBeds: number;
-  totalBeds: number;
-  occupancyPct: number;
-  revenuePkr: number;
-  pendingPkr: number;
-  expensesPkr: number;
-  netFundPkr: number;
+  activeStudents: number | string;
+  occupiedBeds: number | string;
+  totalBeds: number | string;
+  occupancyPct: number | string;
+  revenuePkr: number | string;
+  pendingPkr: number | string;
+  expensesPkr: number | string;
+  netFundPkr: number | string;
 };
 
 type Alerts = {
@@ -41,147 +35,133 @@ type Alerts = {
   activeNotices: unknown[];
 };
 
+/**
+ * The dashboard — docs/15_UI_SPEC_v1.md §2.
+ *
+ * "A hostel manager opens HOSTYLLO to answer four questions in under five seconds: Did money come
+ * in? Who owes me? Is any room empty? What breaks today?"
+ *
+ * So: one hero figure (money collected), a hairline strip of the three supporting answers, and the
+ * Needs-Attention panel beside it. Not six equal cards — §1's kill list names "a card per metric,
+ * six across" for fragmenting the eye, and the previous version of this screen was exactly that.
+ *
+ * There is deliberately no greeting. §16.5: "the hero is the money figure, not a greeting."
+ */
 export default async function DashboardPage() {
   let stats: Stats;
   let alerts: Alerts;
 
   try {
-    // Fetched together: both are small aggregate queries and the page is useless with only one.
-    [stats, alerts] = await Promise.all([api<Stats>('/dashboard/stats'), api<Alerts>('/dashboard/alerts')]);
+    // Fetched together: both are small aggregates and the page is useless with only one.
+    [stats, alerts] = await Promise.all([
+      api<Stats>('/dashboard/stats'),
+      api<Alerts>('/dashboard/alerts'),
+    ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/login');
-    // Anything else is a real failure and is shown rather than hidden behind an empty state —
-    // "Never hide failures" (UX design system §1).
     return (
-      <Notice tone="red">{error instanceof ApiError ? error.message : 'Could not load the dashboard.'}</Notice>
+      <>
+        <PageHeader title="Dashboard" />
+        <ErrorState
+          title="Couldn't load the dashboard"
+          body="Check your connection and try again."
+          detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+          retryHref="/dashboard"
+        />
+      </>
     );
   }
 
   const mayWrite = await canOperate();
 
-  const attention = [
-    { count: alerts.pendingPaymentsCount, singular: 'payment is pending', plural: 'payments are pending', href: '/payments?status=pending' },
-    { count: alerts.pendingVoidRequests, singular: 'void request awaits approval', plural: 'void requests await approval', href: '/payments' },
-    { count: alerts.openMaintenance, singular: 'maintenance request is open', plural: 'maintenance requests are open', href: null },
-    { count: alerts.unresolvedComplaints, singular: 'complaint is unresolved', plural: 'complaints are unresolved', href: null },
-  ].filter((a) => a.count > 0);
+  /*
+   * Maintenance and complaints have APIs but no screens yet, so those rows carry no href — §10's
+   * insistence that a state be honest applies to affordances too. They join the links when the
+   * screens land.
+   */
+  const attention: AttentionItem[] = [
+    {
+      count: alerts.pendingPaymentsCount,
+      singular: 'payment is unpaid',
+      plural: 'payments are unpaid',
+      amount: stats.pendingPkr,
+      href: '/payments?status=pending',
+    },
+    {
+      count: alerts.pendingVoidRequests,
+      singular: 'void request awaits approval',
+      plural: 'void requests await approval',
+      href: '/payments',
+    },
+    {
+      count: alerts.openMaintenance,
+      singular: 'maintenance request is open',
+      plural: 'maintenance requests are open',
+    },
+    {
+      count: alerts.unresolvedComplaints,
+      singular: 'complaint is unresolved',
+      plural: 'complaints are unresolved',
+    },
+  ];
 
   return (
     <>
-      <PageHeading title="Dashboard" meta={stats.month} />
+      <PageHeader
+        eyebrow={stats.month}
+        title="Dashboard"
+        attention={attention.some((a) => a.count > 0)}
+        actions={
+          mayWrite ? (
+            <>
+              {/* §7.5: one primary per view. Recording a payment is the thing a warden opens this
+                  app to do; adding a student is the weekly job. */}
+              <Button asChild variant="secondary">
+                <Link href="/students/new">Add student</Link>
+              </Button>
+              <Button asChild variant="primary">
+                <Link href="/payments/new">Record payment</Link>
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
 
-      {/* Spec §6 puts quick actions on this screen: the two things a warden opens the app to do,
-          reachable without first navigating to a list. */}
-      {mayWrite && (
-        <div className="mb-6 flex flex-wrap gap-3">
-          <QuickAction href="/students/new" icon={<UserPlus className="size-4" aria-hidden />}>
-            Add student
-          </QuickAction>
-          <QuickAction href="/payments/new" icon={<Receipt className="size-4" aria-hidden />}>
-            Record payment
-          </QuickAction>
-        </div>
-      )}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <HeroPanel
+          className="lg:col-span-2"
+          eyebrow={`Collected · ${stats.month}`}
+          value={stats.revenuePkr}
+          definition="Collected = sum of amount paid on every non-voided payment row dated in this month."
+        >
+          <StatStrip>
+            <StatItem
+              label="Occupancy"
+              hint={`${Number(stats.occupiedBeds ?? 0)} of ${Number(stats.totalBeds ?? 0)} beds`}
+            >
+              {/* §3.2's sharpest rule: a zero here renders tertiary, never green. An empty hostel
+                  is not a success, and the reference dashboards that paint it green are lying. */}
+              <Pct value={stats.occupancyPct} />
+            </StatItem>
+            <StatItem label="Active students">
+              <Num value={stats.activeStudents} />
+            </StatItem>
+            <StatItem label="Expenses">
+              <Money value={stats.expensesPkr} />
+            </StatItem>
+            <StatItem
+              label="Net fund"
+              // Amber, not red: a negative net fund is a thing to act on this week, not a failed
+              // transaction. Red is reserved for destructive and failed (§3.1).
+              attention={Number(stats.netFundPkr ?? 0) < 0}
+            >
+              <Money value={stats.netFundPkr} />
+            </StatItem>
+          </StatStrip>
+        </HeroPanel>
 
-      <StatGrid label="Key figures">
-        <Stat
-          label="Active students"
-          value={String(stats.activeStudents)}
-          icon={<Users className="size-4" aria-hidden />}
-        />
-        <Stat
-          label="Occupancy"
-          value={formatPct(stats.occupancyPct)}
-          hint={`${stats.occupiedBeds} of ${stats.totalBeds} beds`}
-          icon={<BedDouble className="size-4" aria-hidden />}
-        />
-        <Stat
-          label="Revenue this month"
-          value={formatPkr(stats.revenuePkr)}
-          tone="teal"
-          icon={<Wallet className="size-4" aria-hidden />}
-        />
-        <Stat
-          label="Pending"
-          value={formatPkr(stats.pendingPkr)}
-          tone={Number(stats.pendingPkr) > 0 ? 'amber' : undefined}
-          icon={<Clock className="size-4" aria-hidden />}
-        />
-        <Stat
-          label="Expenses"
-          value={formatPkr(stats.expensesPkr)}
-          icon={<TrendingDown className="size-4" aria-hidden />}
-        />
-        <Stat
-          label="Net fund"
-          value={formatPkr(stats.netFundPkr)}
-          tone={Number(stats.netFundPkr) < 0 ? 'red' : 'teal'}
-          icon={<CircleDollarSign className="size-4" aria-hidden />}
-        />
-      </StatGrid>
-
-      <section aria-label="Needs attention">
-        <h2 className="mb-3 text-base font-semibold text-text-muted">Needs attention</h2>
-
-        {attention.length === 0 ? (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-surface p-4 text-[15px] text-text-muted">
-            <CheckCircle2 className="size-4 text-teal" aria-hidden />
-            Nothing needs attention right now.
-          </div>
-        ) : (
-          <ul className="grid list-none gap-2 p-0">
-            {attention.map((a) => {
-              const body = (
-                <>
-                  <AlertTriangle className="size-4 shrink-0" aria-hidden />
-                  <span>
-                    <span className="tabular font-semibold">{a.count}</span>{' '}
-                    {a.count === 1 ? a.singular : a.plural}
-                  </span>
-                </>
-              );
-              return (
-                <li key={a.singular}>
-                  {/* Linked only where a screen exists to land on. Maintenance and complaints have
-                      APIs but no UI yet, so those stay plain text rather than leading nowhere. */}
-                  {a.href ? (
-                    <Link
-                      href={a.href}
-                      className="flex min-h-11 items-center gap-2 rounded-md bg-amber-subtle p-3 text-[15px] text-amber transition-opacity duration-150 hover:opacity-80"
-                    >
-                      {body}
-                    </Link>
-                  ) : (
-                    <div className="flex min-h-11 items-center gap-2 rounded-md bg-amber-subtle p-3 text-[15px] text-amber">
-                      {body}
-                    </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+        <NeedsAttention items={attention} />
+      </div>
     </>
-  );
-}
-
-function QuickAction({
-  href,
-  icon,
-  children,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border-2 bg-surface px-4 text-[15px] font-medium text-text transition-colors duration-150 hover:border-gold hover:text-gold"
-    >
-      {icon}
-      {children}
-    </Link>
   );
 }

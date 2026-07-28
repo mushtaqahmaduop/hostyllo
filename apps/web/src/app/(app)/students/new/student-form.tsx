@@ -55,9 +55,7 @@ export function StudentForm({ rooms, today }: { rooms: RoomOption[]; today: stri
           <Field label="Emergency contact" name="emergency_contact" type="tel" inputMode="tel" />
           <Field label="Email" name="email" type="email" inputMode="email" />
         </FieldGrid>
-        <div className="mb-5">
-          <Field label="Address" name="address" />
-        </div>
+        <Field label="Address" name="address" />
       </FieldSet>
 
       <FieldSet legend="Bed">
@@ -100,13 +98,14 @@ export function StudentForm({ rooms, today }: { rooms: RoomOption[]; today: stri
       <FieldSet legend="Money">
         <FieldGrid>
           <Field
-            label="Monthly rent (PKR)"
+            label="Monthly rent"
             name="monthly_fee"
             type="number"
             inputMode="numeric"
             min={0}
             step="1"
             required
+            numeric
             defaultValue={rent}
             // Remounts the input when the room changes, so the prefilled rent actually updates.
             // A plain defaultValue is read once; keying it is the cheapest correct way to keep the
@@ -115,12 +114,13 @@ export function StudentForm({ rooms, today }: { rooms: RoomOption[]; today: stri
             hint="Zero is allowed — use it for a free or scholarship bed."
           />
           <Field
-            label="Admission fee (PKR)"
+            label="Admission fee"
             name="admission_fee"
             type="number"
             inputMode="numeric"
             min={0}
             step="1"
+            numeric
             defaultValue="0"
           />
           <Field label="Join date" name="join_date" type="date" required defaultValue={today} />

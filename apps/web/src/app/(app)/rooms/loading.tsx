@@ -1,10 +1,13 @@
-import { CardGridSkeleton, HeadingSkeleton, StatGridSkeleton } from '@/components/skeletons';
+import { CardGridSkeleton, HeaderSkeleton, HeroPanelSkeleton, LoadingLabel } from '@/components/skeletons';
 
 export default function Loading() {
   return (
     <>
-      <HeadingSkeleton />
-      <StatGridSkeleton count={3} />
+      <LoadingLabel label="Loading rooms" />
+      <HeaderSkeleton />
+      <div className="mb-8">
+        <HeroPanelSkeleton />
+      </div>
       <CardGridSkeleton label="Loading rooms" />
     </>
   );

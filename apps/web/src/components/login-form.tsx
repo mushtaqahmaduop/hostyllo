@@ -2,8 +2,12 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Eye, EyeOff } from 'lucide-react';
+
+import { Alert, AlertDescription } from '@/components/ui-kit/alert';
+import { Button } from '@/components/ui-kit/button';
+import { Input } from '@/components/ui-kit/input';
+import { Label } from '@/components/ui-kit/label';
 
 /**
  * Sign-in form.
@@ -35,7 +39,7 @@ export function LoginForm({ next }: { next?: string }) {
         const body = (await res.json().catch(() => ({}))) as { message?: string };
         // The API returns one message for both a wrong password and an unknown email; it is shown
         // as-is so this form does not become the thing that reveals which accounts exist.
-        setError(body.message ?? 'Sign in failed. Please try again.');
+        setError(body.message ?? 'Sign in failed. Check your email and password, then try again.');
         setPending(false);
         return;
       }
@@ -51,79 +55,65 @@ export function LoginForm({ next }: { next?: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate>
-      <label htmlFor="email" className={LABEL}>
-        Email
-      </label>
-      <input
-        id="email"
-        name="email"
-        type="email"
-        autoComplete="username"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className={CONTROL}
-      />
-
-      <label htmlFor="password" className={cn(LABEL, 'mt-4')}>
-        Password
-      </label>
-      <div className="relative">
-        <input
-          id="password"
-          name="password"
-          type={reveal ? 'text' : 'password'}
-          autoComplete="current-password"
+    <form onSubmit={onSubmit} noValidate className="grid gap-4">
+      <div>
+        <Label htmlFor="email" className="mb-2">
+          Email
+        </Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="username"
           required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={cn(CONTROL, 'pr-12')}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
-        {/*
-          A reveal toggle, because the alternative on a phone keyboard in poor light is a warden
-          mistyping a password three times and hitting the API's 10-per-15-minute login rate limit.
-          `aria-pressed` rather than a label swap so a screen reader announces the state change.
-        */}
-        <button
-          type="button"
-          onClick={() => setReveal((v) => !v)}
-          aria-pressed={reveal}
-          aria-label={reveal ? 'Hide password' : 'Show password'}
-          className="absolute right-1 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-md text-text-muted transition-colors duration-150 hover:text-text"
-        >
-          {reveal ? <EyeOff className="size-5" aria-hidden /> : <Eye className="size-5" aria-hidden />}
-        </button>
+      </div>
+
+      <div>
+        <Label htmlFor="password" className="mb-2">
+          Password
+        </Label>
+        <div className="relative">
+          <Input
+            id="password"
+            name="password"
+            type={reveal ? 'text' : 'password'}
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="pe-11"
+          />
+          {/*
+            A reveal toggle, because the alternative on a phone keyboard in poor light is a warden
+            mistyping a password three times and hitting the API's 10-per-15-minute login rate
+            limit. `aria-pressed` rather than a label swap, so a screen reader announces the state
+            change rather than a renamed button.
+          */}
+          <button
+            type="button"
+            onClick={() => setReveal((v) => !v)}
+            aria-pressed={reveal}
+            aria-label={reveal ? 'Hide password' : 'Show password'}
+            className="absolute end-1 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-sm text-fg-tertiary transition-colors duration-instant ease-standard hover:text-fg"
+          >
+            {reveal ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+          </button>
+        </div>
       </div>
 
       {error && (
-        // Inline, next to the thing that failed — the design system explicitly rules out alerts.
-        <p role="alert" className="mt-4 flex items-start gap-2 rounded-md bg-red-subtle p-3 text-sm text-red">
-          <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>{error}</span>
-        </p>
+        // Inline, next to the thing that failed. §10: state what happened and what to do.
+        <Alert tone="negative">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className={cn(
-          // 44px is the minimum comfortable touch target; the primary users are on phones.
-          'mt-6 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md text-base font-semibold shadow-sm transition-colors duration-150',
-          pending
-            ? 'cursor-progress bg-gold-active text-on-gold'
-            : 'bg-gold text-on-gold hover:bg-gold-hover active:bg-gold-active',
-        )}
-      >
-        {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
-        {pending ? 'Signing in…' : 'Sign in'}
-      </button>
+      <Button type="submit" variant="primary" size="touch" loading={pending} className="mt-2 w-full">
+        Sign in
+      </Button>
     </form>
   );
 }
-
-const LABEL = 'mb-2 block text-sm text-text-muted';
-
-const CONTROL =
-  'w-full min-h-11 rounded-md border border-border-2 bg-surface-2 px-3 py-2 text-base text-text ' +
-  'transition-colors duration-150 hover:border-text-disabled';

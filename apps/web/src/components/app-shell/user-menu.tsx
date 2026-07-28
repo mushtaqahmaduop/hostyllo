@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { LogOut, User } from 'lucide-react';
-import { toast } from 'sonner';
+import { notify } from '@/components/ui-kit/sonner';
 import { Avatar, AvatarFallback } from '@/components/ui-kit/avatar';
 import { Button } from '@/components/ui-kit/button';
 import {
@@ -44,7 +44,10 @@ export function UserMenu({ name, role }: { name: string | null; role: string | n
       // request never completed. Say so rather than leaving the button stuck on "Signing out…" —
       // a user who thinks they signed out on a shared phone and did not is a real problem.
       setSigningOut(false);
-      toast.error('Could not sign out. Check your connection and try again.');
+      notify.failure('Could not sign out. Check your connection and try again.', {
+        label: 'Try again',
+        onClick: () => void signOut(),
+      });
       return;
     }
     router.replace('/login');
@@ -63,7 +66,7 @@ export function UserMenu({ name, role }: { name: string | null; role: string | n
           aria-label={name ? `Account menu for ${name}` : 'Account menu'}
         >
           <Avatar className="size-8">
-            <AvatarFallback className="bg-surface-3 text-[13px] font-semibold text-text">
+            <AvatarFallback className="bg-surface-sunken text-body-sm font-semibold text-fg">
               {label ?? <User className="size-4" aria-hidden />}
             </AvatarFallback>
           </Avatar>
@@ -72,8 +75,8 @@ export function UserMenu({ name, role }: { name: string | null; role: string | n
 
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
-          <div className="truncate font-semibold text-text">{name ?? 'Signed in'}</div>
-          {role && <div className="text-xs text-text-muted">{ROLE_LABELS[role] ?? role}</div>}
+          <div className="truncate font-semibold text-fg">{name ?? 'Signed in'}</div>
+          {role && <div className="text-caption text-fg-secondary">{ROLE_LABELS[role] ?? role}</div>}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={signOut} disabled={signingOut} className="min-h-11">

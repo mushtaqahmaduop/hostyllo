@@ -1,8 +1,10 @@
 'use client';
 
 import { useActionState, useState } from 'react';
+
 import { Field, FieldGrid, FieldSet, FormError, Select, SubmitButton } from '@/components/form';
-import { formatPkr } from '@/lib/format';
+import { Money } from '@/components/patterns/money';
+import { Input } from '@/components/ui-kit/input';
 import { cn } from '@/lib/utils';
 import { recordPayment, type FormState } from './actions';
 
@@ -21,9 +23,9 @@ const METHODS = [
  *
  * The running balance is the reason this is a client component. A warden taking a part payment
  * needs to see what is still owed *before* committing, not on the receipt afterwards — that number
- * is what they read back to the student. It mirrors `calculateUnpaid` in the API
- * (packages/db), and the API remains the authority: this is a preview, and the stored figures come
- * from the server's own calculation.
+ * is what they read back to the student. It mirrors `calculateUnpaid` in the API (packages/db),
+ * and the API remains the authority: this is a preview, and the stored figures come from the
+ * server's own calculation.
  */
 export function PaymentForm({
   studentId,
@@ -70,16 +72,26 @@ export function PaymentForm({
             defaultValue={defaultMonth}
             hint="Format: YYYY-MM"
           />
-          <NumberField label="Rent (PKR)" name="rent" value={rent} onChange={setRent} required />
-          <NumberField label="Admission fee (PKR)" name="admission_fee" value={admission} onChange={setAdmission} />
-          <NumberField label="Concession (PKR)" name="concession" value={concession} onChange={setConcession} />
+          <NumberField label="Rent" name="rent" value={rent} onChange={setRent} required />
+          <NumberField
+            label="Admission fee"
+            name="admission_fee"
+            value={admission}
+            onChange={setAdmission}
+          />
+          <NumberField
+            label="Concession"
+            name="concession"
+            value={concession}
+            onChange={setConcession}
+          />
         </FieldGrid>
       </FieldSet>
 
       <FieldSet legend="Payment">
         <FieldGrid>
-          <NumberField label="Amount paid (PKR)" name="paid" value={paid} onChange={setPaid} required />
-          <Select label="Method" name="payment_method" defaultValue="cash">
+          <NumberField label="Amount paid" name="paid" value={paid} onChange={setPaid} required />
+          <Select label="Method" name="payment_method" defaultValue="cash" required>
             {METHODS.map((m) => (
               <option key={m.value} value={m.value}>
                 {m.label}
@@ -97,18 +109,23 @@ export function PaymentForm({
         </FieldGrid>
       </FieldSet>
 
-      {/* Sticks to the bottom of the viewport on a phone: the warden reads "still owed" back to the
-          student while the amount field is still focused and the keyboard is covering the page. */}
+      {/*
+       * Sticks to the bottom of the viewport on a phone: the warden reads "still owed" back to the
+       * student while the amount field is still focused and the keyboard is covering the page.
+       * `e2` rather than `e3` — it floats above the form but it is not a dialog.
+       */}
       <div
         aria-live="polite"
-        className="sticky bottom-2 z-10 mb-5 flex flex-wrap gap-5 rounded-lg border border-border bg-surface/95 p-4 shadow-lg backdrop-blur-sm"
+        className="sticky bottom-2 z-10 mb-6 flex flex-wrap gap-6 rounded-lg border border-hairline bg-surface p-4 shadow-e2"
       >
-        <Summary label="Total due" value={formatPkr(totalDue)} />
-        <Summary label="Paying now" value={formatPkr(n(paid))} />
+        <Summary label="Total due" value={totalDue} />
+        <Summary label="Paying now" value={n(paid)} />
         <Summary
           label={balance > 0 ? 'Still owed' : balance < 0 ? 'Overpaid' : 'Settled'}
-          value={formatPkr(Math.abs(balance))}
-          tone={balance > 0 ? 'red' : balance < 0 ? 'amber' : 'teal'}
+          value={Math.abs(balance)}
+          // Amber, not red: money still owed is something to act on, not a failed transaction.
+          // Red is reserved for destructive and failed (§3.1), and an overpayment is not either.
+          attention={balance !== 0}
         />
       </div>
 
@@ -117,7 +134,12 @@ export function PaymentForm({
   );
 }
 
-/** A controlled number input — controlled because the balance above has to track every keystroke. */
+/**
+ * A controlled number input — controlled because the balance above has to track every keystroke.
+ *
+ * `numeric` puts it in the mono face (§4.3 Tier 2), so the figure the warden types looks like the
+ * figure it will become in the ledger.
+ */
 function NumberField({
   label,
   name,
@@ -133,10 +155,13 @@ function NumberField({
 }) {
   return (
     <div>
-      <label htmlFor={name} className="mb-2 block text-sm font-semibold text-text">
-        {label}
+      <label htmlFor={name} className="mb-2 flex items-baseline gap-2 text-body-sm font-medium">
+        <span className="text-fg">{label}</span>
+        <span className="text-caption font-normal text-fg-tertiary">
+          {required ? 'Required · PKR' : 'PKR'}
+        </span>
       </label>
-      <input
+      <Input
         id={name}
         name={name}
         type="number"
@@ -144,25 +169,29 @@ function NumberField({
         min={0}
         step="1"
         required={required}
+        numeric
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="tabular min-h-11 w-full rounded-md border border-border-2 bg-surface-2 px-3 py-2 text-base text-text transition-colors duration-150 hover:border-text-disabled"
       />
     </div>
   );
 }
 
-const SUMMARY_TONE = {
-  red: 'text-red',
-  amber: 'text-amber',
-  teal: 'text-teal',
-} as const;
-
-function Summary({ label, value, tone }: { label: string; value: string; tone?: keyof typeof SUMMARY_TONE }) {
+function Summary({
+  label,
+  value,
+  attention,
+}: {
+  label: string;
+  value: number;
+  attention?: boolean;
+}) {
   return (
     <div>
-      <div className="mb-1 text-[13px] text-text-muted">{label}</div>
-      <div className={cn('tabular text-xl font-semibold', tone && SUMMARY_TONE[tone])}>{value}</div>
+      <div className="text-body-sm text-fg-secondary">{label}</div>
+      <div className={cn('mt-1 text-h2 font-semibold', attention && 'text-attention-text')}>
+        <Money value={value} />
+      </div>
     </div>
   );
 }

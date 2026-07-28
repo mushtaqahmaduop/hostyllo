@@ -1,8 +1,14 @@
-import { api, ApiError } from '@/lib/api';
 import { redirect } from 'next/navigation';
-import { formatPkr } from '@/lib/format';
+
+import { api, ApiError } from '@/lib/api';
+import { PageHeader } from '@/components/patterns/page-header';
+import { HeroPanel } from '@/components/patterns/hero-panel';
+import { StatStrip, StatItem } from '@/components/patterns/stat-strip';
+import { Money, Num } from '@/components/patterns/money';
+import { EmptyState, ErrorState } from '@/components/patterns/states';
+import { Alert, AlertDescription } from '@/components/ui-kit/alert';
+import { StatusBadge } from '@/components/ui-kit/badge';
 import { cn } from '@/lib/utils';
-import { Notice, PageHeading, Stat, StatGrid, StatusBadge } from '@/components/ui';
 
 export const metadata = { title: 'Rooms' };
 
@@ -39,6 +45,14 @@ type RoomsResponse = {
   };
 };
 
+/**
+ * Rooms — the "where can I put someone" screen.
+ *
+ * The bed grid is the point. §8 is explicit that charts are subordinate to tables, and this is the
+ * one place neither is right: a warden's question is spatial, and seeing which squares are empty
+ * answers it faster than any list of counts. It is still a table's discipline — fixed cells, no
+ * decoration, status carried by a word as well as a tint (§12).
+ */
 export default async function RoomsPage() {
   let data: RoomsResponse;
   try {
@@ -46,31 +60,71 @@ export default async function RoomsPage() {
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/login');
     if (error instanceof ApiError && error.status === 403) {
-      return <Notice tone="amber">Your role does not have access to rooms.</Notice>;
+      return (
+        <>
+          <PageHeader title="Rooms" />
+          <Alert tone="attention">
+            <AlertDescription>
+              Your role does not have access to rooms. Ask the hostel owner to change it.
+            </AlertDescription>
+          </Alert>
+        </>
+      );
     }
-    return <Notice tone="red">{error instanceof ApiError ? error.message : 'Could not load rooms.'}</Notice>;
+    return (
+      <>
+        <PageHeader title="Rooms" />
+        <ErrorState
+          title="Couldn't load rooms"
+          body="Check your connection and try again."
+          detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+          retryHref="/rooms"
+        />
+      </>
+    );
   }
 
   const totalBeds = Number(data.summary?.totalBeds ?? 0);
   const occupied = Number(data.summary?.occupiedBeds ?? 0);
-  const occupancyPct = totalBeds > 0 ? Math.round((occupied / totalBeds) * 100) : 0;
+  const free = Number(data.summary?.freeBeds ?? 0);
+  const occupancyPct = totalBeds > 0 ? (occupied / totalBeds) * 100 : 0;
 
   return (
     <>
-      <PageHeading title="Rooms" meta={`${Number(data.summary?.totalRooms ?? 0)} rooms`} />
+      <PageHeader
+        eyebrow={`${Number(data.summary?.totalRooms ?? 0)} rooms`}
+        title="Rooms"
+        description="Every bed in the hostel, and who is in it."
+      />
 
-      <StatGrid label="Occupancy summary">
-        <Stat label="Occupancy" value={`${occupancyPct}%`} hint={`${occupied} of ${totalBeds} beds`} />
-        <Stat label="Occupied beds" value={String(occupied)} tone="teal" />
-        <Stat
-          label="Free beds"
-          value={String(Number(data.summary?.freeBeds ?? 0))}
-          tone={Number(data.summary?.freeBeds ?? 0) === 0 ? 'amber' : undefined}
-        />
-      </StatGrid>
+      <div className="mb-8">
+        <HeroPanel
+          eyebrow="Occupancy"
+          // The one screen whose hero is not money: here the question is beds. Zero renders
+          // tertiary, never green — an empty hostel is not a success (§3.2).
+          value={occupancyPct}
+          format="percent"
+          definition="Occupancy = occupied beds ÷ total beds. Beds under maintenance still count towards the total."
+        >
+          <StatStrip>
+            <StatItem label="Total beds">
+              <Num value={totalBeds} />
+            </StatItem>
+            <StatItem label="Occupied beds">
+              <Num value={occupied} />
+            </StatItem>
+            <StatItem label="Free beds">
+              <Num value={free} />
+            </StatItem>
+          </StatStrip>
+        </HeroPanel>
+      </div>
 
       {data.rooms.length === 0 ? (
-        <Notice tone="muted">No rooms yet.</Notice>
+        <EmptyState
+          title="No rooms yet"
+          body="Add rooms and beds before admitting students — a student cannot be admitted without a bed to put them in."
+        />
       ) : (
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
           {data.rooms.map((room) => (
@@ -82,11 +136,6 @@ export default async function RoomsPage() {
   );
 }
 
-/**
- * A room and its beds. The bed grid is the point of this screen — a warden's first question is
- * "where can I put someone", and a list of numbers answers that far more slowly than seeing which
- * squares are empty.
- */
 function RoomCard({ room }: { room: Room }) {
   // The API left-joins beds and aggregates with json_agg, which yields [{bedId: null, …}] rather
   // than [] for a room that has none — filtering on bedId is what distinguishes the two.
@@ -96,53 +145,59 @@ function RoomCard({ room }: { room: Room }) {
   return (
     <article
       className={cn(
-        'rounded-lg border border-border bg-surface p-4 shadow-sm transition-colors duration-150 hover:border-border-2',
+        'rounded-lg border border-hairline bg-surface p-4',
+        // No hover-lift: §16.6 names `translateY` plus a growing shadow as the single most
+        // template-looking effect in existence. The border does the work instead.
+        'transition-colors duration-fast ease-standard hover:border-hairline-strong',
         !room.isActive && 'opacity-60',
       )}
     >
-      <header className="mb-1 flex items-baseline gap-2">
-        <h2 className="text-lg font-semibold">Room {room.number}</h2>
+      <header className="flex items-baseline gap-2">
+        <h2 className="text-h3 font-semibold text-fg">Room {room.number}</h2>
         {!room.isActive && <StatusBadge status="inactive" />}
       </header>
 
-      <p className="mb-3 text-sm text-text-muted">
-        {[room.floor && `Floor ${room.floor}`, room.roomType, formatPkr(room.defaultRentPkr)]
-          .filter(Boolean)
-          .join(' · ')}
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-body-sm text-fg-secondary">
+        {[room.floor && `Floor ${room.floor}`, room.roomType].filter(Boolean).join(' · ')}
+        {(room.floor || room.roomType) && <span aria-hidden>·</span>}
+        <Money value={room.defaultRentPkr} />
       </p>
 
       {beds.length === 0 ? (
-        <p className="text-sm text-text-muted">No beds configured.</p>
+        <p className="mt-4 text-body-sm text-fg-tertiary">No beds configured.</p>
       ) : (
         <>
-          <ul className="mb-3 grid list-none gap-2 p-0 [grid-template-columns:repeat(auto-fill,minmax(110px,1fr))]">
+          <ul className="mt-4 grid list-none gap-2 p-0 [grid-template-columns:repeat(auto-fill,minmax(110px,1fr))]">
             {beds.map((bed) => {
-              const occupied = bed.status === 'occupied';
-              const maintenance = bed.status === 'maintenance';
+              const isOccupied = bed.status === 'occupied';
+              const isMaintenance = bed.status === 'maintenance';
               return (
                 <li
                   key={bed.bedId}
                   className={cn(
-                    'rounded-md border p-2 text-[13px]',
-                    maintenance
-                      ? 'border-amber bg-amber-subtle'
-                      : occupied
-                        ? 'border-teal bg-teal-subtle'
-                        : 'border-border-2 bg-surface-2',
+                    'rounded-md border p-2 text-body-sm',
+                    // §7.6's vocabulary, applied literally: Occupied is indigo, Maintenance is
+                    // amber, Vacant is neutral. Vacant is deliberately the quietest of the three —
+                    // an empty bed is the normal state of a hostel with room in it.
+                    isMaintenance
+                      ? 'border-transparent bg-attention-tint'
+                      : isOccupied
+                        ? 'border-transparent bg-brand-tint'
+                        : 'border-hairline bg-surface-sunken',
                   )}
                 >
-                  <div className="text-text-muted">{bed.label}</div>
-                  {/* Occupancy is never signalled by colour alone — the name or the word "Free"
-                      carries it for anyone who cannot distinguish the fills. */}
-                  <div className="mt-0.5 break-words text-text">
-                    {bed.studentName ?? (maintenance ? 'Maintenance' : 'Free')}
+                  <div className="font-mono text-mono-sm text-fg-tertiary">{bed.label}</div>
+                  {/* Occupancy is never signalled by colour alone — the name or the word carries
+                      it for anyone who cannot distinguish the fills (§12). */}
+                  <div className="mt-0.5 break-words text-fg">
+                    {bed.studentName ?? (isMaintenance ? 'Maintenance' : 'Vacant')}
                   </div>
                 </li>
               );
             })}
           </ul>
 
-          <p className={cn('text-[13px]', free > 0 ? 'text-teal' : 'text-text-muted')}>
+          <p className="mt-3 text-body-sm text-fg-secondary">
             {free > 0 ? `${free} bed${free === 1 ? '' : 's'} free` : 'Full'}
           </p>
         </>
