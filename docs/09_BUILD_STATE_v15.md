@@ -311,9 +311,12 @@ These have external approval timelines. Must be tracked from Day 1.
 >
 > Consequence: auto-cancellation, subscription/dunning sync and email sending are **not happening**.
 > Monthly rent *is* generated, but by `POST /payments/generate-monthly` inline — the worker is a
-> second, divergent copy of that logic. `auto-cancel.ts` additionally carries broken SQL
-> (`beds.occupant_id` does not exist; `'available'` fails the status CHECK) across three
-> statements with no transaction, so triggering it today would half-apply a cancellation.
+> second, divergent copy of that logic.
+>
+> `auto-cancel.ts` carried the same broken-SQL defect (four non-existent columns) and no
+> transaction; **fixed 2026-07-28** and now covered by `apps/api/src/__tests__/auto-cancel.test.ts`.
+> It is correct whenever a producer finally enqueues to it. The other three are still unaudited
+> against the live schema — assume nothing about them until each is exercised the same way.
 >
 > Full findings and the open decisions in `tasks/todo`.
 

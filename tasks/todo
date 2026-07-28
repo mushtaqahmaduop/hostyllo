@@ -178,14 +178,31 @@ to. Reported, not fixed — decide the shape first.
 | `billing-sync` | **No.** | Subscription/plan state (trial→active→expired→suspended) never syncs. |
 | `email-send` | **No.** | No email is ever sent by the system. |
 
-- [ ] 🐞 **`auto-cancel.ts` has the same broken-SQL defect pdf-receipts had, and it is worse.**
-      Lines 28–33 do `UPDATE beds SET status = 'available', occupant_id = NULL WHERE occupant_id =
-      $1`. The `beds` table has **no `occupant_id` column**, and `'available'` violates its CHECK
-      (`vacant` | `occupied` | `maintenance`). So the query throws — *after* the job has already
-      marked cancellations confirmed and students vacated in two earlier statements. **None of the
-      three is in a transaction**, so triggering this worker today would half-apply a cancellation:
-      student vacated, bed still showing occupied. Fix the SQL *and* wrap the handler in a
-      transaction before anything is ever allowed to enqueue to it.
+- [x] 🐞 **`auto-cancel.ts` had the same broken-SQL defect pdf-receipts had — FIXED 2026-07-28.**
+      Four non-existent columns across the handler: `cancellations.cancellation_date` (the column
+      is `vacate_date`), `cancellations.auto_confirmed`, and `beds.occupant_id` — the beds table
+      has no such column, the link runs the other way (`students.bed_id`) — plus it wrote
+      `beds.status = 'available'`, which fails that table's CHECK (`vacant`|`occupied`|
+      `maintenance`).
+      ⚠️ **Correction to this file's earlier claim.** A previous note here said triggering the
+      worker "today would half-apply a cancellation". That was wrong: the *first* statement
+      referenced `cancellation_date` and `auto_confirmed`, so it threw before writing anything and
+      nothing was applied. The half-application risk was latent, not live — it would have appeared
+      the moment someone fixed statement 1 without adding a transaction, which is precisely what
+      made the transaction worth adding alongside the SQL fix.
+      Rewritten to mirror `POST /cancellations/:id/confirm` exactly — same three writes, same audit
+      row — because a worker that vacates a student differently is a second definition of
+      "cancelled" and the two would drift. Additions on top of the old behaviour: an
+      `audit_log` row (INVARIANT-5; automatic vacations were the only untraceable ones), a
+      per-cancellation transaction so one bad row cannot roll back another hostel's, a
+      claim-by-`UPDATE ... WHERE status='pending'` that makes the sweep idempotent and safe against
+      a warden confirming by hand mid-run, and a date comparison in the *hostel's* timezone rather
+      than the container's UTC. Also dropped the old worker's `students.deleted_at = NOW()`, which
+      the route does not do — soft-deleting a vacated student would hide them from every list.
+      `confirmed_by IS NULL` on a confirmed row is now the marker of an automatic confirmation.
+      Covered by `apps/api/src/__tests__/auto-cancel.test.ts` (7 tests): bed actually released,
+      audit row written, future dates untouched, idempotent on re-run, multi-tenant sweep scoped
+      per hostel, already-confirmed rows ignored, and a student with no bed assigned.
 - [ ] **Decide how scheduled work runs** before wiring any producer: BullMQ repeatable jobs
       registered at boot (simple, but every API replica registers them — needs a single-owner
       guard), or an external scheduler hitting authenticated endpoints (visible in logs, easier to
