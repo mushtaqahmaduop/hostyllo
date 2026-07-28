@@ -35,9 +35,11 @@
 - [x] **Screens:** login, dashboard (6 KPIs + needs-attention), students (search + pagination),
       **payments** (month/status filters + month summary strip, voided rows dimmed) and **rooms**
       (bed-occupancy grid — the "where can I put someone" view, per blueprint Module 3). PR #36.
-- [x] **Shared list primitives** extracted to `apps/web/src/components/ui.tsx` once there were three list
+- [x] **Shared list primitives** extracted to a single shared `ui` module once there were three list
       screens (table frame, notice, pagination that carries filters forward, status badge, stat
       grid). Dashboard and students refactored onto them in the same pass.
+      **Superseded in session 11** — that file is deleted; its pieces now live in
+      `apps/web/src/components/patterns/` and the restyled `ui-kit`.
 - [x] **Next.js 16, not 14** as the docs specify. Deliberate: scaffolding a new app on an older
       major right after fixing the Fastify EOL would repeat the mistake. Note Next 16 removed the
       `eslint` config key — linting is a separate CI step.
@@ -62,6 +64,76 @@
   3 payments. **Every id starts with `dced0`** — `DELETE FROM ... WHERE id::text LIKE 'dced0%'`.
   Staging only; production untouched. Bed rows were later set to 'occupied' to match their student
   assignments, since they had been inserted directly rather than through POST /students.
+
+## ★ SESSION 11 — PHASE 2 FRONTEND: UI SPEC ADOPTED, FOUNDATION REBUILT (2026-07-28)
+> Authority: `docs/15_UI_SPEC_v1.md` (new, founder-supplied). It supersedes
+> `docs/04_UX_DESIGN_SYSTEM.md` **for appearance only** — behaviour still follows the PRD. Banner
+> added to 04 and to `docs/README.md` so the next session cannot follow the dead palette.
+> Followed the spec's own §15 build order: tokens → primitives → shell → patterns → one screen.
+
+- [x] **Design tokens are now the single source of truth.** `apps/web/src/styles/tokens.css`
+      (light + dark) + `base.css`; `src/app/tokens.css` (gold/teal) deleted; `globals.css` is a
+      three-line importer. Every colour, size, duration, radius and shadow in the app is a
+      `var(--hs-*)` reached through a Tailwind class — no component holds a hex or a px font-size.
+- [x] **Theme is `class="dark"` + `hs-theme` cookie, three states** (light/dark/system), not the old
+      two-state `[data-theme]`. The server reads the cookie and puts the class in the HTML it
+      sends, so an explicit choice is correct *before any script runs*; the §3.3 pre-paint script
+      resolves `system`, which the server cannot. Zero flash is a §17 DoD item.
+- [x] **Fonts swapped and verified self-hosted** — Geist · Newsreader · JetBrains Mono ·
+      Noto **Naskh** Arabic (not Nastaliq: its slanted baseline breaks table row rhythm). All four
+      confirmed in the built CSS as `@font-face` with fallback metrics; only Geist preloads, per
+      the ≤180 KB first-paint budget.
+- [x] **Primitives restyled off shadcn defaults**: button (4 variants, width-preserving loading
+      state), badge + the fixed §7.6 status vocabulary, input, label, card, table, alert, skeleton,
+      separator, tooltip, dialog, sheet, dropdown-menu, sonner.
+- [x] **Patterns built** (`components/patterns/`): page-header, hero-panel (with the once-per-session
+      count-up), stat-strip, needs-attention, money/Num/Pct, search-form, pagination, and `states.tsx`
+      holding all six §10 states in one file so a missing one is visible.
+- [x] **App shell rebuilt**: 264/72px sidebar on `surface-sunken` with grouped nav and the Threshold
+      Rule on the active item, "Data as of" stamp pinned bottom, 56px topbar, mobile tab bar,
+      `data-density="compact"` default for ledger pages.
+- [x] **Screens rebuilt on the new system**: Dues & payments (the §15 step-5 flagship, all six
+      states), dashboard (one hero + needs-attention, replacing the six-card grid §1 calls out),
+      defaulters, students, student profile, rooms, both write forms, login, and every `loading.tsx`
+      re-shaped to match its real geometry.
+- [x] **Verified, not assumed**: `tsc --noEmit` clean · `eslint src` clean · `next build` green (13
+      routes) · 68 token-derived utility classes audited against the *generated* CSS · login page
+      served and its HTML inspected for the theme script, `color-scheme` meta and font wiring.
+
+### 🐞 TWO SILENT-FAILURE BUGS FOUND BY AUDITING THE GENERATED CSS
+- [x] **`duration-fast` and friends compiled to nothing.** Tailwind v4 has an `--ease-*` theme
+      namespace but **no `--duration-*`**, so mapping them in `@theme` is silently dropped — every
+      transition in the app was running at the browser default. Fixed with explicit `@utility`
+      rules in `base.css` that set both `transition-duration` **and** `--tw-duration` (tw-animate-css
+      reads the latter). Neither typecheck, lint nor build reports this; only diffing the emitted
+      CSS does.
+- [x] **`[&>*:first-child]:` variants were dropped entirely.** Tailwind v4's scanner treats `>` as a
+      delimiter inside JSX, so the table's signature leading threshold bar never rendered. Moved to
+      a real `.hs-row-threshold` rule in `base.css`, driven by `data-threshold`.
+
+### ⚠️ SPEC DEFECT — corrected in code, needs a decision in the doc
+- [ ] **`15_UI_SPEC_v1.md` §4.3 names the wrong locale.** It asks for lakh/crore grouping
+      "via `Intl.NumberFormat('en-PK')`" and prints `PKR 12,84,500` in its own §5 mockup. Measured:
+      `en-PK` → `1,284,500`, and its currency form renders the symbol as **`Rs`**, which the same
+      section explicitly bans. `en-IN` is the locale that produces the grouping the spec wants.
+      `apps/web/src/lib/format.ts` uses `en-IN` for digits and renders the `PKR` prefix separately (which also
+      satisfies "never `₨`, never `Rs.`"). **Amend §4.3 to say `en-IN`** so the next reader does not
+      "fix" it back.
+
+### NEXT, in the spec's own order
+- [ ] **Command palette (⌘K / Ctrl+K)** — §7.11 calls it non-negotiable. Not built; needs a search
+      endpoint that spans students, rooms and invoices, or three parallel calls.
+- [ ] **Offline/stale banner is built but not wired** — `StaleBanner` exists (§10 calls this "a
+      primary state, not an edge case"); nothing yet detects staleness to render it.
+- [ ] **Deltas have no baseline data.** `formatDelta()` returns `null` without a comparison, and
+      `/dashboard/stats` returns no previous-period figures — so §4.3's "▲ 12.4% vs last month" is
+      correctly absent rather than faked. Needs an API change to light up.
+- [ ] **`select.tsx` and `tabs.tsx` are still stock shadcn.** Neither is rendered by any screen
+      today (forms use native `<select>`), so they were left rather than restyled blind — but they
+      are on the §7 "do not ship shadcn defaults" list the moment something imports them.
+- [ ] **§17 Definition of Done is not fully signed off per screen.** Verified programmatically:
+      tokens-only, both themes compile, logical properties. **Not** verified: contrast measured in
+      both themes, keyboard-only pass, 1366×768 and 375px screenshots, route JS ≤ 200 KB gz.
 
 ## ★ SESSION 9 — INVARIANTS ENFORCED + FULL AUDIT (2026-07-27, PRs #29 / #30)
 > Full findings: `docs/AUDIT_2026-07-27.md`. PR #28 and #29 merged to Develop.
