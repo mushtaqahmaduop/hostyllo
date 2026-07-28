@@ -54,9 +54,24 @@
 - [ ] ⚠️ **Related, NOT fixed:** `PATCH /students/:id` can change `bed_id` without moving
       `beds.status`. `/rooms/shift` is the intended path for moves; decide whether PATCH should
       reject a `bed_id` change or maintain the status itself.
-- [ ] ⚠️ **API returns money as strings** (`revenuePkr: "11000.00"`, `activeStudents: "3"`) — pg
-      NUMERIC/COUNT not coerced in `dashboard.ts`. The web client defends with `Number()`, but the
-      API spec says numbers. Same class as the payment string-concat bug fixed in July.
+- [x] ⚠️ **API returns money as strings — FIXED 2026-07-28 (session 12), at the driver.**
+      Was `revenuePkr: "11000.00"`, `activeStudents: "3"`; pg returns NUMERIC (oid 1700) and INT8
+      (oid 20, what COUNT() returns) as strings. Fixed with `pg.types.setTypeParser` for both in
+      `packages/db/src/withTenant.ts` — the one module that creates the pools, so it covers every
+      route and worker at once.
+      **Why there and not in `dashboard.ts`:** this is the *fourth* instance of one defect. The
+      rent string-concat bug, the 10× rent-generate bug, and these responses were each fixed by
+      adding one more hand-written `Number()` at one more call site, which holds only until
+      someone forgets — and forgetting is silent, since `"5000" + "1000"` is legal JavaScript.
+      Parsing at the driver ends the class; the existing `Number()`/`parseInt()` calls in the
+      routes become harmless no-ops rather than load-bearing.
+      INT8 is parsed defensively (keeps the string if it would not survive the round trip, so an
+      unrepresentable value fails loudly instead of arriving quietly wrong). NUMERIC deliberately
+      has no such guard: money that overflowed a double is far outside `NUMERIC(10,2)`, and
+      returning a string there would resurrect the concatenation bug being removed.
+      Guarded by `numeric-types.test.ts` (4 tests) over dashboard stats, defaulters and the
+      payments list, including one that asserts the figures *add* rather than concatenate. Two
+      now-false `amount: string` annotations in `payments.ts` corrected.
 
 ### ⚠️ STAGING DEMO DATA (remove whenever you like)
 - Staging had **zero** rows, so a demo tenant was seeded to verify the screens: hostel

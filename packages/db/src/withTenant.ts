@@ -1,6 +1,36 @@
 import pg from 'pg';
 const { Pool } = pg;
 
+// ---------------------------------------------------------------------------
+// Result type parsing — NUMERIC and COUNT must arrive as numbers, not strings.
+//
+// node-postgres returns NUMERIC (oid 1700) and INT8 (oid 20, what COUNT() returns) as STRINGS,
+// because both can exceed what a JS double represents exactly. Nothing in this schema comes
+// close: money is NUMERIC(10,2) — max 99,999,999.99 — and the counts are rows in one hostel.
+//
+// Left unparsed, the strings are a live bug generator, and this codebase has already been bitten
+// three times: rent totalled with `+` concatenated ("5000" + "1000" = "50001000"), the same defect
+// again in the rent-generate path multiplying figures by ten, and dashboard/defaulters responses
+// shipping `revenuePkr: "11000.00"` and `activeStudents: "3"` to a client the API spec promises
+// numbers to. Every fix so far has been another hand-written Number() at one more call site, which
+// only works until someone forgets — and forgetting is silent, because string concatenation and
+// string comparison are both perfectly legal JavaScript.
+//
+// Parsing at the driver ends the class instead of patching instances. The existing Number() /
+// parseInt() calls throughout the routes become harmless no-ops rather than load-bearing.
+//
+// INT8 is parsed defensively: anything that would not survive the round trip keeps its string
+// form, so a value too large to represent fails loudly at the call site instead of arriving
+// quietly wrong. NUMERIC has no such guard on purpose — a money column that overflowed a double
+// would be far outside this schema's constraints, and returning a string there would resurrect
+// exactly the concatenation bug this removes.
+pg.types.setTypeParser(1700, (v) => (v === null ? null : parseFloat(v)));
+pg.types.setTypeParser(20, (v) => {
+  if (v === null) return null;
+  const n = Number(v);
+  return Number.isSafeInteger(n) ? n : v;
+});
+
 // Canonical DB connection layer for HOSTYLLO. This is the SINGLE source of truth for the
 // pools and the tenant-isolation primitive — apps/api re-exports from here. (Audit M1: there
 // used to be a second copy in apps/api with insecure TLS that was instantiated on every

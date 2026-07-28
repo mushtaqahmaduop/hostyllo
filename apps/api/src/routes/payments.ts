@@ -466,7 +466,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
       rent: p.rent,
       admissionFee: p.admission_fee,
       concession: p.concession,
-      extraCharges: data.extras.map((e: { label: string; amount: string }) => ({
+      extraCharges: data.extras.map((e: { label: string; amount: number }) => ({
         label: e.label,
         amount: e.amount,
       })),
@@ -564,7 +564,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
         SELECT amount FROM public.payment_extra_charges
         WHERE payment_id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid
       `, [id]);
-      const extraAmounts = extrasResult.rows.map((r: { amount: string }) => Number(r.amount));
+      const extraAmounts = extrasResult.rows.map((r: { amount: number }) => Number(r.amount));
 
       const newPaid = body.paid ?? Number(p.paid);
       const { totalDue, unpaid, status } = calculateUnpaid(
