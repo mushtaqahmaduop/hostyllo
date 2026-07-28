@@ -122,9 +122,25 @@
       formatter did emit a symbol. Here it does not, so "never pair it with a `pkr` span" was not
       merely stale but the exact inverse of what §4.3's symbol-treatment bullet requires. §17's
       Definition of Done updated to match.
-      ⚠️ `13_PRODUCTION_READINESS.md` still carries a pre-build `fmtPkr`/`fmtPkrShort` code sample
-      that hardcodes `en-PK` — harmless (nothing imports it, that doc is roadmap not status) but
-      it will read as authoritative to anyone who lands there first.
+- [x] **`13_PRODUCTION_READINESS.md` §6.7 rewritten** — it carried an `fmtPkr`/`fmtPkrShort` sample
+      attributed to `packages/db/src/formatters.ts`. **Neither function has ever existed**; that
+      file holds `fmtCnic` + `fmtPhone` only. The sample was wrong three ways: `en-PK` does not
+      group the Pakistani way (its own comment claimed `→ PKR 1,00,000`; the real output is
+      `100,000`), `style:'currency'` renders `Rs` which §4.3 bans, and it abbreviated above 1 lakh
+      in KPI cards where §4.3 permits abbreviation only above 10 lakh and only in chart axes.
+      Section now documents `apps/web/src/lib/format.ts` as it actually is.
+      **Checked while there — no server-side currency formatting exists anywhere.** The only
+      `en-PK` left in code is `payments.ts:649`, a *month* label (`toLocaleString` with
+      month/year), which is correct for dates.
+
+### 🐞 FOUND WHILE VERIFYING THE ABOVE — pdf-receipts worker is a stub that reports success
+- [ ] **`apps/api/src/workers/pdf-receipts.ts` generates no PDF.** It SELECTs the payment +
+      student + room + hostel rows, then immediately `UPDATE payments SET receipt_generated =
+      true, receipt_generated_at = NOW()` and logs "Receipt generated". No document is produced or
+      stored, and the selected columns are never used. So the DB records receipts that do not
+      exist, and anything downstream trusting `receipt_generated` is reading a false flag.
+      Not a formatting bug and not urgent while nothing consumes it — but it must not still be
+      true the day receipts are handed to students. Decide: implement, or stop writing the flag.
 
 ### NEXT, in the spec's own order
 - [ ] **Command palette (⌘K / Ctrl+K)** — §7.11 calls it non-negotiable. Not built; needs a search

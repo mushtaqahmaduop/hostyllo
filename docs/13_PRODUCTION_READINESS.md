@@ -1156,26 +1156,49 @@ Service worker caches: app shell (layout, navigation, CSS) so the UI loads insta
 
 ### 6.7 Number Formatting — Pakistan Locale
 
+> **Rewritten 2026-07-28 to match the implementation.** This section previously showed an
+> `fmtPkr`/`fmtPkrShort` pair in `packages/db/src/formatters.ts`. Neither function has ever existed
+> — that file holds `fmtCnic` and `fmtPhone` only — and the sample was wrong in three ways that
+> matter. **Authority for everything below: `15_UI_SPEC_v1.md` §4.3.**
+>
+> 1. **`en-PK` does not produce lakh grouping.** The sample's own comment claimed `→ PKR 1,00,000`.
+>    Measured on Node 20 / ICU, `en-PK` yields `100,000` — Western three-digit grouping. `en-IN` is
+>    the locale that groups the Pakistani way.
+> 2. **`style: 'currency'` renders the symbol as `Rs`** under `en-PK`, which §4.3 bans outright
+>    (along with `₨`, for inconsistent glyph coverage).
+> 3. **The short form abbreviated far too eagerly.** §4.3 permits abbreviation *only above 10 lakh*
+>    and *only in chart axes and sparkline labels* — never in a KPI, a ledger cell or an invoice.
+>    A rounded figure in a reconciliation view is a wrong figure.
+
+Currency formatting lives in the web layer, not in `packages/db` — the API returns raw NUMERIC
+values and the client decides how to render them.
+
 ```typescript
-// packages/db/src/formatters.ts
+// apps/web/src/lib/format.ts
 
-// Pakistani lakh system: 1,00,000 (not 100,000)
-export const fmtPkr = (amount: number): string =>
-  new Intl.NumberFormat('en-PK', {
-    style: 'currency',
-    currency: 'PKR',
-    maximumFractionDigits: 0,
-  }).format(amount);
-// → PKR 1,00,000
+// Lakh/crore grouping. `en-IN`, not `en-PK` — see the file header for the measurement.
+// No `style: 'currency'`: the digits are formatted alone and the "PKR" prefix is rendered
+// separately by <Money>, in caption type, so the numerals carry the weight (§4.3).
+const GROUPED = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 });
 
-// Short form for KPI cards
-export const fmtPkrShort = (amount: number): string => {
-  if (amount >= 100000) return `PKR ${(amount / 100000).toFixed(1)}L`;
-  if (amount >= 1000) return `PKR ${(amount / 1000).toFixed(1)}K`;
-  return fmtPkr(amount);
-};
-// → PKR 2.5L | PKR 8.5K | PKR 800
+export function formatAmount(value, { decimals = 0 } = {}): string   // → 12,84,500
+export function formatAmountCompact(value): string                   // → 12.8 lakh
 ```
+
+- **`formatAmount`** — zero decimals in KPIs and lists, `decimals: 2` in invoices, receipts and
+  reconciliation views.
+- **`formatAmountCompact`** — chart axes and sparkline labels only, and only above 10 lakh. Below
+  that it falls through to the full figure.
+- **Unknown is not zero.** A real zero renders `PKR 0`; a missing value renders `—`. Never `0` as
+  a placeholder.
+
+Rendering always goes through `<Money>`, `<Num>` or `<Pct>`
+(`apps/web/src/components/patterns/money.tsx`) rather than a hand-built string, which is what
+keeps the prefix, the tabular figures and the mono ledger face consistent across every screen.
+
+`packages/db/src/formatters.ts` remains the home for the two *identity* formatters — `fmtCnic`
+(13 digits → `12345-1234567-1`) and `fmtPhone` (`03001234567` → `+923001234567`) — because those
+normalise stored values rather than present them.
 
 ---
 
