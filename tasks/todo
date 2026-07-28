@@ -212,7 +212,17 @@ to. Reported, not fixed — decide the shape first.
       implementation, or move the endpoint to enqueue. Two copies of the billing rule is the real
       risk here; they can already disagree.
 
-### 🔴 VERCEL FRONTEND DEPLOY — diagnosed, one founder action left (2026-07-28)
+### ✅ VERCEL FRONTEND DEPLOY — FIXED AND LIVE (2026-07-28)
+**First successful deployment in the project's history.** Root Directory set to `apps/web`,
+framework auto-detected as `nextjs`, `API_BASE_URL` set for production/preview/development.
+Verified on the deployed page, not just by a green build: `<title>Sign in · Hostyllo</title>`, the
+pre-paint theme script, all four self-hosted fonts, and the new design tokens rendering.
+Applied via the Vercel REST API using the CLI token after the founder ran `vercel login`.
+Production deploys from `main`, so the production URL goes live when this branch merges.
+⚠️ Still unproven: `API_BASE_URL` reaching the API. A green build does not test it — `/login`
+renders without it and only authenticated screens fetch. **Sign in and reach `/dashboard`.**
+
+<details><summary>Original diagnosis (kept for the record)</summary>
 Full detail in `docs/14_DEPLOYMENT_RUNBOOK.md` §13.
 - [x] **Diagnosed.** All 21 deployments on `hostyllo.web` are `ERROR`, going back to before
       `apps/web` existed. **The app is not the problem** — the build log shows Next compiling
@@ -224,17 +234,15 @@ Full detail in `docs/14_DEPLOYMENT_RUNBOOK.md` §13.
          *"No Next.js version detected"*. Framework detection reads the package.json **in the Root
          Directory**, and the repo root's has only `turbo`. No `vercel.json` can fix this, so that
          file was removed again rather than left as dead config.
-- [ ] ⚠️ **FOUNDER: set Root Directory = `apps/web`** (Vercel → hostyllo.web → Settings → Build &
-      Deployment). That one setting is sufficient. Claude cannot do it: there is no project-settings
-      MCP tool, and the local Vercel CLI is unauthenticated (`vercel login` is interactive).
-      The `curl` equivalent is in runbook §13 if a token is easier.
-- [ ] ⚠️ **FOUNDER: set `API_BASE_URL`** per Vercel environment (production →
-      `https://hostyllo-production.up.railway.app`, preview → the staging URL). A green build does
-      **not** prove this is set — `/login` renders without it and only the authenticated screens
-      fetch. Verify by signing in and reaching `/dashboard`.
+- [x] **Root Directory = `apps/web`** — done. Originally blocked because there is no
+      project-settings MCP tool and the local Vercel CLI was unauthenticated; unblocked when the
+      founder ran `vercel login`, after which the CLI token (at
+      `%APPDATA%\xdg.data\com.vercel.cli\auth.json`, *not* the documented path) drove a REST PATCH.
+- [x] **`API_BASE_URL`** set for production / preview / development.
 - Considered and rejected: a legacy `builds: [{ src: "apps/web/package.json", use: "@vercel/next" }]`
   block would work repo-only, but it opts the project out of zero-config and the newer framework
   integration. Not worth shipping a degraded platform path to avoid one click.
+</details>
 
 ### NEXT, in the spec's own order
 - [ ] **Command palette (⌘K / Ctrl+K)** — §7.11 calls it non-negotiable. Not built; needs a search

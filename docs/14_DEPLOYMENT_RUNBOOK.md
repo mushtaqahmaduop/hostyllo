@@ -3,8 +3,8 @@
 Single source of truth for how Hostyllo's API runs in production and how to operate it.
 Last verified live: 2026-07-23 — `{"success":true,"data":{"db":"ok","redis":"ok"}}`.
 
-> **The frontend (Vercel) has never deployed successfully.** See §13 — it is one Project Setting,
-> and it is a founder action. Every other item below concerns the Railway API, which is live.
+> **Frontend (Vercel) is live as of 2026-07-28** — first successful deployment in the project's
+> history. See §13 for what was wrong and how it is now configured.
 
 ---
 
@@ -168,14 +168,31 @@ Current: production trigger → `main`, staging trigger → `Develop`. Or set it
 
 ---
 
-## 13. Frontend (Vercel) — ⚠️ has never deployed successfully
+## 13. Frontend (Vercel) — ✅ live since 2026-07-28
 
 Project **`hostyllo.web`** (`prj_voZlvDgX4knrEQ0yHMx6uoIzZEjC`), team `mushtaqs-projects-ed730108`.
-Every deployment since the project was created is in `ERROR` state — including ones from before
-`apps/web` existed.
 
-**The app is not the problem.** The build log from the 2026-07-28 run shows Next compiling cleanly,
-TypeScript passing and all 13 routes generating. Only the final packaging step fails.
+**Current settings (applied 2026-07-28, verified by a green deployment):**
+
+| Setting | Value |
+|---|---|
+| Root Directory | **`apps/web`** ← this was the whole problem |
+| Framework | `nextjs` (auto-detected once the root directory was right) |
+| Build / Install / Output commands | *unset* — auto-detected. Vercel sees Turbo, installs the whole workspace from the repo root, then scopes the build to `@hostyllo/web` |
+| Node | 24.x |
+| `API_BASE_URL` (production) | `https://hostyllo-production.up.railway.app` |
+| `API_BASE_URL` (preview + development) | `https://hostyllo-staging.up.railway.app` |
+
+Verified on the deployed preview: `<title>Sign in · Hostyllo</title>`, the pre-paint theme script
+present, all four self-hosted font variables on `<html>`, and the design tokens (`bg-canvas`,
+`border-hairline`, `text-fg`, `font-display`) rendering. Production deploys from `main`, so the
+production URL goes live when this work merges.
+
+### What had been wrong (for the record)
+
+Every deployment before this was in `ERROR`, including ones predating `apps/web`. **The app was
+never the problem** — the build logs show Next compiling cleanly, TypeScript passing and all 13
+routes generating. Only the final packaging step failed.
 
 Two configuration errors, in order:
 
@@ -188,16 +205,13 @@ Two configuration errors, in order:
    Directory** — the repo root's has only `turbo`. No amount of `vercel.json` can fix this, which is
    why that file was removed again rather than left as dead config.
 
-### The fix — one Project Setting, founder action
+### How it was fixed
 
-> Vercel → project **hostyllo.web** → Settings → Build & Deployment → **Root Directory** = `apps/web`
+The Root Directory was set to `apps/web`. Everything else followed from it — Vercel then finds
+`apps/web/package.json`, auto-detects Next.js, and builds there. Keep "Include source files outside
+the Root Directory" **on**: pnpm needs the root `pnpm-workspace.yaml` and lockfile to install.
 
-That is sufficient on its own. With it set, Vercel finds `apps/web/package.json`, auto-detects
-Next.js, and runs `next build` there. `apps/web` has no workspace dependencies, so nothing else
-needs compiling; leave "Include source files outside the Root Directory" **on**, because pnpm needs
-the root `pnpm-workspace.yaml` and lockfile to install.
-
-Equivalent via the REST API, if a token is to hand:
+Settings are not repo config, so if the project is ever recreated, reapply with:
 
 ```bash
 curl -X PATCH "https://api.vercel.com/v9/projects/prj_voZlvDgX4knrEQ0yHMx6uoIzZEjC?teamId=team_sayArFSzn74VPxYLn2pRgA5j" \
@@ -205,16 +219,22 @@ curl -X PATCH "https://api.vercel.com/v9/projects/prj_voZlvDgX4knrEQ0yHMx6uoIzZE
   -d '{"rootDirectory":"apps/web","framework":"nextjs"}'
 ```
 
-### Then: the runtime env var
+`VERCEL_TOKEN` can come from an account token, or from the CLI after `vercel login` — on this
+Windows machine the CLI writes it to
+`%APPDATA%\xdg.data\com.vercel.cli\auth.json` (**not** the documented `%APPDATA%\com.vercel.cli\`).
 
-`apps/web` reads **`API_BASE_URL`** on the server at request time (never inlined into the client
-bundle — the browser only ever talks to this app's own route handlers). It must be set per Vercel
-environment or every page that fetches will fail at runtime even once the build is green:
+### The runtime env var
 
-| Vercel environment | Value |
-|---|---|
-| Production | `https://hostyllo-production.up.railway.app` (→ `https://api.hostyllo.app` once DNS is set) |
-| Preview | `https://hostyllo-staging.up.railway.app` |
+`apps/web` reads **`API_BASE_URL`** on the server at request time — never inlined into the client
+bundle, because the browser only ever talks to this app's own route handlers. Set per environment
+(values in the table above), or every page that fetches fails at runtime even with a green build.
 
-Note the build going green does **not** prove this is set: `/login` renders without it, and only the
-authenticated screens fetch. Verify by loading `/login`, signing in, and reaching `/dashboard`.
+⚠️ **A green build does not prove it is set.** `/login` renders without it; only the authenticated
+screens fetch. Verify by signing in and reaching `/dashboard`.
+
+### Preview URLs are behind Vercel Authentication
+
+Fetching a preview URL returns `200` with Vercel's own SSO page (`<title>Login – Vercel</title>`),
+which is easy to mistake for the app being broken. It is the default for team projects and is
+correct. To read the real page programmatically use the Vercel MCP `web_fetch_vercel_url` tool, or
+`project protection` to change the policy.
