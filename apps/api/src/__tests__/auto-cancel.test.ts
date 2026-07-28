@@ -10,6 +10,11 @@
  * These tests run the sweep function directly rather than through BullMQ — the queue is not the
  * part that was wrong, and there is still no producer to enqueue with.
  *
+ * Each test owns a distinct cancellation id, because teardown deliberately never deletes from
+ * `audit_log`: that table is INSERT-ONLY and its immutability trigger (INVARIANT-5, migration 006)
+ * rejects DELETE. Rows written by one test therefore outlive it, so assertions on audit rows have
+ * to be scoped to an id no other test touches.
+ *
  * Integration test: needs the seeded test DB (globalSetup). Skips if DATABASE_URL is unset.
  * Run: pnpm --filter @hostyllo/api test
  */
@@ -23,12 +28,24 @@ const HAS_DB = !!process.env.DATABASE_URL;
 const STUDENT_A = '0a0000c1-0000-4000-8000-00000000c001';
 const ROOM_A = '0a0000c2-0000-4000-8000-00000000c002';
 const BED_A = '0a0000c3-0000-4000-8000-00000000c003';
-const CANCEL_A = '0a0000c4-0000-4000-8000-00000000c004';
 
 const STUDENT_B = '0b0000c1-0000-4000-8000-00000000c001';
 const ROOM_B = '0b0000c2-0000-4000-8000-00000000c002';
 const BED_B = '0b0000c3-0000-4000-8000-00000000c003';
-const CANCEL_B = '0b0000c4-0000-4000-8000-00000000c004';
+
+/** One cancellation id per test — see the note about audit_log above. */
+const CANCEL = {
+  frees: '0a0000c4-0000-4000-8000-00000000c041',
+  audits: '0a0000c4-0000-4000-8000-00000000c042',
+  future: '0a0000c4-0000-4000-8000-00000000c043',
+  idempotent: '0a0000c4-0000-4000-8000-00000000c044',
+  multiTenantA: '0a0000c4-0000-4000-8000-00000000c045',
+  multiTenantB: '0b0000c4-0000-4000-8000-00000000c045',
+  settled: '0a0000c4-0000-4000-8000-00000000c046',
+  noBed: '0a0000c4-0000-4000-8000-00000000c047',
+} as const;
+
+const ALL_CANCEL_IDS = Object.values(CANCEL);
 
 let pool: Pool;
 let processAutoCancellations: () => Promise<{ confirmed: number; skipped: number }>;
@@ -71,9 +88,13 @@ async function seedTenant(opts: {
   );
 }
 
+/**
+ * `audit_log` is deliberately absent here. It is INSERT-ONLY and the immutability trigger rejects
+ * DELETE outright (INVARIANT-5) — an earlier version of this file tried, and every test after the
+ * first one died in `beforeEach`. Leaving the rows is correct; that is what the table is for.
+ */
 async function cleanup() {
-  await pool.query('DELETE FROM public.audit_log WHERE entity_id = ANY($1::uuid[])', [[CANCEL_A, CANCEL_B]]);
-  await pool.query('DELETE FROM public.cancellations WHERE id = ANY($1::uuid[])', [[CANCEL_A, CANCEL_B]]);
+  await pool.query('DELETE FROM public.cancellations WHERE id = ANY($1::uuid[])', [ALL_CANCEL_IDS]);
   await pool.query('DELETE FROM public.students WHERE id = ANY($1::uuid[])', [[STUDENT_A, STUDENT_B]]);
   await pool.query('DELETE FROM public.beds WHERE id = ANY($1::uuid[])', [[BED_A, BED_B]]);
   await pool.query('DELETE FROM public.rooms WHERE id = ANY($1::uuid[])', [[ROOM_A, ROOM_B]]);
@@ -91,10 +112,10 @@ beforeEach(async () => {
   await cleanup();
 });
 
+// The pool is shared with every other suite in this serial run, so it is not ended here.
 afterAll(async () => {
   if (!HAS_DB) return;
   await cleanup();
-  await pool.end();
 });
 
 describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
@@ -104,7 +125,7 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
       studentId: STUDENT_A,
       roomId: ROOM_A,
       bedId: BED_A,
-      cancelId: CANCEL_A,
+      cancelId: CANCEL.frees,
       vacateDate: '2020-01-01', // comfortably past
     });
 
@@ -113,7 +134,7 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
 
     const cancellation = await pool.query(
       'SELECT status, confirmed_at, confirmed_by FROM public.cancellations WHERE id = $1',
-      [CANCEL_A]
+      [CANCEL.frees]
     );
     expect(cancellation.rows[0].status).toBe('confirmed');
     expect(cancellation.rows[0].confirmed_at).not.toBeNull();
@@ -140,7 +161,7 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
       studentId: STUDENT_A,
       roomId: ROOM_A,
       bedId: BED_A,
-      cancelId: CANCEL_A,
+      cancelId: CANCEL.audits,
       vacateDate: '2020-01-01',
     });
 
@@ -149,7 +170,7 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
     const audit = await pool.query(
       `SELECT action, entity_type, user_id, old_data, new_data
        FROM public.audit_log WHERE entity_id = $1`,
-      [CANCEL_A]
+      [CANCEL.audits]
     );
     expect(audit.rowCount).toBe(1);
     expect(audit.rows[0].action).toBe('cancellation_auto_confirmed');
@@ -166,13 +187,15 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
       studentId: STUDENT_A,
       roomId: ROOM_A,
       bedId: BED_A,
-      cancelId: CANCEL_A,
+      cancelId: CANCEL.future,
       vacateDate: '2999-01-01',
     });
 
     await processAutoCancellations();
 
-    const cancellation = await pool.query('SELECT status FROM public.cancellations WHERE id = $1', [CANCEL_A]);
+    const cancellation = await pool.query('SELECT status FROM public.cancellations WHERE id = $1', [
+      CANCEL.future,
+    ]);
     expect(cancellation.rows[0].status).toBe('pending');
 
     const bed = await pool.query('SELECT status FROM public.beds WHERE id = $1', [BED_A]);
@@ -185,7 +208,7 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
       studentId: STUDENT_A,
       roomId: ROOM_A,
       bedId: BED_A,
-      cancelId: CANCEL_A,
+      cancelId: CANCEL.idempotent,
       vacateDate: '2020-01-01',
     });
 
@@ -193,25 +216,27 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
     await processAutoCancellations();
 
     // Re-running must not write a second audit row or re-vacate an already vacated student.
-    const audit = await pool.query('SELECT id FROM public.audit_log WHERE entity_id = $1', [CANCEL_A]);
+    const audit = await pool.query('SELECT id FROM public.audit_log WHERE entity_id = $1', [
+      CANCEL.idempotent,
+    ]);
     expect(audit.rowCount).toBe(1);
   });
 
   it('sweeps every tenant in one pass, each scoped to its own hostel', async () => {
     await seedTenant({
       hostelId: HOSTEL_A_ID, studentId: STUDENT_A, roomId: ROOM_A, bedId: BED_A,
-      cancelId: CANCEL_A, vacateDate: '2020-01-01',
+      cancelId: CANCEL.multiTenantA, vacateDate: '2020-01-01',
     });
     await seedTenant({
       hostelId: HOSTEL_B_ID, studentId: STUDENT_B, roomId: ROOM_B, bedId: BED_B,
-      cancelId: CANCEL_B, vacateDate: '2020-01-01',
+      cancelId: CANCEL.multiTenantB, vacateDate: '2020-01-01',
     });
 
     await processAutoCancellations();
 
     for (const [cancelId, bedId, hostelId] of [
-      [CANCEL_A, BED_A, HOSTEL_A_ID],
-      [CANCEL_B, BED_B, HOSTEL_B_ID],
+      [CANCEL.multiTenantA, BED_A, HOSTEL_A_ID],
+      [CANCEL.multiTenantB, BED_B, HOSTEL_B_ID],
     ] as const) {
       const c = await pool.query('SELECT status, hostel_id FROM public.cancellations WHERE id = $1', [cancelId]);
       expect(c.rows[0].status).toBe('confirmed');
@@ -225,7 +250,7 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
   it('does not touch a student whose cancellation is already confirmed', async () => {
     await seedTenant({
       hostelId: HOSTEL_A_ID, studentId: STUDENT_A, roomId: ROOM_A, bedId: BED_A,
-      cancelId: CANCEL_A, vacateDate: '2020-01-01', status: 'confirmed',
+      cancelId: CANCEL.settled, vacateDate: '2020-01-01', status: 'confirmed',
     });
 
     await processAutoCancellations();
@@ -233,14 +258,16 @@ describe.skipIf(!HAS_DB)('auto-cancel sweep', () => {
     // Bed stays as seeded: this sweep has no business re-processing a settled cancellation.
     const bed = await pool.query('SELECT status FROM public.beds WHERE id = $1', [BED_A]);
     expect(bed.rows[0].status).toBe('occupied');
-    const audit = await pool.query('SELECT id FROM public.audit_log WHERE entity_id = $1', [CANCEL_A]);
+    const audit = await pool.query('SELECT id FROM public.audit_log WHERE entity_id = $1', [
+      CANCEL.settled,
+    ]);
     expect(audit.rowCount).toBe(0);
   });
 
   it('handles a cancellation for a student with no bed assigned', async () => {
     await seedTenant({
       hostelId: HOSTEL_A_ID, studentId: STUDENT_A, roomId: ROOM_A, bedId: BED_A,
-      cancelId: CANCEL_A, vacateDate: '2020-01-01',
+      cancelId: CANCEL.noBed, vacateDate: '2020-01-01',
     });
     await pool.query('UPDATE public.students SET bed_id = NULL WHERE id = $1', [STUDENT_A]);
 
