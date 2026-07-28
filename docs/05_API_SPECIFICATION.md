@@ -818,13 +818,13 @@ status   = amountPaidPkr >= totalDue ? 'paid' : amountPaidPkr > 0 ? 'partial' : 
     "totalDuePkr": 8300,
     "amountPaidPkr": 8300,
     "unpaidPkr": 0,
-    "status": "paid",
-    "receiptStatus": "generating"
+    "status": "paid"
   }
 }
 ```
 
-Receipt PDF is generated asynchronously via BullMQ `pdf-receipts` queue. `receiptUrl` is available in `GET /payments/:id` once generation completes (typically < 2 seconds).
+The receipt is available immediately at `GET /payments/:id/receipt`. There is no `receiptStatus`, no
+asynchronous generation step and no waiting.
 
 **Error codes:**
 | Code | HTTP | Trigger |
@@ -837,13 +837,35 @@ Receipt PDF is generated asynchronously via BullMQ `pdf-receipts` queue. `receip
 
 ### GET /payments/:id
 
-**Purpose:** Full payment detail including extra charges and receipt URL.
+**Purpose:** Full payment detail including extra charges.
 
 **Auth:** Bearer. Role: `warden` or above.
 
-**Response:** `200 OK` — full payment object as defined in `POST /payments` response plus `receiptUrl` (signed URL, 24h expiry, null if still generating).
+**Response:** `200 OK` — full payment object as defined in `POST /payments` response.
 
 ---
+
+### GET /payments/:id/receipt
+
+**Purpose:** The rent receipt as a PDF.
+
+**Auth:** Bearer. Role: `warden` or above.
+
+**Response:** `200 OK`, `Content-Type: application/pdf`, `Content-Disposition: inline; filename="receipt-RCP-000042.pdf"`, `Cache-Control: no-store`. The document is rendered per request and streamed; nothing is written to disk.
+
+**Errors:** `404 NOT_FOUND` — no such payment, **or** it belongs to another hostel. The two are deliberately indistinguishable: RLS returns no row either way, and a different response would make the endpoint an oracle for whether an id exists in someone else's tenant.
+
+A voided payment still returns its receipt — an operator may need a copy for their own records — but the document carries a `VOID` stamp and the footer states it is not proof of payment.
+
+> **Design change, 2026-07-28 — this replaced an async pipeline that was never built.**
+>
+> The original design here was: `POST /payments` enqueues a BullMQ `pdf-receipts` job, a worker writes a PDF to storage, and `GET /payments/:id` returns a `receiptUrl` (signed, 24h expiry) with `receiptStatus: "generating"` until it lands. None of it existed. There was a worker file, but nothing enqueued to it — `apps/api` contained no BullMQ *producer* at all — its `SELECT` named six columns that are not on the schema (`amount_paid`, `month_label`, `notes`, `full_name`, and `receipt_generated`/`_at` in its `UPDATE`), so it would have thrown on first run, and it reported success by setting a `receipt_generated` flag that no migration creates.
+>
+> It was replaced with on-demand rendering rather than repaired, because the stored-file shape is wrong for this domain: **payments here can be edited and voided.** A PDF written once at creation time is a snapshot that starts lying the moment either happens, and then circulates as proof of a payment that no longer stands. Rendering from the row on each request means the document cannot disagree with the ledger.
+>
+> It also removes, rather than implements, a storage bucket and its per-tenant path policy, a retention and cleanup story, signed-URL expiry, a queue producer, and the "the job was lost so the receipt never existed" failure mode. Receipts are small and rarely fetched; generation is milliseconds.
+>
+> Consequences for the rest of this document: `receiptStatus` and `receiptUrl` no longer exist anywhere in the API. `POST /payments/:id/send-receipt` (below) still lists `receiptUrl` in its response — that endpoint is unbuilt and belongs to the deferred WhatsApp work, so it is left as-is and will need this same treatment when it lands.
 
 ### PATCH /payments/:id
 
@@ -1394,7 +1416,7 @@ Performance target: < 200ms p95. Uses the single-query CTE defined in `04_DATABA
 | Auth | 6 | login, totp/verify, refresh, logout, reset-password, totp/setup |
 | Students | 7 | list, create, search, get, reveal-cnic, update, delete, import = 8 (note: reveal-cnic not counted in PRD's 7 — it is a sub-action) |
 | Rooms | 6 | list, create, get, update, delete, shift, bulk-fee = 7 (bulk-fee not in PRD's 6 count) |
-| Payments | 8 | list, create, get, update, void-confirm, defaulters, summary, generate-monthly, send-receipt = 9 |
+| Payments | 8 | list, create, get, update, void-confirm, defaulters, summary, generate-monthly, send-receipt, **receipt** = 10 (receipt added 2026-07-28, replacing the async PDF pipeline; send-receipt is still unbuilt) |
 | Expenses | 5 | list, summary, create, update, delete |
 | Dashboard | 2 | stats, alerts |
 | Audit Log | 2 | list, by-entity |

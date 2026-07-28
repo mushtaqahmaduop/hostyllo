@@ -1,11 +1,31 @@
-import { api, ApiError } from '@/lib/api';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { formatPkr, formatDate } from '@/lib/format';
-import { Notice, PageHeading, Pagination, Stat, StatGrid, StatusBadge, TableFrame, Td, Th } from '@/components/ui';
 
-export const metadata = { title: 'Payments · Hostyllo' };
+import { api, ApiError } from '@/lib/api';
+import { canOperate } from '@/lib/session';
+import { formatDate, formatAmount } from '@/lib/format';
+import { PageHeader } from '@/components/patterns/page-header';
+import { HeroPanel } from '@/components/patterns/hero-panel';
+import { StatStrip, StatItem } from '@/components/patterns/stat-strip';
+import { Money, Num } from '@/components/patterns/money';
+import { Pagination } from '@/components/patterns/pagination';
+import { EmptyState, FilteredEmptyState, ErrorState } from '@/components/patterns/states';
+import { Alert, AlertDescription } from '@/components/ui-kit/alert';
+import { Button } from '@/components/ui-kit/button';
+import { StatusBadge } from '@/components/ui-kit/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui-kit/table';
+import { cn } from '@/lib/utils';
 
-/** GET /payments — API spec Module 4. Money arrives as strings; formatPkr coerces. */
+export const metadata = { title: 'Dues & payments' };
+
+/** GET /payments — API spec Module 4. Money arrives as strings on some endpoints. */
 type Payment = {
   paymentId: string;
   studentId: string;
@@ -34,19 +54,37 @@ type Summary = {
 const PAGE_SIZE = 25;
 const STATUSES = ['paid', 'partial', 'pending', 'void'] as const;
 
-/** The API takes `month` as YYYY-MM; this is also the default the summary uses. */
+/**
+ * §3.2: "If a screen shows more than ~6 amber elements at once, that's a product problem — surface
+ * a grouped banner instead of 12 amber badges." Above this many outstanding rows the page states
+ * the total once and leaves the rows neutral; the operator's next move is the defaulters worklist,
+ * not scanning a wall of amber.
+ */
+const AMBER_LIMIT = 6;
+
+/** The API takes `month` as YYYY-MM. Karachi, not the container's UTC clock — otherwise the first
+    five hours of the 1st would default to last month. */
 function currentMonth() {
-  return new Date().toISOString().slice(0, 7);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi' }).format(new Date()).slice(0, 7);
+}
+
+/** `2026-07` → `July 2026`, for the eyebrow and the empty-state copy. */
+function monthLabel(month: string) {
+  const d = new Date(`${month}-01T00:00:00Z`);
+  return Number.isNaN(d.getTime())
+    ? month
+    : new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
 }
 
 export default async function PaymentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string; status?: string; offset?: string }>;
+  searchParams: Promise<{ month?: string; status?: string; offset?: string; receipt?: string }>;
 }) {
-  const { month: rawMonth, status, offset: rawOffset } = await searchParams;
-  const month = rawMonth || currentMonth();
+  const { month: rawMonth, status, offset: rawOffset, receipt } = await searchParams;
+  const month = rawMonth && /^\d{4}-\d{2}$/.test(rawMonth) ? rawMonth : currentMonth();
   const offset = Math.max(0, Number(rawOffset ?? 0) || 0);
+  const mayWrite = await canOperate();
 
   const listParams = new URLSearchParams({ month, limit: String(PAGE_SIZE), offset: String(offset) });
   if (status) listParams.set('status', status);
@@ -55,116 +93,253 @@ export default async function PaymentsPage({
   let summary: Summary | null = null;
 
   try {
-    // The summary is a separate aggregate over the whole month, not the page — fetched alongside
-    // so the header totals do not change as the user pages through.
+    // The summary aggregates the whole month, not the page — fetched alongside so the header
+    // totals do not change as the operator pages through, which would make them useless for
+    // reconciliation.
     [list, summary] = await Promise.all([
       api<PaymentList>(`/payments?${listParams.toString()}`),
       api<Summary>(`/payments/summary?month=${month}`).catch(() => null),
     ]);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/login');
+
+    // §10: the error states what failed and the next step. A 403 is not a failure — it is an
+    // answer — so it reads as one rather than offering a retry that will never work.
     if (error instanceof ApiError && error.status === 403) {
-      return <Notice tone="amber">Your role does not have access to payments.</Notice>;
+      return (
+        <>
+          <PageHeader eyebrow={monthLabel(month)} title="Dues & payments" />
+          <Alert tone="attention">
+            <AlertDescription>
+              Your role does not have access to payments. Ask the hostel owner to change it.
+            </AlertDescription>
+          </Alert>
+        </>
+      );
     }
-    return <Notice tone="red">{error instanceof ApiError ? error.message : 'Could not load payments.'}</Notice>;
+
+    return (
+      <>
+        <PageHeader eyebrow={monthLabel(month)} title="Dues & payments" />
+        <ErrorState
+          title="Couldn't load payments"
+          body="Check your connection and try again. Nothing has been changed."
+          detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+          retryHref={`/payments?month=${month}${status ? `&status=${status}` : ''}`}
+        />
+      </>
+    );
   }
+
+  const filtered = Boolean(status);
+  const outstandingRows = list.payments.filter(
+    (p) => Number(p.unpaidPkr ?? 0) > 0 && p.status !== 'void',
+  );
+  const tintRows = outstandingRows.length > 0 && outstandingRows.length <= AMBER_LIMIT;
 
   return (
     <>
-      <PageHeading title="Payments" meta={`${list.total} for ${month}`} />
+      <PageHeader
+        eyebrow={monthLabel(month)}
+        title="Dues & payments"
+        attention={outstandingRows.length > 0}
+        actions={
+          mayWrite ? (
+            <Button asChild variant="primary">
+              <Link href="/payments/new">Record payment</Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {summary && (
-        <StatGrid label="Month summary">
-          <Stat label="Collected" value={formatPkr(summary.revenuePkr)} tone="teal" />
-          <Stat
-            label="Outstanding"
-            value={formatPkr(summary.pendingPkr)}
-            tone={Number(summary.pendingPkr) > 0 ? 'amber' : undefined}
-          />
-          <Stat label="Paid in full" value={String(Number(summary.paidCount ?? 0))} />
-          <Stat label="Partial" value={String(Number(summary.partialCount ?? 0))} />
-          <Stat label="Unpaid" value={String(Number(summary.pendingCount ?? 0))} />
-        </StatGrid>
+      {/* §14: the toast copy matches the button. This is its persistent twin, for the operator who
+          navigated away before the toast dismissed — the receipt number is what gets written on
+          the paper slip and quoted back weeks later, so it must survive a reload. */}
+      {receipt && (
+        <Alert tone="positive" className="mb-6">
+          <AlertDescription>
+            Payment recorded. Receipt <span className="font-mono text-mono">{receipt}</span>.
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* GET form: filters live in the URL, so a month view can be bookmarked or shared, and the
-          back button behaves. No JavaScript required to change month or status. */}
-      <form
-        method="GET"
-        style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}
-      >
-        <label htmlFor="month" style={srOnly}>
-          Month
-        </label>
-        <input id="month" type="month" name="month" defaultValue={month} style={controlStyle} />
+      <div className="mb-8 grid gap-6 lg:grid-cols-3">
+        <HeroPanel
+          className="lg:col-span-2"
+          eyebrow={`Collected · ${monthLabel(month)}`}
+          value={summary?.revenuePkr}
+          definition="Collected = sum of amount paid on every non-voided payment row dated in this month."
+        >
+          <StatStrip>
+            <StatItem
+              label="Outstanding"
+              attention={Number(summary?.pendingPkr ?? 0) > 0}
+              hint={summary ? 'across unpaid and partial rows' : undefined}
+            >
+              <Money value={summary?.pendingPkr} />
+            </StatItem>
+            <StatItem label="Paid in full">
+              <Num value={summary?.paidCount} />
+            </StatItem>
+            <StatItem label="Partly paid">
+              <Num value={summary?.partialCount} />
+            </StatItem>
+            <StatItem label="Unpaid">
+              <Num value={summary?.pendingCount} />
+            </StatItem>
+          </StatStrip>
+        </HeroPanel>
 
-        <label htmlFor="status" style={srOnly}>
-          Status
-        </label>
-        <select id="status" name="status" defaultValue={status ?? ''} style={controlStyle}>
-          <option value="">All statuses</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s[0].toUpperCase() + s.slice(1)}
-            </option>
-          ))}
-        </select>
+        {/*
+         * The grouped banner §3.2 asks for. It replaces per-row amber above the limit, and it is
+         * also simply the more useful control: one link into the worklist that is sorted by how
+         * much each student owes.
+         */}
+        <section
+          data-state={outstandingRows.length > 0 ? 'attention' : undefined}
+          className="hs-threshold rounded-lg border border-hairline bg-surface p-6"
+        >
+          <p className="hs-eyebrow">Still owing</p>
+          {outstandingRows.length === 0 ? (
+            <div className="mt-4">
+              <span className="hs-rule" aria-hidden />
+              <p className="mt-3 text-body text-fg-secondary">
+                Everyone on this page has paid in full.
+              </p>
+            </div>
+          ) : (
+            <>
+              <p className="mt-4 text-body text-fg">
+                <span className="font-semibold tabular-nums text-attention-text">
+                  {outstandingRows.length}
+                </span>{' '}
+                {outstandingRows.length === 1 ? 'student owes' : 'students owe'} money on this page.
+              </p>
+              <p className="mt-1 text-body-sm text-fg-secondary">
+                Outstanding this month:{' '}
+                <span className="font-mono text-mono">
+                  PKR {formatAmount(summary?.pendingPkr)}
+                </span>
+              </p>
+              <Button asChild variant="secondary" size="sm" className="mt-4">
+                <Link href={`/payments/defaulters?month=${month}`}>See who still owes</Link>
+              </Button>
+            </>
+          )}
+        </section>
+      </div>
 
-        <button type="submit" style={{ ...controlStyle, background: 'var(--gold)', color: '#0b0e14', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+      {/* GET form: filters live in the URL, so a month view can be bookmarked or sent to the owner,
+          and the back button behaves. No JavaScript required to change month or status. */}
+      <form method="GET" className="mb-6 flex flex-wrap items-end gap-3">
+        <div className="grid gap-1.5">
+          <label htmlFor="month" className="text-body-sm font-medium text-fg-secondary">
+            Month
+          </label>
+          <input
+            id="month"
+            type="month"
+            name="month"
+            defaultValue={month}
+            className={FILTER}
+          />
+        </div>
+
+        <div className="grid gap-1.5">
+          <label htmlFor="status" className="text-body-sm font-medium text-fg-secondary">
+            Status
+          </label>
+          <select id="status" name="status" defaultValue={status ?? ''} className={FILTER}>
+            <option value="">All statuses</option>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s[0].toUpperCase() + s.slice(1)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <Button type="submit" variant="secondary">
           Apply
-        </button>
+        </Button>
       </form>
 
       {list.payments.length === 0 ? (
-        <Notice tone="muted">
-          No payments recorded for {month}
-          {status ? ` with status “${status}”` : ''}.
-        </Notice>
+        /*
+         * §10 makes these two different states with different copy. Telling an operator whose
+         * "void" filter matched nothing that they have no payments yet — when they have four
+         * hundred — is precisely the bug the distinction exists to prevent.
+         */
+        filtered ? (
+          <FilteredEmptyState what="payments" clearHref={`/payments?month=${month}`} />
+        ) : (
+          <EmptyState
+            title={`No payments for ${monthLabel(month)}`}
+            body="Rent rows are created when the month's billing runs. Record a payment to start the ledger for this month."
+            action={mayWrite ? { label: 'Record payment', href: '/payments/new' } : undefined}
+          />
+        )
       ) : (
-        <TableFrame minWidth={780}>
-          <thead>
-            <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
-              <Th>Student</Th>
-              <Th>Room</Th>
-              <Th align="right">Due</Th>
-              <Th align="right">Paid</Th>
-              <Th align="right">Unpaid</Th>
-              <Th>Status</Th>
-              <Th>Date</Th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table stickyFirstColumn minWidth={840}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Student</TableHead>
+              <TableHead>Room</TableHead>
+              <TableHead numeric>Due</TableHead>
+              <TableHead numeric>Paid</TableHead>
+              <TableHead numeric>Outstanding</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Date</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {list.payments.map((p) => {
               const unpaid = Number(p.unpaidPkr ?? 0);
               const voided = p.status === 'void';
               return (
-                <tr
+                <TableRow
                   key={p.paymentId}
-                  style={{
-                    borderTop: '1px solid var(--border)',
-                    // A voided payment still counts for the audit trail but must not read as live
-                    // money; dimming it is the cheapest way to say so without hiding the row.
-                    opacity: voided ? 0.55 : 1,
-                  }}
+                  attention={tintRows && unpaid > 0 && !voided}
+                  // A voided payment stays in the ledger for the audit trail but must not read as
+                  // live money. Dimming says so without hiding the row — §16 has no time for a
+                  // ledger that quietly drops entries.
+                  className={cn(voided && 'opacity-55')}
                 >
-                  <Td>{p.studentName}</Td>
-                  <Td>{p.roomNumber ?? '—'}</Td>
-                  <Td align="right">{formatPkr(p.totalDuePkr)}</Td>
-                  <Td align="right">{formatPkr(p.amountPaidPkr)}</Td>
-                  <Td align="right">
-                    <span style={{ color: unpaid > 0 && !voided ? 'var(--red)' : 'var(--text-muted)' }}>
-                      {formatPkr(unpaid)}
-                    </span>
-                  </Td>
-                  <Td>
+                  <TableCell>
+                    <Link
+                      href={`/students/${p.studentId}`}
+                      className="font-medium text-fg hover:text-brand-text"
+                    >
+                      {p.studentName}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-mono text-mono text-fg-secondary">
+                    {p.roomNumber ?? '—'}
+                  </TableCell>
+                  <TableCell numeric>
+                    <Money value={p.totalDuePkr} tier="ledger" />
+                  </TableCell>
+                  <TableCell numeric>
+                    <Money value={p.amountPaidPkr} tier="ledger" />
+                  </TableCell>
+                  <TableCell numeric>
+                    <Money
+                      value={unpaid}
+                      tier="ledger"
+                      className={
+                        unpaid > 0 && !voided ? 'font-semibold text-attention-text' : 'text-fg-tertiary'
+                      }
+                    />
+                  </TableCell>
+                  <TableCell>
                     <StatusBadge status={p.status} />
-                  </Td>
-                  <Td>{formatDate(p.paymentDate)}</Td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="text-fg-secondary">{formatDate(p.paymentDate)}</TableCell>
+                </TableRow>
               );
             })}
-          </tbody>
-        </TableFrame>
+          </TableBody>
+        </Table>
       )}
 
       <Pagination
@@ -179,25 +354,6 @@ export default async function PaymentsPage({
   );
 }
 
-const controlStyle: React.CSSProperties = {
-  padding: 'var(--space-3)',
-  background: 'var(--surface-2)',
-  border: '1px solid var(--border-2)',
-  borderRadius: 'var(--radius-md)',
-  color: 'var(--text)',
-  fontSize: 16,
-  minHeight: 44,
-};
-
-/** Labels stay in the accessibility tree even where the control is self-evident visually. */
-const srOnly: React.CSSProperties = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  padding: 0,
-  margin: -1,
-  overflow: 'hidden',
-  clip: 'rect(0,0,0,0)',
-  whiteSpace: 'nowrap',
-  border: 0,
-};
+const FILTER =
+  'h-[var(--hs-control-h)] rounded-md border border-hairline bg-surface px-3 text-body text-fg ' +
+  'transition-[border-color] duration-instant ease-standard hover:border-hairline-strong';

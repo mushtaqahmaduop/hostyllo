@@ -1,49 +1,11 @@
-@import './tokens.css';
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  background: var(--bg);
-  color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  /* The design system's brief is a warden on a five-year-old Android in poor light: 16px is the
-     floor at which browsers stop zooming form fields on focus. */
-  font-size: 16px;
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-
-a {
-  color: var(--gold);
-  text-decoration: none;
-}
-a:hover {
-  color: var(--gold-hover);
-}
-
-/* Focus is never removed, only restyled — the token exists precisely so it stays visible. */
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-sm);
-}
-
-button {
-  font: inherit;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
+/*
+ * Stylesheet entry point.
+ *
+ * Order is load-bearing: Tailwind first so its layers exist, then tokens (the source of truth for
+ * every colour, size, duration and shadow in the product), then the base layer that applies them.
+ * Nothing else belongs in this file — see docs/15_UI_SPEC_v1.md §15 for the layout.
+ */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '../styles/tokens.css';
+@import '../styles/base.css';

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, API_BASE } from '@/lib/api';
+import { NAME_COOKIE, ROLE_COOKIE } from '@/lib/session';
 import { cookies } from 'next/headers';
 
 /**
@@ -28,5 +29,9 @@ export async function POST() {
   const res = NextResponse.json({ ok: true });
   res.cookies.delete(ACCESS_COOKIE);
   res.cookies.delete(REFRESH_COOKIE);
+  // Cleared with the rest: a stale role left behind would draw the previous user's buttons on the
+  // next sign-in until their own login overwrote it.
+  res.cookies.delete(ROLE_COOKIE);
+  res.cookies.delete(NAME_COOKIE);
   return res;
 }

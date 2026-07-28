@@ -35,9 +35,11 @@
 - [x] **Screens:** login, dashboard (6 KPIs + needs-attention), students (search + pagination),
       **payments** (month/status filters + month summary strip, voided rows dimmed) and **rooms**
       (bed-occupancy grid — the "where can I put someone" view, per blueprint Module 3). PR #36.
-- [x] **Shared list primitives** extracted to `apps/web/src/components/ui.tsx` once there were three list
+- [x] **Shared list primitives** extracted to a single shared `ui` module once there were three list
       screens (table frame, notice, pagination that carries filters forward, status badge, stat
       grid). Dashboard and students refactored onto them in the same pass.
+      **Superseded in session 11** — that file is deleted; its pieces now live in
+      `apps/web/src/components/patterns/` and the restyled `ui-kit`.
 - [x] **Next.js 16, not 14** as the docs specify. Deliberate: scaffolding a new app on an older
       major right after fixing the Fastify EOL would repeat the mistake. Note Next 16 removed the
       `eslint` config key — linting is a separate CI step.
@@ -62,6 +64,200 @@
   3 payments. **Every id starts with `dced0`** — `DELETE FROM ... WHERE id::text LIKE 'dced0%'`.
   Staging only; production untouched. Bed rows were later set to 'occupied' to match their student
   assignments, since they had been inserted directly rather than through POST /students.
+
+## ★ SESSION 11 — PHASE 2 FRONTEND: UI SPEC ADOPTED, FOUNDATION REBUILT (2026-07-28)
+> Authority: `docs/15_UI_SPEC_v1.md` (new, founder-supplied). It supersedes
+> `docs/04_UX_DESIGN_SYSTEM.md` **for appearance only** — behaviour still follows the PRD. Banner
+> added to 04 and to `docs/README.md` so the next session cannot follow the dead palette.
+> Followed the spec's own §15 build order: tokens → primitives → shell → patterns → one screen.
+
+- [x] **Design tokens are now the single source of truth.** `apps/web/src/styles/tokens.css`
+      (light + dark) + `base.css`; `src/app/tokens.css` (gold/teal) deleted; `globals.css` is a
+      three-line importer. Every colour, size, duration, radius and shadow in the app is a
+      `var(--hs-*)` reached through a Tailwind class — no component holds a hex or a px font-size.
+- [x] **Theme is `class="dark"` + `hs-theme` cookie, three states** (light/dark/system), not the old
+      two-state `[data-theme]`. The server reads the cookie and puts the class in the HTML it
+      sends, so an explicit choice is correct *before any script runs*; the §3.3 pre-paint script
+      resolves `system`, which the server cannot. Zero flash is a §17 DoD item.
+- [x] **Fonts swapped and verified self-hosted** — Geist · Newsreader · JetBrains Mono ·
+      Noto **Naskh** Arabic (not Nastaliq: its slanted baseline breaks table row rhythm). All four
+      confirmed in the built CSS as `@font-face` with fallback metrics; only Geist preloads, per
+      the ≤180 KB first-paint budget.
+- [x] **Primitives restyled off shadcn defaults**: button (4 variants, width-preserving loading
+      state), badge + the fixed §7.6 status vocabulary, input, label, card, table, alert, skeleton,
+      separator, tooltip, dialog, sheet, dropdown-menu, sonner.
+- [x] **Patterns built** (`components/patterns/`): page-header, hero-panel (with the once-per-session
+      count-up), stat-strip, needs-attention, money/Num/Pct, search-form, pagination, and `states.tsx`
+      holding all six §10 states in one file so a missing one is visible.
+- [x] **App shell rebuilt**: 264/72px sidebar on `surface-sunken` with grouped nav and the Threshold
+      Rule on the active item, "Data as of" stamp pinned bottom, 56px topbar, mobile tab bar,
+      `data-density="compact"` default for ledger pages.
+- [x] **Screens rebuilt on the new system**: Dues & payments (the §15 step-5 flagship, all six
+      states), dashboard (one hero + needs-attention, replacing the six-card grid §1 calls out),
+      defaulters, students, student profile, rooms, both write forms, login, and every `loading.tsx`
+      re-shaped to match its real geometry.
+- [x] **Verified, not assumed**: `tsc --noEmit` clean · `eslint src` clean · `next build` green (13
+      routes) · 68 token-derived utility classes audited against the *generated* CSS · login page
+      served and its HTML inspected for the theme script, `color-scheme` meta and font wiring.
+
+### 🐞 TWO SILENT-FAILURE BUGS FOUND BY AUDITING THE GENERATED CSS
+- [x] **`duration-fast` and friends compiled to nothing.** Tailwind v4 has an `--ease-*` theme
+      namespace but **no `--duration-*`**, so mapping them in `@theme` is silently dropped — every
+      transition in the app was running at the browser default. Fixed with explicit `@utility`
+      rules in `base.css` that set both `transition-duration` **and** `--tw-duration` (tw-animate-css
+      reads the latter). Neither typecheck, lint nor build reports this; only diffing the emitted
+      CSS does.
+- [x] **`[&>*:first-child]:` variants were dropped entirely.** Tailwind v4's scanner treats `>` as a
+      delimiter inside JSX, so the table's signature leading threshold bar never rendered. Moved to
+      a real `.hs-row-threshold` rule in `base.css`, driven by `data-threshold`.
+
+### ✅ SPEC DEFECT — found, corrected in code, then corrected in the doc (closed 2026-07-28)
+- [x] **`15_UI_SPEC_v1.md` §4.3 named the wrong locale.** It asked for lakh/crore grouping
+      "via `Intl.NumberFormat('en-PK')`" while printing `PKR 12,84,500` in its own §5 sketch.
+      Measured on Node 20: `en-PK` → `1,284,500`, and its currency form renders the symbol as
+      **`Rs`**, which the same section explicitly bans; `en-IN` → `12,84,500`. §4.3 now says
+      `en-IN` and carries a note with the measurement so the next reader does not "fix" it back.
+      The same bullet's `fmtPKR()` reference went with it — that helper has **never existed in
+      this repo**; it is a rule inherited from the HOSTIX-APP Electron codebase, where the
+      formatter did emit a symbol. Here it does not, so "never pair it with a `pkr` span" was not
+      merely stale but the exact inverse of what §4.3's symbol-treatment bullet requires. §17's
+      Definition of Done updated to match.
+- [x] **`13_PRODUCTION_READINESS.md` §6.7 rewritten** — it carried an `fmtPkr`/`fmtPkrShort` sample
+      attributed to `packages/db/src/formatters.ts`. **Neither function has ever existed**; that
+      file holds `fmtCnic` + `fmtPhone` only. The sample was wrong three ways: `en-PK` does not
+      group the Pakistani way (its own comment claimed `→ PKR 1,00,000`; the real output is
+      `100,000`), `style:'currency'` renders `Rs` which §4.3 bans, and it abbreviated above 1 lakh
+      in KPI cards where §4.3 permits abbreviation only above 10 lakh and only in chart axes.
+      Section now documents `apps/web/src/lib/format.ts` as it actually is.
+      **Checked while there — no server-side currency formatting exists anywhere.** The only
+      `en-PK` left in code is `payments.ts:649`, a *month* label (`toLocaleString` with
+      month/year), which is correct for dates.
+
+### ✅ RECEIPTS — pdf-receipts worker deleted, replaced with on-demand rendering (2026-07-28)
+- [x] **The worker was a stub that reported success, and it could never have run.** It SELECTed
+      six columns that are not on the schema (`p.amount_paid` → is `paid`, `p.month_label` → is
+      `month`, `p.notes`, `s.full_name` → is `name`, and `receipt_generated`/`receipt_generated_at`
+      in its UPDATE, which no migration creates), so it would have thrown on first execution.
+      It never did, because **nothing enqueued it** (see below). Meanwhile it set a
+      `receipt_generated` flag, so the DB recorded receipts that did not exist.
+- [x] **Replaced rather than repaired: `GET /payments/:id/receipt` renders and streams the PDF.**
+      Founder chose on-demand over the specced async-to-storage pipeline. The reason the stored
+      shape is wrong here: payments can be edited and voided, so a PDF written at creation time is
+      a snapshot that starts lying the moment either happens and then circulates as proof of a
+      payment that no longer stands. On-demand also removes a storage bucket + per-tenant path
+      policy, retention/cleanup, signed-URL expiry, and the lost-job failure mode.
+      Built with `pdfkit` (built-in Helvetica/Courier — no font files to ship). A voided payment
+      still returns its receipt, carrying a VOID stamp and a footer stating it is not proof of
+      payment. Cross-tenant id → 404, indistinguishable from missing.
+- [x] **`fmtPkr()` added to `packages/db/src/formatters.ts`** for documents, with
+      `formatters.test.ts` (12 tests) asserting the exact lakh-grouped output. That test is the
+      drift guard between it and `apps/web/src/lib/format.ts`, which must implement the same rule
+      independently because the web app cannot import a package that pulls in `pg`.
+- [x] **Verified by rendering**, not by typecheck: four cases (paid / partial / void / all-optional
+      -fields-null) written to real PDFs, content streams inflated and the text operators read back
+      to confirm the figures. That caught a bug typecheck cannot see — the concession line used
+      U+2212 MINUS SIGN, which is absent from PDFKit's WinAnsi-encoded built-in Helvetica and
+      rendered as `"`, so the line read `" PKR 2,500`. Em dashes replaced with words for the same
+      reason.
+- [x] API spec Module 4 amended: `receiptStatus` and `receiptUrl` are gone, the new endpoint is
+      documented, and the design change is explained inline.
+      ⚠️ `POST /payments/:id/send-receipt` still lists `receiptUrl` — that endpoint is unbuilt and
+      belongs to the deferred WhatsApp work; it needs the same treatment when it lands.
+
+### 🐞 WORKER INVESTIGATION (2026-07-28, founder-requested) — NOTHING TRIGGERS ANY WORKER
+**`apps/api` contains no BullMQ producer at all.** Only `new Worker(...)` is ever constructed —
+there is no `new Queue(...)`, no `.add(...)`, no repeatable/cron job registration anywhere in the
+repo, and the three GitHub workflows (`ci`, `staging-smoke`, `uptime`) do not invoke jobs either.
+All four remaining workers connect to Redis, subscribe, and wait forever on queues nobody writes
+to. Reported, not fixed — decide the shape first.
+
+| Worker | Is the work happening? | Notes |
+|---|---|---|
+| `rent-generate` | **Yes, but not via the worker.** | `POST /payments/generate-monthly` does the same job inline, tenant-scoped through `withTenant`, owner-only. The worker is a **second, divergent implementation** of the same logic, unreachable. Monthly rent is therefore manual — someone must call the endpoint. |
+| `auto-cancel` | **No.** | Pending cancellations past their date are never confirmed. |
+| `billing-sync` | **No.** | Subscription/plan state (trial→active→expired→suspended) never syncs. |
+| `email-send` | **No.** | No email is ever sent by the system. |
+
+- [x] 🐞 **`auto-cancel.ts` had the same broken-SQL defect pdf-receipts had — FIXED 2026-07-28.**
+      Four non-existent columns across the handler: `cancellations.cancellation_date` (the column
+      is `vacate_date`), `cancellations.auto_confirmed`, and `beds.occupant_id` — the beds table
+      has no such column, the link runs the other way (`students.bed_id`) — plus it wrote
+      `beds.status = 'available'`, which fails that table's CHECK (`vacant`|`occupied`|
+      `maintenance`).
+      ⚠️ **Correction to this file's earlier claim.** A previous note here said triggering the
+      worker "today would half-apply a cancellation". That was wrong: the *first* statement
+      referenced `cancellation_date` and `auto_confirmed`, so it threw before writing anything and
+      nothing was applied. The half-application risk was latent, not live — it would have appeared
+      the moment someone fixed statement 1 without adding a transaction, which is precisely what
+      made the transaction worth adding alongside the SQL fix.
+      Rewritten to mirror `POST /cancellations/:id/confirm` exactly — same three writes, same audit
+      row — because a worker that vacates a student differently is a second definition of
+      "cancelled" and the two would drift. Additions on top of the old behaviour: an
+      `audit_log` row (INVARIANT-5; automatic vacations were the only untraceable ones), a
+      per-cancellation transaction so one bad row cannot roll back another hostel's, a
+      claim-by-`UPDATE ... WHERE status='pending'` that makes the sweep idempotent and safe against
+      a warden confirming by hand mid-run, and a date comparison in the *hostel's* timezone rather
+      than the container's UTC. Also dropped the old worker's `students.deleted_at = NOW()`, which
+      the route does not do — soft-deleting a vacated student would hide them from every list.
+      `confirmed_by IS NULL` on a confirmed row is now the marker of an automatic confirmation.
+      Covered by `apps/api/src/__tests__/auto-cancel.test.ts` (7 tests): bed actually released,
+      audit row written, future dates untouched, idempotent on re-run, multi-tenant sweep scoped
+      per hostel, already-confirmed rows ignored, and a student with no bed assigned.
+- [ ] **Decide how scheduled work runs** before wiring any producer: BullMQ repeatable jobs
+      registered at boot (simple, but every API replica registers them — needs a single-owner
+      guard), or an external scheduler hitting authenticated endpoints (visible in logs, easier to
+      run manually, matches how `generate-monthly` already works). The second matches the grain of
+      what is already built.
+- [ ] **Decide `rent-generate`'s fate** — delete the worker and keep the endpoint as the one
+      implementation, or move the endpoint to enqueue. Two copies of the billing rule is the real
+      risk here; they can already disagree.
+
+### ✅ VERCEL FRONTEND DEPLOY — FIXED AND LIVE (2026-07-28)
+**First successful deployment in the project's history.** Root Directory set to `apps/web`,
+framework auto-detected as `nextjs`, `API_BASE_URL` set for production/preview/development.
+Verified on the deployed page, not just by a green build: `<title>Sign in · Hostyllo</title>`, the
+pre-paint theme script, all four self-hosted fonts, and the new design tokens rendering.
+Applied via the Vercel REST API using the CLI token after the founder ran `vercel login`.
+Production deploys from `main`, so the production URL goes live when this branch merges.
+⚠️ Still unproven: `API_BASE_URL` reaching the API. A green build does not test it — `/login`
+renders without it and only authenticated screens fetch. **Sign in and reach `/dashboard`.**
+
+<details><summary>Original diagnosis (kept for the record)</summary>
+Full detail in `docs/14_DEPLOYMENT_RUNBOOK.md` §13.
+- [x] **Diagnosed.** All 21 deployments on `hostyllo.web` are `ERROR`, going back to before
+      `apps/web` existed. **The app is not the problem** — the build log shows Next compiling
+      cleanly, TypeScript passing, all 13 routes generating. Only the final packaging step fails.
+- [x] Two configuration errors, established by actually deploying twice:
+      1. `framework: null` + Root Directory at the repo root → Vercel runs the build, then looks
+         for a static `public/` at the root: *"No Output Directory named public found"*.
+      2. A root `vercel.json` with `framework: "nextjs"` **moved the error but did not fix it**:
+         *"No Next.js version detected"*. Framework detection reads the package.json **in the Root
+         Directory**, and the repo root's has only `turbo`. No `vercel.json` can fix this, so that
+         file was removed again rather than left as dead config.
+- [x] **Root Directory = `apps/web`** — done. Originally blocked because there is no
+      project-settings MCP tool and the local Vercel CLI was unauthenticated; unblocked when the
+      founder ran `vercel login`, after which the CLI token (at
+      `%APPDATA%\xdg.data\com.vercel.cli\auth.json`, *not* the documented path) drove a REST PATCH.
+- [x] **`API_BASE_URL`** set for production / preview / development.
+- Considered and rejected: a legacy `builds: [{ src: "apps/web/package.json", use: "@vercel/next" }]`
+  block would work repo-only, but it opts the project out of zero-config and the newer framework
+  integration. Not worth shipping a degraded platform path to avoid one click.
+</details>
+
+### NEXT, in the spec's own order
+- [ ] **Command palette (⌘K / Ctrl+K)** — §7.11 calls it non-negotiable. Not built; needs a search
+      endpoint that spans students, rooms and invoices, or three parallel calls.
+- [ ] **Offline/stale banner is built but not wired** — `StaleBanner` exists (§10 calls this "a
+      primary state, not an edge case"); nothing yet detects staleness to render it.
+- [ ] **Deltas have no baseline data.** `formatDelta()` returns `null` without a comparison, and
+      `/dashboard/stats` returns no previous-period figures — so §4.3's "▲ 12.4% vs last month" is
+      correctly absent rather than faked. Needs an API change to light up.
+- [ ] **`select.tsx` and `tabs.tsx` are still stock shadcn.** Neither is rendered by any screen
+      today (forms use native `<select>`), so they were left rather than restyled blind — but they
+      are on the §7 "do not ship shadcn defaults" list the moment something imports them.
+- [ ] **§17 Definition of Done is not fully signed off per screen.** Verified programmatically:
+      tokens-only, both themes compile, logical properties. **Not** verified: contrast measured in
+      both themes, keyboard-only pass, 1366×768 and 375px screenshots, route JS ≤ 200 KB gz.
 
 ## ★ SESSION 9 — INVARIANTS ENFORCED + FULL AUDIT (2026-07-27, PRs #29 / #30)
 > Full findings: `docs/AUDIT_2026-07-27.md`. PR #28 and #29 merged to Develop.
@@ -279,6 +475,27 @@ yours — see tasks/phase2-proposal.md §3.
 - [ ] DEFERRED (no code consumer yet — not adding dead schema): warden flags
       (`can_edit/can_delete/can_settings`) for DELETE-gating; hostel branding fields
       (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
+- [ ] **`payments.notes` is accepted and silently discarded** — found 2026-07-27 while building the
+      web payment form. Both `POST /payments` (payments.ts:109) and `PATCH /payments/:id`
+      (payments.ts:401) declare `notes` in their JSON Schema, but migration 003 defines no `notes`
+      column and neither handler references one — the INSERT column list stops at `created_by`. A
+      client can send a note, receive 201, and have it vanish. This is the same defect class as the
+      `extra_charges` bug fixed in §0 (in the schema, never persisted), which is why it is worth
+      fixing rather than tolerating. Two honest options: **(a)** add the column in a migration and
+      persist it on create + PATCH, or **(b)** drop `notes` from both schemas so the contract stops
+      promising it. (a) is the more useful one — a warden recording "paid in two instalments, second
+      by JazzCash" has nowhere else to put it. Deliberately NOT fixed in the frontend slice: it is
+      an API + live-schema change, not a UI one. `apps/web` omits the field until this is resolved.
+- [ ] **`GET /payments/defaulters` omits `paymentId`** — found 2026-07-28 while building the
+      defaulters screen (payments.ts:263-281). The endpoint returns `studentId` but not the id of
+      the payment row that is actually outstanding, which blocks the screen's whole purpose: every
+      defaulter *already has* a payment row for that month (the query filters on status
+      pending/partial), so settling one is `PATCH /payments/:id`, never `POST /payments` — a POST
+      hits the duplicate-month guard (payments.ts:145-154) and 409s on every row. With no payment
+      id in the response there is nothing to deep-link a settle action to, so `apps/web` ships the
+      list with rows linking to the student instead of a "collect" button that could not work.
+      FIX: add `p.id as "paymentId"` to the SELECT. One line, no schema change, unblocks the
+      collect flow. Pairs with the still-unbuilt payment-edit UI (`PATCH /payments/:id`).
 
 ## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
 - [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts

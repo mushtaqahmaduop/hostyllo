@@ -5,3 +5,5 @@ dist
 .env
 .env.local
 *.pem
+# TypeScript incremental build cache — a build artifact, never source.
+*.tsbuildinfo

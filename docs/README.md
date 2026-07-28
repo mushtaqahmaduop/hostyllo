@@ -18,10 +18,11 @@ follows it, finds nothing, and works from memory instead.
 > reference `06_CLAUDE_MD_v15.md`); for *current engineering health* → `AUDIT_2026-07-27.md`
 > (supersedes `ENGINEERING_AUDIT_ARB_2026-07-22.md`, whose C1–C4 and M1–M5 are all closed); for
 > *what the API exposes* → `05_API_SPECIFICATION.md` (all 16 modules, reconciled 2026-07-27); for
-> *who may call it* → PRD §4.2, enforced by `apps/api/src/lib/roles.ts`. If any other doc conflicts
-> with these, these win.
+> *who may call it* → PRD §4.2, enforced by `apps/api/src/lib/roles.ts`; for *how the frontend
+> looks* → `15_UI_SPEC_v1.md` (supersedes `04_UX_DESIGN_SYSTEM.md` on appearance only — behaviour
+> still follows the PRD). If any other doc conflicts with these, these win.
 
-## Active documents (25)
+## Active documents (26)
 
 ### Product & scope
 | Doc | Purpose |
@@ -37,7 +38,8 @@ follows it, finds nothing, and works from memory instead.
 |-----|---------|
 | `03_SECURITY_ARCHITECTURE.md` | Auth, RLS, tenant isolation, OWASP, secrets. |
 | `04_DATABASE_ARCHITECTURE.md` | 28-table schema, indexes, RLS, migrations. |
-| `04_UX_DESIGN_SYSTEM.md` | Design tokens, components (Phase 2, not yet built). |
+| `04_UX_DESIGN_SYSTEM.md` | ⚠️ **Superseded for appearance** by `15_UI_SPEC_v1.md` (2026-07-28). Its warden brief, roles and screen inventory still stand; its palette, tokens and type do not. Banner inside. |
+| `15_UI_SPEC_v1.md` | **Authoritative design contract for Phase 2 frontend.** Palette, type, numeric doctrine, the six states, motion, the §16 hard-NO list, per-screen Definition of Done. Implemented in `apps/web/src/styles/tokens.css`. |
 | `05_API_SPECIFICATION.md` | **Endpoint contracts for all 16 route modules.** Modules 10–17 written from the implementations 2026-07-27; roles reflect PRD §4.2 as enforced by `lib/roles.ts`. |
 | `09_FEATURE_FLAG_ARCHITECTURE.md` | Feature-flag design. |
 | `10_OBSERVABILITY_ARCHITECTURE.md` | Logging / metrics / tracing design. |

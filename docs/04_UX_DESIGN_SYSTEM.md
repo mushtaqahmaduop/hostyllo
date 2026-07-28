@@ -8,6 +8,25 @@
 > **Status:** This file was referenced in MASTER PRD v12.0, v13.0, and v14.0 but did not exist until the v15.0 suite.
 > This document fills that gap completely. GAP-1 RESOLVED.
 
+> ## ⚠️ SUPERSEDED FOR APPEARANCE — 2026-07-28
+>
+> **`15_UI_SPEC_v1.md` is now the authoritative design contract for Phase 2 frontend.** It states
+> its own precedence: *"If a PRD and this file disagree on appearance, this file wins. If they
+> disagree on behaviour, the PRD wins."*
+>
+> What changed, and what this document therefore no longer describes:
+>
+> | | This doc (v15) | `15_UI_SPEC_v1.md` (live) |
+> |---|---|---|
+> | Palette | Gold `#c9a84c` + teal, dark-default | Indigo `#4F46E5` + graphite, light-default, amber reserved for action-required |
+> | Theme attribute | `[data-theme]` | `class="dark"` + `hs-theme` cookie, three states |
+> | Type | Figtree · DM Mono · Noto Nastaliq | Geist · Newsreader · JetBrains Mono · Noto **Naskh** |
+> | Tokens | §2 of this file → `src/app/tokens.css` *(deleted)* | `apps/web/src/styles/tokens.css` |
+> | Base size | 16px | 14px UI base, 16px only on mobile inputs |
+>
+> **Still valid here:** the warden-on-a-cheap-Android brief (§1), the role/permission notes, and the
+> module-by-module screen inventory. Read those; ignore every colour, token name and type value.
+
 ---
 
 ## 1. DESIGN PHILOSOPHY

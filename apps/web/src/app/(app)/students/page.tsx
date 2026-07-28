@@ -1,9 +1,25 @@
-import { api, ApiError } from '@/lib/api';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { formatPkr } from '@/lib/format';
-import { Notice, PageHeading, Pagination, TableFrame, Td, Th } from '@/components/ui';
 
-export const metadata = { title: 'Students · Hostyllo' };
+import { api, ApiError } from '@/lib/api';
+import { canOperate } from '@/lib/session';
+import { PageHeader } from '@/components/patterns/page-header';
+import { SearchForm } from '@/components/patterns/search-form';
+import { Pagination } from '@/components/patterns/pagination';
+import { Money } from '@/components/patterns/money';
+import { EmptyState, FilteredEmptyState, ErrorState } from '@/components/patterns/states';
+import { Alert, AlertDescription } from '@/components/ui-kit/alert';
+import { Button } from '@/components/ui-kit/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui-kit/table';
+
+export const metadata = { title: 'Students' };
 
 /** Field names are the API's, verbatim — see GET /students in the API spec (Module 2). */
 type Student = {
@@ -25,10 +41,11 @@ const PAGE_SIZE = 25;
 export default async function StudentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; offset?: string }>;
+  searchParams: Promise<{ q?: string; offset?: string; added?: string }>;
 }) {
-  const { q, offset: rawOffset } = await searchParams;
+  const { q, offset: rawOffset, added } = await searchParams;
   const offset = Math.max(0, Number(rawOffset ?? 0) || 0);
+  const mayWrite = await canOperate();
 
   const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(offset) });
   if (q) params.set('q', q);
@@ -41,91 +58,128 @@ export default async function StudentsPage({
     if (error instanceof ApiError && error.status === 403) {
       // A viewer or chain manager hitting a guard they do not pass. Say so plainly rather than
       // showing an empty table, which would read as "this hostel has no students".
-      return <Notice tone="amber">Your role does not have access to the student list.</Notice>;
+      return (
+        <>
+          <PageHeader title="Students" />
+          <Alert tone="attention">
+            <AlertDescription>
+              Your role does not have access to the student list. Ask the hostel owner to change it.
+            </AlertDescription>
+          </Alert>
+        </>
+      );
     }
-    return <Notice tone="red">{error instanceof ApiError ? error.message : 'Could not load students.'}</Notice>;
+    return (
+      <>
+        <PageHeader title="Students" />
+        <ErrorState
+          title="Couldn't load students"
+          body="Check your connection and try again."
+          detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+          retryHref="/students"
+        />
+      </>
+    );
   }
 
   const shown = list.students.length;
 
   return (
     <>
-      <PageHeading title="Students" meta={`${list.total} active`} />
+      <PageHeader
+        eyebrow={`${list.total} active`}
+        title="Students"
+        actions={
+          mayWrite ? (
+            <Button asChild variant="primary">
+              <Link href="/students/new">Add student</Link>
+            </Button>
+          ) : undefined
+        }
+      />
 
-      {/* A plain GET form: search survives a page refresh, works without JavaScript, and keeps the
-          query in the URL so a warden can bookmark or share it. */}
-      <form method="GET" style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-5)' }}>
-        <input
-          type="search"
-          name="q"
-          defaultValue={q ?? ''}
-          placeholder="Search name or phone"
-          aria-label="Search students by name or phone"
-          style={{
-            flex: 1,
-            padding: 'var(--space-3)',
-            background: 'var(--surface-2)',
-            border: '1px solid var(--border-2)',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--text)',
-            fontSize: 16,
-            minHeight: 44,
-          }}
-        />
-        <button
-          type="submit"
-          style={{
-            padding: '0 var(--space-4)',
-            background: 'var(--gold)',
-            color: '#0b0e14',
-            border: 'none',
-            borderRadius: 'var(--radius-md)',
-            fontWeight: 600,
-            cursor: 'pointer',
-            minHeight: 44,
-          }}
-        >
-          Search
-        </button>
-      </form>
-
-      {shown === 0 ? (
-        <Notice tone="muted">
-          {q ? `No students match “${q}”.` : 'No students yet.'}
-        </Notice>
-      ) : (
-        <TableFrame>
-            <thead>
-              <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
-                <Th>Name</Th>
-                <Th>Room</Th>
-                <Th>Phone</Th>
-                <Th align="right">Rent</Th>
-                <Th align="right">Unpaid</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.students.map((s) => {
-                const unpaid = Number(s.unpaid_pkr ?? 0);
-                return (
-                  <tr key={s.student_id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <Td>{s.full_name}</Td>
-                    <Td>{s.room_number ? `${s.room_number}${s.bed_label ? ` · ${s.bed_label}` : ''}` : '—'}</Td>
-                    <Td>{s.phone ?? '—'}</Td>
-                    <Td align="right">{formatPkr(s.rent_pkr)}</Td>
-                    <Td align="right">
-                      <span style={{ color: unpaid > 0 ? 'var(--red)' : 'var(--text-muted)' }}>
-                        {formatPkr(unpaid)}
-                      </span>
-                    </Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-        </TableFrame>
+      {added && (
+        // Named rather than "Student added": the warden has just typed a name and wants to see it
+        // echoed back — it confirms the right record was created (§14).
+        <Alert tone="positive" className="mb-6">
+          <AlertDescription>
+            {list.students.find((s) => s.student_id === added)?.full_name ?? 'Student'} was admitted.
+          </AlertDescription>
+        </Alert>
       )}
 
-            <Pagination
+      <SearchForm defaultValue={q} label="Search students by name or phone" />
+
+      {shown === 0 ? (
+        q ? (
+          <FilteredEmptyState what="students" clearHref="/students" />
+        ) : (
+          <EmptyState
+            title="No students yet"
+            body="Add your first student to start tracking rooms and dues."
+            action={mayWrite ? { label: 'Add student', href: '/students/new' } : undefined}
+          />
+        )
+      ) : (
+        <Table stickyFirstColumn minWidth={800}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Room</TableHead>
+              <TableHead>Phone</TableHead>
+              <TableHead numeric>Rent</TableHead>
+              <TableHead numeric>Unpaid</TableHead>
+              {mayWrite && <TableHead numeric>Action</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {list.students.map((s) => {
+              const unpaid = Number(s.unpaid_pkr ?? 0);
+              return (
+                <TableRow key={s.student_id}>
+                  <TableCell>
+                    {/* The name is the link, not the whole row: a row-wide click target would
+                        swallow the "Take payment" link sitting inside it. */}
+                    <Link
+                      href={`/students/${s.student_id}`}
+                      className="font-medium text-fg hover:text-brand-text"
+                    >
+                      {s.full_name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-mono text-mono text-fg-secondary">
+                    {s.room_number
+                      ? `${s.room_number}${s.bed_label ? ` · ${s.bed_label}` : ''}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="font-mono text-mono">{s.phone ?? '—'}</TableCell>
+                  <TableCell numeric>
+                    <Money value={s.rent_pkr} tier="ledger" />
+                  </TableCell>
+                  <TableCell numeric>
+                    <Money
+                      value={unpaid}
+                      tier="ledger"
+                      className={unpaid > 0 ? 'font-semibold text-attention-text' : 'text-fg-tertiary'}
+                    />
+                  </TableCell>
+                  {/* The overwhelmingly common next action from this screen: a student walks up,
+                      the warden finds their row, and takes the month's rent. */}
+                  {mayWrite && (
+                    <TableCell className="text-end">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/payments/new?studentId=${s.student_id}`}>Take payment</Link>
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+
+      <Pagination
         basePath="/students"
         params={{ q }}
         offset={offset}

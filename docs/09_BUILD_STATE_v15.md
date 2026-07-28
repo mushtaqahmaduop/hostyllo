@@ -303,9 +303,26 @@ These have external approval timelines. Must be tracked from Day 1.
 
 ### BullMQ Workers (All 7)
 
+> ⚠️ **2026-07-28 — "CODE EXISTS" overstates every row below.** `apps/api` contains **no BullMQ
+> producer**: only `new Worker(...)` is ever constructed, never `new Queue(...)`, and no repeatable
+> or cron job is registered anywhere. The "Railway cron" trigger these rows assume **is not
+> configured** — `railway.toml` defines only `build`, `startCommand` and a healthcheck. So every
+> worker here subscribes to a queue nothing writes to and has never processed a job.
+>
+> Consequence: auto-cancellation, subscription/dunning sync and email sending are **not happening**.
+> Monthly rent *is* generated, but by `POST /payments/generate-monthly` inline — the worker is a
+> second, divergent copy of that logic.
+>
+> `auto-cancel.ts` carried the same broken-SQL defect (four non-existent columns) and no
+> transaction; **fixed 2026-07-28** and now covered by `apps/api/src/__tests__/auto-cancel.test.ts`.
+> It is correct whenever a producer finally enqueues to it. The other three are still unaudited
+> against the live schema — assume nothing about them until each is exercised the same way.
+>
+> Full findings and the open decisions in `tasks/todo`.
+
 | Task | Status |
 |------|:------:|
-| `pdf-receipts` queue + worker (puppeteer → PDF → Supabase Storage) | 🟡 CODE EXISTS (`workers/pdf-receipts.ts`) |
+| ~~`pdf-receipts` queue + worker (puppeteer → PDF → Supabase Storage)~~ | ✅ **DROPPED 2026-07-28 — receipts are now rendered on demand** by `GET /payments/:id/receipt` (pdfkit, streamed, nothing stored). Worker deleted; it could never have run (six columns not on the schema) and nothing enqueued it. Rationale in `docs/05_API_SPECIFICATION.md` Module 4. |
 | `whatsapp-notifications` queue + worker | ⬜ TODO (no worker file — Phase 3 copy-paste tier; full 360dialog is Phase 5) |
 | `email-notifications` queue + worker (Resend) | 🟡 CODE EXISTS (`workers/email-send.ts`) |
 | `auto-cancellations` queue + worker (Railway cron nightly) | 🟡 CODE EXISTS (`workers/auto-cancel.ts`) |

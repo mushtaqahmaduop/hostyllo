@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { loginRequest, ACCESS_COOKIE, REFRESH_COOKIE, API_BASE } from '@/lib/api';
+import { NAME_COOKIE, ROLE_COOKIE } from '@/lib/session';
 
 /**
  * Login proxy. The browser posts here, never to the API directly.
@@ -50,8 +51,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ code: 'UPSTREAM_ERROR', message: 'Sign in failed.' }, { status: 502 });
   }
 
-  const res = NextResponse.json({ user: result.body.data?.user ?? null });
+  const user = result.body.data?.user ?? null;
+  const res = NextResponse.json({ user });
   const secure = process.env.NODE_ENV === 'production';
+
+  // Captured here because this is the only response that carries it — the API has no /auth/me.
+  // Read only to decide which buttons to draw (lib/session.ts); it grants nothing on its own.
+  const cosmetic = { httpOnly: true, secure, sameSite: 'lax' as const, path: '/', maxAge: 60 * 60 * 24 * 7 };
+
+  if (user?.role) {
+    res.cookies.set(ROLE_COOKIE, user.role, cosmetic);
+  }
+  // Encoded because a display name can contain characters a cookie value may not carry verbatim.
+  if (user?.displayName) {
+    res.cookies.set(NAME_COOKIE, encodeURIComponent(user.displayName), cosmetic);
+  }
 
   res.cookies.set(ACCESS_COOKIE, accessToken, {
     httpOnly: true,
