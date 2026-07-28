@@ -3,6 +3,9 @@
 Single source of truth for how Hostyllo's API runs in production and how to operate it.
 Last verified live: 2026-07-23 — `{"success":true,"data":{"db":"ok","redis":"ok"}}`.
 
+> **The frontend (Vercel) has never deployed successfully.** See §13 — it is one Project Setting,
+> and it is a founder action. Every other item below concerns the Railway API, which is live.
+
 ---
 
 ## 1. Production stack
@@ -162,3 +165,56 @@ Find trigger ids: `project(id){ deploymentTriggers{ edges{ node{ id branch envir
 Current: production trigger → `main`, staging trigger → `Develop`. Or set it in the dashboard: service → Settings → the environment's Source branch.
 
 **Staging DB** is Supabase project `ljnuwmfnpofzlmioskfc` (hostyllo-staging), schema applied via `packages/db/migrate.mjs` (11 migrations + `hostyllo_app` role). Its `DATABASE_CA_CERT` is the same Supabase CA as prod (same regional pooler host). Staging env vars mirror prod except `DATABASE_URL*`, `REDIS_URL`, `SUPABASE_URL`; the unused `SUPABASE_SERVICE_KEY` is intentionally absent so no prod secret lives in staging.
+
+---
+
+## 13. Frontend (Vercel) — ⚠️ has never deployed successfully
+
+Project **`hostyllo.web`** (`prj_voZlvDgX4knrEQ0yHMx6uoIzZEjC`), team `mushtaqs-projects-ed730108`.
+Every deployment since the project was created is in `ERROR` state — including ones from before
+`apps/web` existed.
+
+**The app is not the problem.** The build log from the 2026-07-28 run shows Next compiling cleanly,
+TypeScript passing and all 13 routes generating. Only the final packaging step fails.
+
+Two configuration errors, in order:
+
+1. **`framework: null` + Root Directory at the repo root.** With no framework detected, Vercel runs
+   the build (which succeeds) and then looks for a static `public/` directory at the repo root:
+   `Error: No Output Directory named "public" found after the Build completed.`
+2. Adding a root `vercel.json` with `framework: "nextjs"` moved the error but did not fix it:
+   `Error: No Next.js version detected. Make sure your package.json has "next" in either
+   "dependencies" or "devDependencies".` Framework detection reads the package.json **in the Root
+   Directory** — the repo root's has only `turbo`. No amount of `vercel.json` can fix this, which is
+   why that file was removed again rather than left as dead config.
+
+### The fix — one Project Setting, founder action
+
+> Vercel → project **hostyllo.web** → Settings → Build & Deployment → **Root Directory** = `apps/web`
+
+That is sufficient on its own. With it set, Vercel finds `apps/web/package.json`, auto-detects
+Next.js, and runs `next build` there. `apps/web` has no workspace dependencies, so nothing else
+needs compiling; leave "Include source files outside the Root Directory" **on**, because pnpm needs
+the root `pnpm-workspace.yaml` and lockfile to install.
+
+Equivalent via the REST API, if a token is to hand:
+
+```bash
+curl -X PATCH "https://api.vercel.com/v9/projects/prj_voZlvDgX4knrEQ0yHMx6uoIzZEjC?teamId=team_sayArFSzn74VPxYLn2pRgA5j" \
+  -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+  -d '{"rootDirectory":"apps/web","framework":"nextjs"}'
+```
+
+### Then: the runtime env var
+
+`apps/web` reads **`API_BASE_URL`** on the server at request time (never inlined into the client
+bundle — the browser only ever talks to this app's own route handlers). It must be set per Vercel
+environment or every page that fetches will fail at runtime even once the build is green:
+
+| Vercel environment | Value |
+|---|---|
+| Production | `https://hostyllo-production.up.railway.app` (→ `https://api.hostyllo.app` once DNS is set) |
+| Preview | `https://hostyllo-staging.up.railway.app` |
+
+Note the build going green does **not** prove this is set: `/login` renders without it, and only the
+authenticated screens fetch. Verify by loading `/login`, signing in, and reaching `/dashboard`.
