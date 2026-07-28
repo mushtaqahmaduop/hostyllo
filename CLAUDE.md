@@ -33,10 +33,14 @@ Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
 - `packages/db`: canonical `withTenant.ts` (single pool layer), `paymentService.ts`, `formatters.ts` + tests.
 - `apps/api`: full Fastify server, **16 route modules** (auth, students, rooms, payments, expenses,
   dashboard, cancellations, maintenance, complaints, checkin, notices, transfers, fines, users,
-  settings, audit-log) totalling 64 endpoints, auth middleware, global error handler, and
-  **5 workers** (auto-cancel, billing-sync, email-send, pdf-receipts, rent-generate) plus the
-  `dlq.ts` helper. The "7 queues" in `docs/06_CLAUDE_MD_v15.md` counts two WhatsApp queues that
-  are not built — a Phase-2 feature, not missing Phase-1 work.
+  settings, audit-log) totalling 65 endpoints, auth middleware, global error handler, and
+  **4 workers** (auto-cancel, billing-sync, email-send, rent-generate) plus the `dlq.ts` helper.
+  The "7 queues" in `docs/06_CLAUDE_MD_v15.md` counts two WhatsApp queues that are not built — a
+  Phase-2 feature, not missing Phase-1 work.
+  ⚠️ **No BullMQ *producer* exists anywhere in `apps/api`** — only `Worker` is ever constructed, so
+  none of the four receives a job. Under investigation; see `tasks/todo`.
+  `pdf-receipts` was deleted 2026-07-28: receipts are rendered on demand by
+  `GET /payments/:id/receipt`. See `docs/05_API_SPECIFICATION.md` Module 4 for why.
 - `packages/config/eslint-plugin-hostyllo` (withTenant + no-hostel-id-from-request rules).
 - `tsc --strict` clean; 14/14 payment unit tests green.
 

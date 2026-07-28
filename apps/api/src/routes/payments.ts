@@ -3,6 +3,14 @@ import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { CAN_OPERATE, CAN_READ, OWNER_ONLY } from '../lib/roles.js';
 import { calculateUnpaid } from '@hostyllo/db';
+import { buildReceiptPdf } from '../lib/receipt-pdf.js';
+
+/** `2026-07-01` (a DATE column) → `July 2026`. UTC so the 1st never slips to the previous month. */
+function formatMonthLabel(month: Date | string): string {
+  const d = month instanceof Date ? month : new Date(month);
+  if (Number.isNaN(d.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
+}
 
 export async function paymentsRoutes(app: FastifyInstance) {
 
@@ -381,6 +389,114 @@ export async function paymentsRoutes(app: FastifyInstance) {
     if (!result) return reply.status(404).send({ success: false, data: null, code: 'NOT_FOUND', message: 'Payment not found' });
 
     return reply.send({ success: true, data: result });
+  });
+
+  // GET /payments/:id/receipt
+  //
+  // Renders the PDF on demand and streams it. Deliberately not a stored file behind a signed URL:
+  // payments here can be edited and voided, so a PDF written once at creation time starts lying
+  // the moment either happens — and then circulates as proof of a payment that no longer stands.
+  // Rendering from the row means the document cannot disagree with the ledger. It also removes a
+  // bucket, its retention policy, signed-URL expiry, and the "job was lost so the receipt never
+  // existed" failure mode.
+  app.get('/payments/:id/receipt', {
+    preHandler: [requireAuth, requireRole(CAN_READ)],
+    schema: {
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: { id: { type: 'string', format: 'uuid' } },
+        additionalProperties: false,
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const data = await withTenant(request.hostelId, async (db) => {
+      const payment = await db.query(`
+        SELECT
+          p.receipt_number, p.month, p.payment_date, p.payment_method, p.status,
+          p.rent, p.admission_fee, p.concession, p.total_due, p.paid, p.unpaid,
+          s.name AS student_name, s.father_name, s.phone AS student_phone,
+          r.number AS room_number,
+          b.label AS bed_label,
+          h.name AS hostel_name, h.tagline, h.address, h.city, h.phone AS hostel_phone
+        FROM public.payments p
+        JOIN public.students s ON s.id = p.student_id
+        LEFT JOIN public.rooms r ON r.id = p.room_id
+        LEFT JOIN public.beds  b ON b.id = p.bed_id
+        JOIN public.hostels h ON h.id = p.hostel_id
+        WHERE p.id = $1
+          AND p.hostel_id = current_setting('app.hostel_id')::uuid
+          AND p.deleted_at IS NULL
+      `, [id]);
+
+      if (!payment.rows[0]) return null;
+
+      // Separate query rather than a join: joining a one-to-many onto the payment row would
+      // multiply it, and the totals printed on the receipt come from the payment row itself.
+      const extras = await db.query(`
+        SELECT label, amount
+        FROM public.payment_extra_charges
+        WHERE payment_id = $1
+          AND hostel_id = current_setting('app.hostel_id')::uuid
+        ORDER BY created_at
+      `, [id]);
+
+      return { payment: payment.rows[0], extras: extras.rows };
+    });
+
+    // A cross-tenant id is a 404 by design — RLS returns no row — and it must look identical to a
+    // genuinely missing payment, or the response becomes an oracle for whether an id exists in
+    // someone else's hostel.
+    if (!data) {
+      return reply.status(404).send({ success: false, data: null, code: 'NOT_FOUND', message: 'Payment not found' });
+    }
+
+    const p = data.payment;
+
+    const pdf = buildReceiptPdf({
+      receiptNumber: p.receipt_number,
+      paymentDate: p.payment_date,
+      paymentMethod: p.payment_method,
+      monthLabel: formatMonthLabel(p.month),
+      status: p.status,
+
+      rent: p.rent,
+      admissionFee: p.admission_fee,
+      concession: p.concession,
+      extraCharges: data.extras.map((e: { label: string; amount: string }) => ({
+        label: e.label,
+        amount: e.amount,
+      })),
+      totalDue: p.total_due,
+      paid: p.paid,
+      unpaid: p.unpaid,
+
+      studentName: p.student_name,
+      fatherName: p.father_name,
+      studentPhone: p.student_phone,
+      roomNumber: p.room_number,
+      bedLabel: p.bed_label,
+
+      hostelName: p.hostel_name,
+      hostelTagline: p.tagline,
+      hostelAddress: p.address,
+      hostelCity: p.city,
+      hostelPhone: p.hostel_phone,
+    });
+
+    // `inline` so it opens in the browser's viewer — the common case is a warden checking a figure
+    // on screen, not filing the file. The receipt number is in the filename for the times they do.
+    const filename = `receipt-${p.receipt_number ?? id}.pdf`;
+
+    return reply
+      .type('application/pdf')
+      .header('Content-Disposition', `inline; filename="${filename}"`)
+      // The document is rendered from the current row every time, so a cached copy would be a
+      // stale copy the moment the payment is edited or voided.
+      .header('Cache-Control', 'no-store')
+      .send(pdf);
   });
 
   // PATCH /payments/:id

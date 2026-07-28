@@ -133,14 +133,67 @@
       `en-PK` left in code is `payments.ts:649`, a *month* label (`toLocaleString` with
       month/year), which is correct for dates.
 
-### 🐞 FOUND WHILE VERIFYING THE ABOVE — pdf-receipts worker is a stub that reports success
-- [ ] **`apps/api/src/workers/pdf-receipts.ts` generates no PDF.** It SELECTs the payment +
-      student + room + hostel rows, then immediately `UPDATE payments SET receipt_generated =
-      true, receipt_generated_at = NOW()` and logs "Receipt generated". No document is produced or
-      stored, and the selected columns are never used. So the DB records receipts that do not
-      exist, and anything downstream trusting `receipt_generated` is reading a false flag.
-      Not a formatting bug and not urgent while nothing consumes it — but it must not still be
-      true the day receipts are handed to students. Decide: implement, or stop writing the flag.
+### ✅ RECEIPTS — pdf-receipts worker deleted, replaced with on-demand rendering (2026-07-28)
+- [x] **The worker was a stub that reported success, and it could never have run.** It SELECTed
+      six columns that are not on the schema (`p.amount_paid` → is `paid`, `p.month_label` → is
+      `month`, `p.notes`, `s.full_name` → is `name`, and `receipt_generated`/`receipt_generated_at`
+      in its UPDATE, which no migration creates), so it would have thrown on first execution.
+      It never did, because **nothing enqueued it** (see below). Meanwhile it set a
+      `receipt_generated` flag, so the DB recorded receipts that did not exist.
+- [x] **Replaced rather than repaired: `GET /payments/:id/receipt` renders and streams the PDF.**
+      Founder chose on-demand over the specced async-to-storage pipeline. The reason the stored
+      shape is wrong here: payments can be edited and voided, so a PDF written at creation time is
+      a snapshot that starts lying the moment either happens and then circulates as proof of a
+      payment that no longer stands. On-demand also removes a storage bucket + per-tenant path
+      policy, retention/cleanup, signed-URL expiry, and the lost-job failure mode.
+      Built with `pdfkit` (built-in Helvetica/Courier — no font files to ship). A voided payment
+      still returns its receipt, carrying a VOID stamp and a footer stating it is not proof of
+      payment. Cross-tenant id → 404, indistinguishable from missing.
+- [x] **`fmtPkr()` added to `packages/db/src/formatters.ts`** for documents, with
+      `formatters.test.ts` (12 tests) asserting the exact lakh-grouped output. That test is the
+      drift guard between it and `apps/web/src/lib/format.ts`, which must implement the same rule
+      independently because the web app cannot import a package that pulls in `pg`.
+- [x] **Verified by rendering**, not by typecheck: four cases (paid / partial / void / all-optional
+      -fields-null) written to real PDFs, content streams inflated and the text operators read back
+      to confirm the figures. That caught a bug typecheck cannot see — the concession line used
+      U+2212 MINUS SIGN, which is absent from PDFKit's WinAnsi-encoded built-in Helvetica and
+      rendered as `"`, so the line read `" PKR 2,500`. Em dashes replaced with words for the same
+      reason.
+- [x] API spec Module 4 amended: `receiptStatus` and `receiptUrl` are gone, the new endpoint is
+      documented, and the design change is explained inline.
+      ⚠️ `POST /payments/:id/send-receipt` still lists `receiptUrl` — that endpoint is unbuilt and
+      belongs to the deferred WhatsApp work; it needs the same treatment when it lands.
+
+### 🐞 WORKER INVESTIGATION (2026-07-28, founder-requested) — NOTHING TRIGGERS ANY WORKER
+**`apps/api` contains no BullMQ producer at all.** Only `new Worker(...)` is ever constructed —
+there is no `new Queue(...)`, no `.add(...)`, no repeatable/cron job registration anywhere in the
+repo, and the three GitHub workflows (`ci`, `staging-smoke`, `uptime`) do not invoke jobs either.
+All four remaining workers connect to Redis, subscribe, and wait forever on queues nobody writes
+to. Reported, not fixed — decide the shape first.
+
+| Worker | Is the work happening? | Notes |
+|---|---|---|
+| `rent-generate` | **Yes, but not via the worker.** | `POST /payments/generate-monthly` does the same job inline, tenant-scoped through `withTenant`, owner-only. The worker is a **second, divergent implementation** of the same logic, unreachable. Monthly rent is therefore manual — someone must call the endpoint. |
+| `auto-cancel` | **No.** | Pending cancellations past their date are never confirmed. |
+| `billing-sync` | **No.** | Subscription/plan state (trial→active→expired→suspended) never syncs. |
+| `email-send` | **No.** | No email is ever sent by the system. |
+
+- [ ] 🐞 **`auto-cancel.ts` has the same broken-SQL defect pdf-receipts had, and it is worse.**
+      Lines 28–33 do `UPDATE beds SET status = 'available', occupant_id = NULL WHERE occupant_id =
+      $1`. The `beds` table has **no `occupant_id` column**, and `'available'` violates its CHECK
+      (`vacant` | `occupied` | `maintenance`). So the query throws — *after* the job has already
+      marked cancellations confirmed and students vacated in two earlier statements. **None of the
+      three is in a transaction**, so triggering this worker today would half-apply a cancellation:
+      student vacated, bed still showing occupied. Fix the SQL *and* wrap the handler in a
+      transaction before anything is ever allowed to enqueue to it.
+- [ ] **Decide how scheduled work runs** before wiring any producer: BullMQ repeatable jobs
+      registered at boot (simple, but every API replica registers them — needs a single-owner
+      guard), or an external scheduler hitting authenticated endpoints (visible in logs, easier to
+      run manually, matches how `generate-monthly` already works). The second matches the grain of
+      what is already built.
+- [ ] **Decide `rent-generate`'s fate** — delete the worker and keep the endpoint as the one
+      implementation, or move the endpoint to enqueue. Two copies of the billing rule is the real
+      risk here; they can already disagree.
 
 ### NEXT, in the spec's own order
 - [ ] **Command palette (⌘K / Ctrl+K)** — §7.11 calls it non-negotiable. Not built; needs a search
