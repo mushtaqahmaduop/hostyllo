@@ -38,7 +38,7 @@
 | Create PWA manifest.json stub | 30 minutes | Instant | Wardens install app on Day 1 |
 | Set up Sentry with PII filter (CNIC must not appear) | 2 hours | Instant | No error visibility in production |
 | Rotate all secrets to 64-char random values | 15 minutes | Instant | Key hygiene |
-| Create `tasks/lessons.md` in monorepo | 5 minutes | Instant | AI agent session discipline |
+| Create `tasks/lessons` in monorepo | 5 minutes | Instant | AI agent session discipline |
 
 ---
 

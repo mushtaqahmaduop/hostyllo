@@ -1,0 +1,11 @@
+/*
+ * Stylesheet entry point.
+ *
+ * Order is load-bearing: Tailwind first so its layers exist, then tokens (the source of truth for
+ * every colour, size, duration and shadow in the product), then the base layer that applies them.
+ * Nothing else belongs in this file — see docs/15_UI_SPEC_v1.md §15 for the layout.
+ */
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '../styles/tokens.css';
+@import '../styles/base.css';

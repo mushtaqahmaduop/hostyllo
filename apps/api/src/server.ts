@@ -4,7 +4,8 @@ import { Sentry } from './instrument.js';
 import { buildApp } from './app.js';
 import { validateEnv } from './lib/env.js';
 import './workers/auto-cancel.js';
-import './workers/pdf-receipts.js';
+// The pdf-receipts worker is gone: receipts are rendered on demand by GET /payments/:id/receipt.
+// See docs/05_API_SPECIFICATION.md Module 4 for why a stored file was the wrong shape here.
 import './workers/rent-generate.js';
 import './workers/billing-sync.js';
 import './workers/email-send.js';

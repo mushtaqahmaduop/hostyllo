@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CAN_OPERATE, CAN_READ, CHAIN_LEVEL } from '../lib/roles.js';
 
 export async function cancellationsRoutes(app: FastifyInstance) {
 
   // GET /cancellations
   app.get('/cancellations', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -61,7 +62,7 @@ export async function cancellationsRoutes(app: FastifyInstance) {
 
   // POST /cancellations
   app.post('/cancellations', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       body: {
         type: 'object',
@@ -116,7 +117,7 @@ export async function cancellationsRoutes(app: FastifyInstance) {
 
   // POST /cancellations/:id/confirm
   app.post('/cancellations/:id/confirm', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',
@@ -183,7 +184,7 @@ export async function cancellationsRoutes(app: FastifyInstance) {
 
   // POST /cancellations/:id/restore
   app.post('/cancellations/:id/restore', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',

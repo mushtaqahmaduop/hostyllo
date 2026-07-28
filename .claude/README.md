@@ -1,7 +1,7 @@
 # HOSTYLLO Engineering Team — Workspace Guide
 
 This `.claude/` directory turns Claude Code into a structured engineering team for HOSTYLLO.
-It is grounded in the v15 doc suite (`docs/docs/`) and the **actual code** in the repo — not assumptions.
+It is grounded in the v15 doc suite (`docs/`) and the **actual code** in the repo — not assumptions.
 
 ## How it loads
 - **`/CLAUDE.md`** (repo root) auto-loads every session. It is the behavioral contract: the 6
@@ -36,7 +36,7 @@ invariants and PRD, so reviews are consistent and don't rely on memory.
 5. `/deployment-check` before any deploy.
 
 ## Standing facts every agent must respect
-- **The tracker lies.** `docs/docs/09_BUILD_STATE_v15.md` says "nothing built"; the API, schema, and
+- **The tracker lies.** `docs/09_BUILD_STATE_v15.md` says "nothing built"; the API, schema, and
   services already exist. Always inspect the code; reconciling the tracker is assigned work, not optional.
 - **6 invariants are fixed points** (RS256-only · withTenant() everywhere · hostel_id from JWT only ·
   NUMERIC(10,2) money · insert-only audit_log · PITR before prod data). Never weakened to pass a test.

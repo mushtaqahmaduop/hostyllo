@@ -2,6 +2,20 @@
 ## HOSTYLLO — Complete API Specification
 ### v1.0 · June 2026 · Traceable to PRD v15.0 Section 18 + Blueprint Section 6
 
+> ### ✅ COVERAGE — reconciled against code 2026-07-27
+>
+> This document was written from the PRD before the API was built and had not kept pace: it
+> specified 9 of the 16 route modules, leaving **25 live endpoints documented nowhere**. Modules
+> 10–17 below were written from the route implementations to close that gap, so **all 16 modules
+> are now specified**. Phase 2 is the frontend, and this is what it should be built against.
+>
+> Roles throughout reflect PRD §4.2 as enforced by `apps/api/src/lib/roles.ts`. Several guards
+> changed on 2026-07-27 to match the matrix — see "A note on role consistency" at the end.
+>
+> One correction to what was already documented: `GET /health` is served at **`/api/v1/health`**,
+> not `/health`, and there is a second probe, **`GET /api/v1/ready`** (503 when the DB or Redis is
+> down — `/health` stays 200 so a transient blip cannot tear down a working deploy).
+
 ---
 
 ## GLOBAL STANDARDS
@@ -804,13 +818,13 @@ status   = amountPaidPkr >= totalDue ? 'paid' : amountPaidPkr > 0 ? 'partial' : 
     "totalDuePkr": 8300,
     "amountPaidPkr": 8300,
     "unpaidPkr": 0,
-    "status": "paid",
-    "receiptStatus": "generating"
+    "status": "paid"
   }
 }
 ```
 
-Receipt PDF is generated asynchronously via BullMQ `pdf-receipts` queue. `receiptUrl` is available in `GET /payments/:id` once generation completes (typically < 2 seconds).
+The receipt is available immediately at `GET /payments/:id/receipt`. There is no `receiptStatus`, no
+asynchronous generation step and no waiting.
 
 **Error codes:**
 | Code | HTTP | Trigger |
@@ -823,13 +837,35 @@ Receipt PDF is generated asynchronously via BullMQ `pdf-receipts` queue. `receip
 
 ### GET /payments/:id
 
-**Purpose:** Full payment detail including extra charges and receipt URL.
+**Purpose:** Full payment detail including extra charges.
 
 **Auth:** Bearer. Role: `warden` or above.
 
-**Response:** `200 OK` — full payment object as defined in `POST /payments` response plus `receiptUrl` (signed URL, 24h expiry, null if still generating).
+**Response:** `200 OK` — full payment object as defined in `POST /payments` response.
 
 ---
+
+### GET /payments/:id/receipt
+
+**Purpose:** The rent receipt as a PDF.
+
+**Auth:** Bearer. Role: `warden` or above.
+
+**Response:** `200 OK`, `Content-Type: application/pdf`, `Content-Disposition: inline; filename="receipt-RCP-000042.pdf"`, `Cache-Control: no-store`. The document is rendered per request and streamed; nothing is written to disk.
+
+**Errors:** `404 NOT_FOUND` — no such payment, **or** it belongs to another hostel. The two are deliberately indistinguishable: RLS returns no row either way, and a different response would make the endpoint an oracle for whether an id exists in someone else's tenant.
+
+A voided payment still returns its receipt — an operator may need a copy for their own records — but the document carries a `VOID` stamp and the footer states it is not proof of payment.
+
+> **Design change, 2026-07-28 — this replaced an async pipeline that was never built.**
+>
+> The original design here was: `POST /payments` enqueues a BullMQ `pdf-receipts` job, a worker writes a PDF to storage, and `GET /payments/:id` returns a `receiptUrl` (signed, 24h expiry) with `receiptStatus: "generating"` until it lands. None of it existed. There was a worker file, but nothing enqueued to it — `apps/api` contained no BullMQ *producer* at all — its `SELECT` named six columns that are not on the schema (`amount_paid`, `month_label`, `notes`, `full_name`, and `receipt_generated`/`_at` in its `UPDATE`), so it would have thrown on first run, and it reported success by setting a `receipt_generated` flag that no migration creates.
+>
+> It was replaced with on-demand rendering rather than repaired, because the stored-file shape is wrong for this domain: **payments here can be edited and voided.** A PDF written once at creation time is a snapshot that starts lying the moment either happens, and then circulates as proof of a payment that no longer stands. Rendering from the row on each request means the document cannot disagree with the ledger.
+>
+> It also removes, rather than implements, a storage bucket and its per-tenant path policy, a retention and cleanup story, signed-URL expiry, a queue producer, and the "the job was lost so the receipt never existed" failure mode. Receipts are small and rarely fetched; generation is milliseconds.
+>
+> Consequences for the rest of this document: `receiptStatus` and `receiptUrl` no longer exist anywhere in the API. `POST /payments/:id/send-receipt` (below) still lists `receiptUrl` in its response — that endpoint is unbuilt and belongs to the deferred WhatsApp work, so it is left as-is and will need this same treatment when it lands.
 
 ### PATCH /payments/:id
 
@@ -1380,7 +1416,7 @@ Performance target: < 200ms p95. Uses the single-query CTE defined in `04_DATABA
 | Auth | 6 | login, totp/verify, refresh, logout, reset-password, totp/setup |
 | Students | 7 | list, create, search, get, reveal-cnic, update, delete, import = 8 (note: reveal-cnic not counted in PRD's 7 — it is a sub-action) |
 | Rooms | 6 | list, create, get, update, delete, shift, bulk-fee = 7 (bulk-fee not in PRD's 6 count) |
-| Payments | 8 | list, create, get, update, void-confirm, defaulters, summary, generate-monthly, send-receipt = 9 |
+| Payments | 8 | list, create, get, update, void-confirm, defaulters, summary, generate-monthly, send-receipt, **receipt** = 10 (receipt added 2026-07-28, replacing the async PDF pipeline; send-receipt is still unbuilt) |
 | Expenses | 5 | list, summary, create, update, delete |
 | Dashboard | 2 | stats, alerts |
 | Audit Log | 2 | list, by-entity |
@@ -1390,6 +1426,221 @@ Performance target: < 200ms p95. Uses the single-query CTE defined in `04_DATABA
 | **Total** | **~42** | Per PRD v15.0 Section 18 |
 
 **Note on discrepancy:** The PRD counts 42 endpoints. The `reveal-cnic`, `void-confirm`, `bulk-fee`, and `send-receipt` sub-actions bring the real count to ~46 depending on how sub-actions are counted. All are documented here. Build all of them.
+
+---
+
+## MODULES 10–17 — OPERATIONS
+
+> Written from the route implementations on 2026-07-27, closing the gap where these 25 live
+> endpoints were documented nowhere. Roles below are the PRD §4.2 matrix as enforced by
+> `apps/api/src/lib/roles.ts` — the one place the matrix now exists in code.
+
+**Conventions for every endpoint in this section.** They all require `Authorization: Bearer
+<accessToken>` and run inside `withTenant()`, so the tenant boundary applies exactly as elsewhere:
+another hostel's id returns **404, never 403** — a 403 would confirm the row exists. Every list
+endpoint accepts `limit` (1–100, default 25) and `offset` (min 0, default 0) and returns
+`{ success, data: { <collection>, total, limit, offset } }`. Every request body is
+`additionalProperties: false`, so an unknown field is a **400 `VALIDATION_ERROR`**, not a silent
+drop. Money is PKR as a JSON number, converted from Postgres `NUMERIC` — never a string.
+Deletes are **soft** (`deleted_at`), and soft-deleted rows are excluded from every list.
+
+---
+
+### MODULE 10 — CANCELLATIONS (4 endpoints)
+
+The two-step vacate flow: a cancellation is *requested*, then *confirmed* by an owner or chain
+manager, which is what actually changes the student's lifecycle state. `restore` undoes it.
+
+#### GET /cancellations
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `status` (`pending` | `confirmed` | `restored`), `limit`, `offset`
+**Response:** `200` — `{ cancellations: [...], total, limit, offset }`, each entry
+`{ cancellationId, studentId, studentName, roomNumber, reason, status, vacateDate, confirmedAt, createdAt }`
+
+#### POST /cancellations
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `studentId` (uuid, **required**), `vacateDate` (date, **required**), `reason` (≤500)
+**Response:** `201` — `{ cancellationId, status, vacateDate }`
+**Errors:** `404 NOT_FOUND` (student) · `409 CAN_STUDENT_VACATED` · `409 CAN_ALREADY_PENDING`
+
+#### POST /cancellations/:id/confirm
+**Roles:** hostel_owner, chain_manager — a warden may request a vacate but not finalise it.
+**Response:** `200` — `{ status: "confirmed" }`. Also advances the student's lifecycle state.
+**Errors:** `404 NOT_FOUND` · `409 CAN_NOT_PENDING` (only a pending cancellation can be confirmed)
+
+#### POST /cancellations/:id/restore
+**Roles:** hostel_owner, chain_manager
+**Response:** `200` **Errors:** `404 NOT_FOUND` · `409 CAN_ALREADY_RESTORED`
+
+---
+
+### MODULE 11 — CHECK-IN / CHECK-OUT LOG (2 endpoints)
+
+#### GET /checkin
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `studentId` (uuid), `type` (`checkin` | `checkout`), `from` (date), `to` (date, **inclusive** — the query adds one day), `limit`, `offset`
+**Response:** `200` — `{ entries: [...], total, limit, offset }`, each
+`{ entryId, studentId, studentName, roomNumber, type, note, loggedAt }`, newest first
+
+#### POST /checkin
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `studentId` (uuid, **required**), `type` (`checkin` | `checkout`, **required**), `note` (≤500), `loggedAt` (timestamp — defaults to now, so back-dating is allowed)
+**Response:** `201` — `{ entryId, type, loggedAt }`
+**Errors:** `404 NOT_FOUND` · `409 CHK_STUDENT_VACATED`
+
+---
+
+### MODULE 12 — COMPLAINTS (3 endpoints)
+
+Student-raised issues. `studentId` is optional — a complaint can be anonymous or hostel-wide.
+
+#### GET /complaints
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `status` (`open` | `in_progress` | `resolved` | `closed`), `studentId` (uuid), `limit`, `offset`
+**Response:** `200` — `{ complaints: [...], total, limit, offset }`, each
+`{ complaintId, studentId, studentName, title, description, status, resolvedAt, createdAt }`
+
+#### POST /complaints
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `title` (1–200, **required**), `description` (≤2000), `studentId` (uuid)
+**Response:** `201` — `{ complaintId, status }` **Errors:** `404 NOT_FOUND` (student, if supplied)
+
+#### PATCH /complaints/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `title`, `description`, `status`. Setting `status` to `resolved` stamps `resolvedAt`.
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 13 — FINES (4 endpoints)
+
+#### GET /fines
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `studentId` (uuid), `isPaid` (boolean), `limit`, `offset`
+**Response:** `200` — `{ fines: [...], total, limit, offset, unpaidAmountPkr }`, each
+`{ fineId, studentId, studentName, roomNumber, reason, amountPkr, isPaid, paidAt, fineDate, createdAt }`.
+`unpaidAmountPkr` is the outstanding total across the **filtered** set, not the page.
+
+#### POST /fines
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `studentId` (uuid, **required**), `reason` (1–500, **required**), `amount` (number, **> 0**, **required**), `fineDate` (date, defaults to today)
+**Response:** `201` — `{ fineId, amountPkr, fineDate }`
+**Errors:** `404 NOT_FOUND` · `409 FIN_STUDENT_VACATED`
+
+#### PATCH /fines/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `reason`, `amount` (> 0), `isPaid`, `fineDate`. Setting `isPaid: true` stamps `paidAt`.
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+#### DELETE /fines/:id
+**Roles:** hostel_owner, chain_manager — soft delete. **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 14 — MAINTENANCE (3 endpoints)
+
+Room/facility work requests. `roomId` is optional — a request can be for common areas.
+
+#### GET /maintenance
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `status` (`open` | `in_progress` | `resolved` | `closed`), `priority` (`low` | `medium` | `high` | `urgent`), `roomId` (uuid), `limit`, `offset`
+**Response:** `200` — `{ requests: [...], total, limit, offset }`, each
+`{ requestId, roomId, roomNumber, title, description, priority, status, resolvedAt, createdAt }`
+
+#### POST /maintenance
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `title` (1–200, **required**), `description` (≤2000), `priority` (default `medium`), `roomId` (uuid)
+**Response:** `201` — `{ requestId, status, priority }` **Errors:** `404 NOT_FOUND` (room, if supplied)
+
+#### PATCH /maintenance/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `title`, `description`, `priority`, `status`. `resolved` stamps `resolvedAt`.
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 15 — NOTICES (4 endpoints)
+
+Hostel-wide notice board. Expiry is a display concern, not deletion: an expired notice is hidden
+from the default list but still exists.
+
+#### GET /notices
+**Roles:** hostel_owner, chain_manager, warden, viewer
+**Query:** `includeExpired` (boolean, default `false`), `limit`, `offset`
+**Response:** `200` — `{ notices: [...], total, limit, offset }`, each
+`{ noticeId, title, body, priority, expiresAt, createdAt }`
+
+#### POST /notices
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** `title` (1–200, **required**), `body` (1–5000, **required**), `priority` (`low` | `normal` | `high` | `urgent`, default `normal`), `expiresAt` (timestamp)
+**Response:** `201` — `{ noticeId, priority, expiresAt }`
+
+> Note the enum differs from maintenance/complaints: notices use `normal`, those use `medium`.
+
+#### PATCH /notices/:id
+**Roles:** hostel_owner, chain_manager, warden
+**Body:** any subset of `title`, `body`, `priority`, `expiresAt`
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+#### DELETE /notices/:id
+**Roles:** hostel_owner, chain_manager — soft delete. **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 16 — TRANSFERS (4 endpoints)
+
+Cash movements out of the hostel — owner drawings, bank deposits, inter-branch settlement. Not
+student payments, and not expenses. **Chain-level: no warden access at any verb**, including read.
+
+#### GET /transfers
+**Roles:** hostel_owner, chain_manager
+**Query:** `from` (date), `to` (date), `limit`, `offset`
+**Response:** `200` — `{ transfers: [...], total, limit, offset, totalAmountPkr }`, each
+`{ transferId, amountPkr, description, transferDate, createdAt }`
+
+#### POST /transfers
+**Roles:** hostel_owner, chain_manager
+**Body:** `amount` (number, **> 0**, **required**), `description` (≤500), `transferDate` (date, defaults to today)
+**Response:** `201` — `{ transferId, amountPkr, transferDate }`
+
+#### PATCH /transfers/:id
+**Roles:** hostel_owner, chain_manager
+**Body:** any subset of `amount` (> 0), `description`, `transferDate`. Writes an `audit_log` entry with the old and new values (INVARIANT-5).
+**Response:** `200` **Errors:** `404 NOT_FOUND`
+
+#### DELETE /transfers/:id
+**Roles:** hostel_owner, chain_manager — soft delete. **Errors:** `404 NOT_FOUND`
+
+---
+
+### MODULE 17 — SETTINGS (2 endpoints)
+
+**Owner only, both verbs** — PRD §4.2 grants "Settings access" to `hostel_owner` alone. A chain
+manager cannot read this endpoint, which is why it is not in the viewer/warden set either.
+
+#### GET /settings/hostel-info
+**Roles:** hostel_owner
+**Response:** `200` — `{ hostelId, name, address, city, phone, email, logoUrl, timezone, currency, language, plan, planStatus, trialEndsAt }`
+**Errors:** `404 NOT_FOUND`
+
+#### PATCH /settings/hostel-info
+**Roles:** hostel_owner
+**Body:** any subset of `name` (1–200), `address` (≤500), `city` (≤100), `phone` (≤30), `email` (email, ≤254), `logoUrl` (≤1000), `timezone` (≤60), `currency` (exactly 3 chars), `language` (2–10). Omitted fields are left unchanged (`COALESCE`), so `null` cannot be used to clear a field.
+**Response:** `200` — the full updated object, same shape as GET
+**Errors:** `404 NOT_FOUND`
+**Audit:** writes a `settings_updated` `audit_log` entry with old and new values (INVARIANT-5).
+
+---
+
+### A note on role consistency
+
+Every module above takes its roles from `apps/api/src/lib/roles.ts`, which encodes PRD §4.2 in one
+place. That file exists because the matrix used to be inlined per endpoint and drifted: until
+2026-07-27 `chain_manager` could reveal a student's CNIC and bulk-import students but could not
+read one, could edit payments and reach settings (both denied by the PRD), and `viewer` — a role
+the database CHECK constraint permits — appeared in **zero** guards, so such an account logged in
+successfully and then received 403 from the entire product. `apps/api/src/__tests__/roles.test.ts`
+asserts the matrix against live responses so it cannot drift again silently.
 
 ---
 

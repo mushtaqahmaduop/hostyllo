@@ -3,6 +3,9 @@
 Single source of truth for how Hostyllo's API runs in production and how to operate it.
 Last verified live: 2026-07-23 — `{"success":true,"data":{"db":"ok","redis":"ok"}}`.
 
+> **Frontend (Vercel) is live as of 2026-07-28** — first successful deployment in the project's
+> history. See §13 for what was wrong and how it is now configured.
+
 ---
 
 ## 1. Production stack
@@ -162,3 +165,102 @@ Find trigger ids: `project(id){ deploymentTriggers{ edges{ node{ id branch envir
 Current: production trigger → `main`, staging trigger → `Develop`. Or set it in the dashboard: service → Settings → the environment's Source branch.
 
 **Staging DB** is Supabase project `ljnuwmfnpofzlmioskfc` (hostyllo-staging), schema applied via `packages/db/migrate.mjs` (11 migrations + `hostyllo_app` role). Its `DATABASE_CA_CERT` is the same Supabase CA as prod (same regional pooler host). Staging env vars mirror prod except `DATABASE_URL*`, `REDIS_URL`, `SUPABASE_URL`; the unused `SUPABASE_SERVICE_KEY` is intentionally absent so no prod secret lives in staging.
+
+---
+
+## 13. Frontend (Vercel) — ✅ live since 2026-07-28
+
+Project **`hostyllo.web`** (`prj_voZlvDgX4knrEQ0yHMx6uoIzZEjC`), team `mushtaqs-projects-ed730108`.
+
+**Current settings (applied 2026-07-28, verified by a green deployment):**
+
+| Setting | Value |
+|---|---|
+| Root Directory | **`apps/web`** ← this was the whole problem |
+| Framework | `nextjs` (auto-detected once the root directory was right) |
+| Build / Install / Output commands | *unset* — auto-detected. Vercel sees Turbo, installs the whole workspace from the repo root, then scopes the build to `@hostyllo/web` |
+| Node | 24.x |
+| `API_BASE_URL` (production) | `https://hostyllo-production.up.railway.app` |
+| `API_BASE_URL` (preview + development) | `https://hostyllo-staging.up.railway.app` |
+
+Verified on the deployed preview: `<title>Sign in · Hostyllo</title>`, the pre-paint theme script
+present, all four self-hosted font variables on `<html>`, and the design tokens (`bg-canvas`,
+`border-hairline`, `text-fg`, `font-display`) rendering. Production deploys from `main`, so the
+production URL goes live when this work merges.
+
+### What had been wrong (for the record)
+
+Every deployment before this was in `ERROR`, including ones predating `apps/web`. **The app was
+never the problem** — the build logs show Next compiling cleanly, TypeScript passing and all 13
+routes generating. Only the final packaging step failed.
+
+Two configuration errors, in order:
+
+1. **`framework: null` + Root Directory at the repo root.** With no framework detected, Vercel runs
+   the build (which succeeds) and then looks for a static `public/` directory at the repo root:
+   `Error: No Output Directory named "public" found after the Build completed.`
+2. Adding a root `vercel.json` with `framework: "nextjs"` moved the error but did not fix it:
+   `Error: No Next.js version detected. Make sure your package.json has "next" in either
+   "dependencies" or "devDependencies".` Framework detection reads the package.json **in the Root
+   Directory** — the repo root's has only `turbo`. No amount of `vercel.json` can fix this, which is
+   why that file was removed again rather than left as dead config.
+
+### How it was fixed
+
+The Root Directory was set to `apps/web`. Everything else followed from it — Vercel then finds
+`apps/web/package.json`, auto-detects Next.js, and builds there. Keep "Include source files outside
+the Root Directory" **on**: pnpm needs the root `pnpm-workspace.yaml` and lockfile to install.
+
+Settings are not repo config, so if the project is ever recreated, reapply with:
+
+```bash
+curl -X PATCH "https://api.vercel.com/v9/projects/prj_voZlvDgX4knrEQ0yHMx6uoIzZEjC?teamId=team_sayArFSzn74VPxYLn2pRgA5j" \
+  -H "Authorization: Bearer $VERCEL_TOKEN" -H "Content-Type: application/json" \
+  -d '{"rootDirectory":"apps/web","framework":"nextjs"}'
+```
+
+`VERCEL_TOKEN` can come from an account token, or from the CLI after `vercel login` — on this
+Windows machine the CLI writes it to
+`%APPDATA%\xdg.data\com.vercel.cli\auth.json` (**not** the documented `%APPDATA%\com.vercel.cli\`).
+
+### The runtime env var
+
+`apps/web` reads **`API_BASE_URL`** on the server at request time — never inlined into the client
+bundle, because the browser only ever talks to this app's own route handlers. Set per environment
+(values in the table above), or every page that fetches fails at runtime even with a green build.
+
+⚠️ **A green build does not prove it is set.** `/login` renders without it; only the authenticated
+screens fetch. Verify by signing in and reaching `/dashboard`.
+
+### Why GitHub still showed red after the fix
+
+Actions was green and Vercel was green, yet the repo's **Environments** panel kept showing
+`Preview` and `Production` as failed. Both were stale records frozen at **2026-07-22**, because the
+project had:
+
+```
+gitProviderOptions = { "createDeployments": "disabled", "gitCommitStatus": false }
+```
+
+Vercel was deploying but **reporting nothing back to GitHub**, so the last thing GitHub ever heard
+was a failure from six days earlier under the broken configuration. GitHub's Environments panel
+shows the *latest* record per environment, and nothing was superseding it.
+
+Both options are now **enabled**, and a `Develop` deploy wrote a `success` record for `4fc0013`.
+
+The two stale `Production` records were marked `inactive` via the GitHub API — they were deployments
+of a July commit under the old misconfiguration, not live production:
+
+```bash
+gh api -X POST repos/mushtaqahmaduop/hostyllo/deployments/<id>/statuses -f state=inactive
+```
+
+`Production` will show green on the first real production deploy — Vercel's production branch is
+`main`, so that happens when `Develop` merges to `main`.
+
+### Preview URLs are behind Vercel Authentication
+
+Fetching a preview URL returns `200` with Vercel's own SSO page (`<title>Login – Vercel</title>`),
+which is easy to mistake for the app being broken. It is the default for team projects and is
+correct. To read the real page programmatically use the Vercel MCP `web_fetch_vercel_url` tool, or
+`project protection` to change the policy.

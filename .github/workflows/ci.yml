@@ -37,8 +37,18 @@ jobs:
       - name: Lint (ESLint + hostyllo/* rules)
         run: pnpm run lint
 
-      - name: Typecheck
-        run: pnpm --filter @hostyllo/api exec tsc --noEmit
+      # Workspace-wide, not just the api: packages/db was previously typechecked only as a
+      # side-effect of `pnpm build` emitting, so a strict regression there depended on the build
+      # step. --if-present skips packages/config (a plain-JS ESLint plugin with no tsconfig);
+      # a new TS package opts in by adding the same script.
+      - name: Typecheck (all packages, strict)
+        run: pnpm -r --if-present run typecheck
+
+      # A dead doc pointer fails silently: nothing errors, an agent follows it, finds nothing, and
+      # works from memory instead. A third of the suite's references were broken when this was
+      # added — including paths left over from flattening docs/docs/ away.
+      - name: Doc links resolve
+        run: node scripts/check-doc-links.mjs
 
   unit-tests:
     name: Unit Tests
@@ -116,6 +126,12 @@ jobs:
 
       - name: Run integration suite (globalSetup migrates + seeds the test DB)
         run: pnpm --filter @hostyllo/api test
+
+      # Must run AFTER the suite above — globalSetup is what applies migrations 001…011 to the
+      # service container. Catches a new table shipped without ENABLE+FORCE RLS, which the
+      # isolation tests would NOT catch (they only exercise the tables they know about).
+      - name: RLS gate — every public table has ENABLE + FORCE row level security
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-rls-ci.sql
 
   secrets-scan:
     name: Secrets Scan

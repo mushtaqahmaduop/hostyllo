@@ -27,10 +27,10 @@
 |-------|-------|
 | **Active Phase** | Phase 1 — Cloud API Foundation (**DEPLOYED LIVE on Railway**; tenant isolation live-verified in production) |
 | **Overall Progress** | Phase 1 API + db lib + ALL endpoints exist, tsc strict-clean · **C1–C4 + M1–M5 audit findings all fixed** · CNIC encrypted · migrations 008–011 applied live to Supabase · **DEPLOYED LIVE on Railway (Develop), health green (`db:ok, redis:ok`); app runs as `hostyllo_app` — isolation live-proven in prod; Sentry + uptime monitoring wired; CI green; main synced** |
-| **Last Session** | 2026-07-23 (sessions 6–7) — Built the **staging→production pipeline** (prod=`main`, staging=`Develop` on separate Supabase `ljnuwmfnpofzlmioskfc` + own Redis; `protect-main` gates on **Lint and Test + Staging Smoke Test**; per-env branch set via Railway GraphQL `deploymentTriggerUpdate`, NOT `service source connect` which is service-global). Separated Sentry envs via `SENTRY_ENVIRONMENT`; replaced flapping Sentry-Crons uptime with **UptimeRobot** (external, 5-min) on a new `/api/v1/ready` (503-when-unhealthy) probe. Added Phase-1 verification tests + generated DB types. See `14_DEPLOYMENT_RUNBOOK.md`. |
-| **Last Completed Task** | Phase-1 verification gate: `soft-delete` + `receipt-counter` concurrency + `dlq` round-trip tests (CI-green), **fixed a silent DLQ bug** (moveToDLQ wrote non-existent columns), generated Supabase DB types |
-| **Next Task** | Founder must do the 2 real go-live blockers: **(1) enable Supabase PITR/Pro on prod** (INVARIANT-6; `verify-pitr.sh` exit 0) and **(2) rotate live secrets (C3 — NOT `ENCRYPTION_KEY`)**. Then: verify DLQ wired into each worker → full audit → Phase 2. |
-| **Blocking Issues** | None blocking the API — live on Railway with staging/prod pipeline + UptimeRobot + Sentry. Go-live blockers before real customer data: **PITR (C4/INVARIANT-6)** + **secret rotation (C3)**. Frontend (`apps/web`) not built = Phase 2; Vercel red is expected (empty app). |
+| **Last Session** | 2026-07-27 (session 9) — **INVARIANT-2/3 enforcement + full audit.** The ESLint plugin CLAUDE.md named as the enforcement for INVARIANT-2/3 had never been loaded by any config, so neither rule had ever run; now wired over `src/routes/**` with justified exceptions and its own RuleTester tests. Fixed the one real violation (`POST /auth/totp/setup` → withTenant, two UPDATEs made atomic), the DLQ recording jobs that still had retries left, and removed 3 dead deps carrying 3 CRITICAL CVEs. Full audit written to `docs/AUDIT_2026-07-27.md`. Previously, 2026-07-23 (sessions 6–7) — Built the **staging→production pipeline** (prod=`main`, staging=`Develop` on separate Supabase `ljnuwmfnpofzlmioskfc` + own Redis; `protect-main` gates on **Lint and Test + Staging Smoke Test**; per-env branch set via Railway GraphQL `deploymentTriggerUpdate`, NOT `service source connect` which is service-global). Separated Sentry envs via `SENTRY_ENVIRONMENT`; replaced flapping Sentry-Crons uptime with **UptimeRobot** (external, 5-min) on a new `/api/v1/ready` (503-when-unhealthy) probe. Added Phase-1 verification tests + generated DB types. See `14_DEPLOYMENT_RUNBOOK.md`. |
+| **Last Completed Task** | **Phase 2 started** — `apps/web` scaffolded (Next.js 16 App Router) and verified end-to-end against the live staging API: login, dashboard, students. See PR #35. |
+| **Next Task** | Founder: **(1) Supabase PITR/Pro on prod** (INVARIANT-6, last hard gate failure) · **(2) rotate live secrets** (C3 — NOT `ENCRYPTION_KEY`) · **(3) authorise the 2 prod DB steps** (baseline the migration ledger, drop legacy `users.totp_secret`) · **(4) decide the `chain_manager`/`viewer` authorization questions**. Engineering: **Fastify 4→5** (EOL — every runtime CVE traces to it), then Phase 2 frontend. |
+| **Blocking Issues** | None blocking the API — live on Railway with staging/prod pipeline + UptimeRobot + Sentry. Go-live blockers before real customer data: **PITR (C4/INVARIANT-6)** + **secret rotation (C3)**. Also unresolved from the 2026-07-27 audit: **production has no `schema_migrations` ledger** and carries a legacy column staging lacks, so staging is not a faithful rehearsal of prod; **Fastify 4 is EOL**. Frontend (`apps/web`) not built = Phase 2; Vercel red is expected (empty app). |
 | **Suite Version** | v15.0 |
 | **PRD Authority** | docs/01_MASTER_PRD_v15.md |
 
@@ -303,9 +303,26 @@ These have external approval timelines. Must be tracked from Day 1.
 
 ### BullMQ Workers (All 7)
 
+> ⚠️ **2026-07-28 — "CODE EXISTS" overstates every row below.** `apps/api` contains **no BullMQ
+> producer**: only `new Worker(...)` is ever constructed, never `new Queue(...)`, and no repeatable
+> or cron job is registered anywhere. The "Railway cron" trigger these rows assume **is not
+> configured** — `railway.toml` defines only `build`, `startCommand` and a healthcheck. So every
+> worker here subscribes to a queue nothing writes to and has never processed a job.
+>
+> Consequence: auto-cancellation, subscription/dunning sync and email sending are **not happening**.
+> Monthly rent *is* generated, but by `POST /payments/generate-monthly` inline — the worker is a
+> second, divergent copy of that logic.
+>
+> `auto-cancel.ts` carried the same broken-SQL defect (four non-existent columns) and no
+> transaction; **fixed 2026-07-28** and now covered by `apps/api/src/__tests__/auto-cancel.test.ts`.
+> It is correct whenever a producer finally enqueues to it. The other three are still unaudited
+> against the live schema — assume nothing about them until each is exercised the same way.
+>
+> Full findings and the open decisions in `tasks/todo`.
+
 | Task | Status |
 |------|:------:|
-| `pdf-receipts` queue + worker (puppeteer → PDF → Supabase Storage) | 🟡 CODE EXISTS (`workers/pdf-receipts.ts`) |
+| ~~`pdf-receipts` queue + worker (puppeteer → PDF → Supabase Storage)~~ | ✅ **DROPPED 2026-07-28 — receipts are now rendered on demand** by `GET /payments/:id/receipt` (pdfkit, streamed, nothing stored). Worker deleted; it could never have run (six columns not on the schema) and nothing enqueued it. Rationale in `docs/05_API_SPECIFICATION.md` Module 4. |
 | `whatsapp-notifications` queue + worker | ⬜ TODO (no worker file — Phase 3 copy-paste tier; full 360dialog is Phase 5) |
 | `email-notifications` queue + worker (Resend) | 🟡 CODE EXISTS (`workers/email-send.ts`) |
 | `auto-cancellations` queue + worker (Railway cron nightly) | 🟡 CODE EXISTS (`workers/auto-cancel.ts`) |
@@ -594,6 +611,11 @@ These have external approval timelines. Must be tracked from Day 1.
 | 5 | 2026-07-23 | Deployed to Railway green: fixed `@hostyllo/db` build, `buildCommand=pnpm build`, PORT/domain 8080, Supabase IPv4 pooler + pinned CA, Redis→Railway. Wired Sentry + (old) Sentry-Crons uptime. Fixed `Lint and Test` ruleset; merged to main; live smoke-test + RLS re-proven. | Production live & green |
 | 6 | 2026-07-23 | Built staging→prod pipeline: staging Supabase `ljnuwmfnpofzlmioskfc` (11 migs + `hostyllo_app` role) + own Railway Redis; prod→`main`, staging→`Develop` via per-env `deploymentTrigger`; `protect-main` = Lint and Test + Staging Smoke Test; `watchPatterns`; rollback documented (runbook §11/§12). | Pipeline live, both envs green |
 | 7 | 2026-07-23 | Monitoring: `/api/v1/ready` (503 when down) + UptimeRobot on prod+staging; Sentry env separation (`SENTRY_ENVIRONMENT`); decommissioned flapping Sentry cron. Phase-1 verification tests: soft-delete, receipt-counter concurrency, DLQ round-trip (**+ fixed a silent DLQ column bug**); generated DB types. | Phase-1 verification gate ~complete |
+
+| 8 | 2026-07-26 | Phase-1 code backlog closed (PR #28): isolation gate green on real PG+Redis, warm pg pools, globalSetup refuses a non-local DB, RLS CI gate, workspace-wide typecheck, students JSON-Schema validation. | 38 tests, 0 skipped |
+| 9 | 2026-07-27 | INVARIANT-2/3 actually enforced (PR #29 — the plugin had never been loaded; 2 rule bugs fixed; `totp/setup` moved to withTenant + made atomic). **Full audit** (PR #30, `docs/AUDIT_2026-07-27.md`): CNIC gate closed live, DLQ false-positive fixed, 3 dead deps with 3 CRITICAL CVEs removed; found prod has no migration ledger, prod/staging schema drift, Fastify 4 EOL, incoherent authorization matrix. | 40+ tests, 0 skipped; audit delivered |
+
+| 10 | 2026-07-27 | **Phase 2 begins.** `apps/web` scaffolded and proven against live staging (login → dashboard → students). Server-side auth proxy chosen because the API's `sameSite:'strict'` refresh cookie cannot cross Vercel↔Railway. Role matrix enforced from PRD §4.2 (`lib/roles.ts`), 25 API contracts written, prod migration ledger baselined + migration 012. **Found and fixed: `POST /students` never marked the bed occupied, so occupancy read 0% on a full hostel.** | Frontend live locally against staging |
 
 *Update this table at the end of every session.*
 

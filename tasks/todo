@@ -18,6 +18,393 @@
 - [ ] Full audit (APIs / platform / docs / repo / codebase) → then Phase 2.
 - [ ] Frontend (Vercel `hostyllo.web`) deploy is red — separate stream, untouched.
 
+## ★ SESSION 10 — PHASE 2 STARTED: apps/web scaffolded (2026-07-27, PR #35)
+- [x] **`apps/web` exists and works end-to-end against the live staging API** — Next.js 16 App
+      Router, TypeScript strict, in the pnpm workspace + turbo (lint/build/typecheck all wired).
+      Verified by running the built app against staging: middleware redirects, login through the
+      proxy, and the dashboard + students screens rendering real seeded data.
+- [x] **Auth is a server-side proxy, deliberately.** The browser never calls the API directly.
+      Reason: the API's refresh cookie is `sameSite: 'strict'` + `path=/api/v1/auth/refresh`, and
+      Vercel↔Railway are *different sites*, so a browser would never send it — every session would
+      have died at the 15-minute access-token expiry with no obvious cause. Refreshing server-side
+      avoids it and keeps working once app./api.hostyllo.app make them same-site. Tokens also never
+      touch client JS (httpOnly cookies this app owns).
+- [x] **Design tokens transcribed verbatim** from `docs/04_UX_DESIGN_SYSTEM.md` §2 into
+      `src/app/tokens.css` (dark default). 44px touch targets, 16px inputs (no iOS zoom), inline
+      errors not alerts, zoom left enabled — per that doc's warden-on-a-cheap-Android brief.
+- [x] **Screens:** login, dashboard (6 KPIs + needs-attention), students (search + pagination),
+      **payments** (month/status filters + month summary strip, voided rows dimmed) and **rooms**
+      (bed-occupancy grid — the "where can I put someone" view, per blueprint Module 3). PR #36.
+- [x] **Shared list primitives** extracted to a single shared `ui` module once there were three list
+      screens (table frame, notice, pagination that carries filters forward, status badge, stat
+      grid). Dashboard and students refactored onto them in the same pass.
+      **Superseded in session 11** — that file is deleted; its pieces now live in
+      `apps/web/src/components/patterns/` and the restyled `ui-kit`.
+- [x] **Next.js 16, not 14** as the docs specify. Deliberate: scaffolding a new app on an older
+      major right after fixing the Fastify EOL would repeat the mistake. Note Next 16 removed the
+      `eslint` config key — linting is a separate CI step.
+
+### 🐞 BUG FOUND BY BUILDING THE FRONTEND — FIXED (PR #35)
+- [x] **`POST /students` never marked the assigned bed occupied.** `beds.status` was only ever
+      written by `/rooms/shift` and cancellation-restore, so every student added through the normal
+      flow left their bed `'vacant'`. Double-booking was still prevented (that check reads the
+      students table), but **the dashboard and `/rooms` both derive occupancy from `beds.status`,
+      so a full hostel reported 0%**. Found by rendering the real dashboard, not by any test.
+      Fixed on create + released on soft-delete, with a regression test.
+- [ ] ⚠️ **Related, NOT fixed:** `PATCH /students/:id` can change `bed_id` without moving
+      `beds.status`. `/rooms/shift` is the intended path for moves; decide whether PATCH should
+      reject a `bed_id` change or maintain the status itself.
+- [ ] ⚠️ **API returns money as strings** (`revenuePkr: "11000.00"`, `activeStudents: "3"`) — pg
+      NUMERIC/COUNT not coerced in `dashboard.ts`. The web client defends with `Number()`, but the
+      API spec says numbers. Same class as the payment string-concat bug fixed in July.
+
+### ⚠️ STAGING DEMO DATA (remove whenever you like)
+- Staging had **zero** rows, so a demo tenant was seeded to verify the screens: hostel
+  "Demo Hostel (staging)", login `demo@hostyllo.app` / `Test@1234`, 2 rooms, 3 beds, 3 students,
+  3 payments. **Every id starts with `dced0`** — `DELETE FROM ... WHERE id::text LIKE 'dced0%'`.
+  Staging only; production untouched. Bed rows were later set to 'occupied' to match their student
+  assignments, since they had been inserted directly rather than through POST /students.
+
+## ★ SESSION 11 — PHASE 2 FRONTEND: UI SPEC ADOPTED, FOUNDATION REBUILT (2026-07-28)
+> Authority: `docs/15_UI_SPEC_v1.md` (new, founder-supplied). It supersedes
+> `docs/04_UX_DESIGN_SYSTEM.md` **for appearance only** — behaviour still follows the PRD. Banner
+> added to 04 and to `docs/README.md` so the next session cannot follow the dead palette.
+> Followed the spec's own §15 build order: tokens → primitives → shell → patterns → one screen.
+
+- [x] **Design tokens are now the single source of truth.** `apps/web/src/styles/tokens.css`
+      (light + dark) + `base.css`; `src/app/tokens.css` (gold/teal) deleted; `globals.css` is a
+      three-line importer. Every colour, size, duration, radius and shadow in the app is a
+      `var(--hs-*)` reached through a Tailwind class — no component holds a hex or a px font-size.
+- [x] **Theme is `class="dark"` + `hs-theme` cookie, three states** (light/dark/system), not the old
+      two-state `[data-theme]`. The server reads the cookie and puts the class in the HTML it
+      sends, so an explicit choice is correct *before any script runs*; the §3.3 pre-paint script
+      resolves `system`, which the server cannot. Zero flash is a §17 DoD item.
+- [x] **Fonts swapped and verified self-hosted** — Geist · Newsreader · JetBrains Mono ·
+      Noto **Naskh** Arabic (not Nastaliq: its slanted baseline breaks table row rhythm). All four
+      confirmed in the built CSS as `@font-face` with fallback metrics; only Geist preloads, per
+      the ≤180 KB first-paint budget.
+- [x] **Primitives restyled off shadcn defaults**: button (4 variants, width-preserving loading
+      state), badge + the fixed §7.6 status vocabulary, input, label, card, table, alert, skeleton,
+      separator, tooltip, dialog, sheet, dropdown-menu, sonner.
+- [x] **Patterns built** (`components/patterns/`): page-header, hero-panel (with the once-per-session
+      count-up), stat-strip, needs-attention, money/Num/Pct, search-form, pagination, and `states.tsx`
+      holding all six §10 states in one file so a missing one is visible.
+- [x] **App shell rebuilt**: 264/72px sidebar on `surface-sunken` with grouped nav and the Threshold
+      Rule on the active item, "Data as of" stamp pinned bottom, 56px topbar, mobile tab bar,
+      `data-density="compact"` default for ledger pages.
+- [x] **Screens rebuilt on the new system**: Dues & payments (the §15 step-5 flagship, all six
+      states), dashboard (one hero + needs-attention, replacing the six-card grid §1 calls out),
+      defaulters, students, student profile, rooms, both write forms, login, and every `loading.tsx`
+      re-shaped to match its real geometry.
+- [x] **Verified, not assumed**: `tsc --noEmit` clean · `eslint src` clean · `next build` green (13
+      routes) · 68 token-derived utility classes audited against the *generated* CSS · login page
+      served and its HTML inspected for the theme script, `color-scheme` meta and font wiring.
+
+### 🐞 TWO SILENT-FAILURE BUGS FOUND BY AUDITING THE GENERATED CSS
+- [x] **`duration-fast` and friends compiled to nothing.** Tailwind v4 has an `--ease-*` theme
+      namespace but **no `--duration-*`**, so mapping them in `@theme` is silently dropped — every
+      transition in the app was running at the browser default. Fixed with explicit `@utility`
+      rules in `base.css` that set both `transition-duration` **and** `--tw-duration` (tw-animate-css
+      reads the latter). Neither typecheck, lint nor build reports this; only diffing the emitted
+      CSS does.
+- [x] **`[&>*:first-child]:` variants were dropped entirely.** Tailwind v4's scanner treats `>` as a
+      delimiter inside JSX, so the table's signature leading threshold bar never rendered. Moved to
+      a real `.hs-row-threshold` rule in `base.css`, driven by `data-threshold`.
+
+### ✅ SPEC DEFECT — found, corrected in code, then corrected in the doc (closed 2026-07-28)
+- [x] **`15_UI_SPEC_v1.md` §4.3 named the wrong locale.** It asked for lakh/crore grouping
+      "via `Intl.NumberFormat('en-PK')`" while printing `PKR 12,84,500` in its own §5 sketch.
+      Measured on Node 20: `en-PK` → `1,284,500`, and its currency form renders the symbol as
+      **`Rs`**, which the same section explicitly bans; `en-IN` → `12,84,500`. §4.3 now says
+      `en-IN` and carries a note with the measurement so the next reader does not "fix" it back.
+      The same bullet's `fmtPKR()` reference went with it — that helper has **never existed in
+      this repo**; it is a rule inherited from the HOSTIX-APP Electron codebase, where the
+      formatter did emit a symbol. Here it does not, so "never pair it with a `pkr` span" was not
+      merely stale but the exact inverse of what §4.3's symbol-treatment bullet requires. §17's
+      Definition of Done updated to match.
+- [x] **`13_PRODUCTION_READINESS.md` §6.7 rewritten** — it carried an `fmtPkr`/`fmtPkrShort` sample
+      attributed to `packages/db/src/formatters.ts`. **Neither function has ever existed**; that
+      file holds `fmtCnic` + `fmtPhone` only. The sample was wrong three ways: `en-PK` does not
+      group the Pakistani way (its own comment claimed `→ PKR 1,00,000`; the real output is
+      `100,000`), `style:'currency'` renders `Rs` which §4.3 bans, and it abbreviated above 1 lakh
+      in KPI cards where §4.3 permits abbreviation only above 10 lakh and only in chart axes.
+      Section now documents `apps/web/src/lib/format.ts` as it actually is.
+      **Checked while there — no server-side currency formatting exists anywhere.** The only
+      `en-PK` left in code is `payments.ts:649`, a *month* label (`toLocaleString` with
+      month/year), which is correct for dates.
+
+### ✅ RECEIPTS — pdf-receipts worker deleted, replaced with on-demand rendering (2026-07-28)
+- [x] **The worker was a stub that reported success, and it could never have run.** It SELECTed
+      six columns that are not on the schema (`p.amount_paid` → is `paid`, `p.month_label` → is
+      `month`, `p.notes`, `s.full_name` → is `name`, and `receipt_generated`/`receipt_generated_at`
+      in its UPDATE, which no migration creates), so it would have thrown on first execution.
+      It never did, because **nothing enqueued it** (see below). Meanwhile it set a
+      `receipt_generated` flag, so the DB recorded receipts that did not exist.
+- [x] **Replaced rather than repaired: `GET /payments/:id/receipt` renders and streams the PDF.**
+      Founder chose on-demand over the specced async-to-storage pipeline. The reason the stored
+      shape is wrong here: payments can be edited and voided, so a PDF written at creation time is
+      a snapshot that starts lying the moment either happens and then circulates as proof of a
+      payment that no longer stands. On-demand also removes a storage bucket + per-tenant path
+      policy, retention/cleanup, signed-URL expiry, and the lost-job failure mode.
+      Built with `pdfkit` (built-in Helvetica/Courier — no font files to ship). A voided payment
+      still returns its receipt, carrying a VOID stamp and a footer stating it is not proof of
+      payment. Cross-tenant id → 404, indistinguishable from missing.
+- [x] **`fmtPkr()` added to `packages/db/src/formatters.ts`** for documents, with
+      `formatters.test.ts` (12 tests) asserting the exact lakh-grouped output. That test is the
+      drift guard between it and `apps/web/src/lib/format.ts`, which must implement the same rule
+      independently because the web app cannot import a package that pulls in `pg`.
+- [x] **Verified by rendering**, not by typecheck: four cases (paid / partial / void / all-optional
+      -fields-null) written to real PDFs, content streams inflated and the text operators read back
+      to confirm the figures. That caught a bug typecheck cannot see — the concession line used
+      U+2212 MINUS SIGN, which is absent from PDFKit's WinAnsi-encoded built-in Helvetica and
+      rendered as `"`, so the line read `" PKR 2,500`. Em dashes replaced with words for the same
+      reason.
+- [x] API spec Module 4 amended: `receiptStatus` and `receiptUrl` are gone, the new endpoint is
+      documented, and the design change is explained inline.
+      ⚠️ `POST /payments/:id/send-receipt` still lists `receiptUrl` — that endpoint is unbuilt and
+      belongs to the deferred WhatsApp work; it needs the same treatment when it lands.
+
+### 🐞 WORKER INVESTIGATION (2026-07-28, founder-requested) — NOTHING TRIGGERS ANY WORKER
+**`apps/api` contains no BullMQ producer at all.** Only `new Worker(...)` is ever constructed —
+there is no `new Queue(...)`, no `.add(...)`, no repeatable/cron job registration anywhere in the
+repo, and the three GitHub workflows (`ci`, `staging-smoke`, `uptime`) do not invoke jobs either.
+All four remaining workers connect to Redis, subscribe, and wait forever on queues nobody writes
+to. Reported, not fixed — decide the shape first.
+
+| Worker | Is the work happening? | Notes |
+|---|---|---|
+| `rent-generate` | **Yes, but not via the worker.** | `POST /payments/generate-monthly` does the same job inline, tenant-scoped through `withTenant`, owner-only. The worker is a **second, divergent implementation** of the same logic, unreachable. Monthly rent is therefore manual — someone must call the endpoint. |
+| `auto-cancel` | **No.** | Pending cancellations past their date are never confirmed. |
+| `billing-sync` | **No.** | Subscription/plan state (trial→active→expired→suspended) never syncs. |
+| `email-send` | **No.** | No email is ever sent by the system. |
+
+- [x] 🐞 **`auto-cancel.ts` had the same broken-SQL defect pdf-receipts had — FIXED 2026-07-28.**
+      Four non-existent columns across the handler: `cancellations.cancellation_date` (the column
+      is `vacate_date`), `cancellations.auto_confirmed`, and `beds.occupant_id` — the beds table
+      has no such column, the link runs the other way (`students.bed_id`) — plus it wrote
+      `beds.status = 'available'`, which fails that table's CHECK (`vacant`|`occupied`|
+      `maintenance`).
+      ⚠️ **Correction to this file's earlier claim.** A previous note here said triggering the
+      worker "today would half-apply a cancellation". That was wrong: the *first* statement
+      referenced `cancellation_date` and `auto_confirmed`, so it threw before writing anything and
+      nothing was applied. The half-application risk was latent, not live — it would have appeared
+      the moment someone fixed statement 1 without adding a transaction, which is precisely what
+      made the transaction worth adding alongside the SQL fix.
+      Rewritten to mirror `POST /cancellations/:id/confirm` exactly — same three writes, same audit
+      row — because a worker that vacates a student differently is a second definition of
+      "cancelled" and the two would drift. Additions on top of the old behaviour: an
+      `audit_log` row (INVARIANT-5; automatic vacations were the only untraceable ones), a
+      per-cancellation transaction so one bad row cannot roll back another hostel's, a
+      claim-by-`UPDATE ... WHERE status='pending'` that makes the sweep idempotent and safe against
+      a warden confirming by hand mid-run, and a date comparison in the *hostel's* timezone rather
+      than the container's UTC. Also dropped the old worker's `students.deleted_at = NOW()`, which
+      the route does not do — soft-deleting a vacated student would hide them from every list.
+      `confirmed_by IS NULL` on a confirmed row is now the marker of an automatic confirmation.
+      Covered by `apps/api/src/__tests__/auto-cancel.test.ts` (7 tests): bed actually released,
+      audit row written, future dates untouched, idempotent on re-run, multi-tenant sweep scoped
+      per hostel, already-confirmed rows ignored, and a student with no bed assigned.
+- [ ] **Decide how scheduled work runs** before wiring any producer: BullMQ repeatable jobs
+      registered at boot (simple, but every API replica registers them — needs a single-owner
+      guard), or an external scheduler hitting authenticated endpoints (visible in logs, easier to
+      run manually, matches how `generate-monthly` already works). The second matches the grain of
+      what is already built.
+- [ ] **Decide `rent-generate`'s fate** — delete the worker and keep the endpoint as the one
+      implementation, or move the endpoint to enqueue. Two copies of the billing rule is the real
+      risk here; they can already disagree.
+
+### ✅ VERCEL FRONTEND DEPLOY — FIXED AND LIVE (2026-07-28)
+**First successful deployment in the project's history.** Root Directory set to `apps/web`,
+framework auto-detected as `nextjs`, `API_BASE_URL` set for production/preview/development.
+Verified on the deployed page, not just by a green build: `<title>Sign in · Hostyllo</title>`, the
+pre-paint theme script, all four self-hosted fonts, and the new design tokens rendering.
+Applied via the Vercel REST API using the CLI token after the founder ran `vercel login`.
+Production deploys from `main`, so the production URL goes live when this branch merges.
+⚠️ Still unproven: `API_BASE_URL` reaching the API. A green build does not test it — `/login`
+renders without it and only authenticated screens fetch. **Sign in and reach `/dashboard`.**
+
+<details><summary>Original diagnosis (kept for the record)</summary>
+Full detail in `docs/14_DEPLOYMENT_RUNBOOK.md` §13.
+- [x] **Diagnosed.** All 21 deployments on `hostyllo.web` are `ERROR`, going back to before
+      `apps/web` existed. **The app is not the problem** — the build log shows Next compiling
+      cleanly, TypeScript passing, all 13 routes generating. Only the final packaging step fails.
+- [x] Two configuration errors, established by actually deploying twice:
+      1. `framework: null` + Root Directory at the repo root → Vercel runs the build, then looks
+         for a static `public/` at the root: *"No Output Directory named public found"*.
+      2. A root `vercel.json` with `framework: "nextjs"` **moved the error but did not fix it**:
+         *"No Next.js version detected"*. Framework detection reads the package.json **in the Root
+         Directory**, and the repo root's has only `turbo`. No `vercel.json` can fix this, so that
+         file was removed again rather than left as dead config.
+- [x] **Root Directory = `apps/web`** — done. Originally blocked because there is no
+      project-settings MCP tool and the local Vercel CLI was unauthenticated; unblocked when the
+      founder ran `vercel login`, after which the CLI token (at
+      `%APPDATA%\xdg.data\com.vercel.cli\auth.json`, *not* the documented path) drove a REST PATCH.
+- [x] **`API_BASE_URL`** set for production / preview / development.
+- Considered and rejected: a legacy `builds: [{ src: "apps/web/package.json", use: "@vercel/next" }]`
+  block would work repo-only, but it opts the project out of zero-config and the newer framework
+  integration. Not worth shipping a degraded platform path to avoid one click.
+</details>
+
+### NEXT, in the spec's own order
+- [ ] **Command palette (⌘K / Ctrl+K)** — §7.11 calls it non-negotiable. Not built; needs a search
+      endpoint that spans students, rooms and invoices, or three parallel calls.
+- [ ] **Offline/stale banner is built but not wired** — `StaleBanner` exists (§10 calls this "a
+      primary state, not an edge case"); nothing yet detects staleness to render it.
+- [ ] **Deltas have no baseline data.** `formatDelta()` returns `null` without a comparison, and
+      `/dashboard/stats` returns no previous-period figures — so §4.3's "▲ 12.4% vs last month" is
+      correctly absent rather than faked. Needs an API change to light up.
+- [ ] **`select.tsx` and `tabs.tsx` are still stock shadcn.** Neither is rendered by any screen
+      today (forms use native `<select>`), so they were left rather than restyled blind — but they
+      are on the §7 "do not ship shadcn defaults" list the moment something imports them.
+- [ ] **§17 Definition of Done is not fully signed off per screen.** Verified programmatically:
+      tokens-only, both themes compile, logical properties. **Not** verified: contrast measured in
+      both themes, keyboard-only pass, 1366×768 and 375px screenshots, route JS ≤ 200 KB gz.
+
+## ★ SESSION 9 — INVARIANTS ENFORCED + FULL AUDIT (2026-07-27, PRs #29 / #30)
+> Full findings: `docs/AUDIT_2026-07-27.md`. PR #28 and #29 merged to Develop.
+- [x] **INVARIANT-2/3 now actually enforced** (PR #29). The plugin had never been loaded by any
+      ESLint config. Scoped to `src/routes/**` (option (a) from phase2-proposal §3); workers and
+      the pre-auth bootstrap use the privileged pool by design. 7 justified line-level disables;
+      `reportUnusedDisableDirectives: 'error'` so a stale one fails the build. Two rule bugs fixed:
+      `app.delete()` was read as a DB write, and `no-hostel-id-from-request` only matched `req`
+      while every route names it `request` — its "0 violations" meant nothing. Rules now have
+      RuleTester regression tests in CI.
+- [x] **Real violation found + fixed**: `POST /auth/totp/setup` runs authenticated → now uses
+      withTenant; its two UPDATEs collapsed into one statement in that transaction (a failure
+      between them left an account with a TOTP secret and no backup codes). 2 new tests.
+- [x] **CNIC gate CLOSED** — verified live: only `students.cnic_encrypted` exists, 0 non-AES-GCM
+      values. `backfill-cnic.mjs` is a no-op (prod holds 1 student, 0 CNICs). No founder action.
+- [x] **DLQ false-positive bug fixed** — workers called `moveToDLQ` on EVERY failed attempt, so a
+      job that later succeeded still wrote rows to `dlq_jobs`. Guard added inside `moveToDLQ`
+      (one definition of "exhausted" for all 5 workers) + test.
+- [x] **3 dead deps removed** — `@fastify/jwt` (never imported; all JWT via `jose`),
+      `@fastify/rate-limit`, `@otplib/preset-default`. Killed 3 CRITICAL CVEs incl. fast-jwt cache
+      confusion. `pnpm audit` 42→36, criticals 5→2 (both non-runtime: vitest, bcrypt's tar).
+
+### DOC PASSES 2–3 — DONE (2026-07-27, PR #33)
+- [x] **Doc links are now CI-gated** — `scripts/check-doc-links.mjs` resolves every markdown link
+      and inline `path/file` mention across docs/, tasks/, .claude/ and root CLAUDE.md; wired as a
+      `Lint and Test` step. Written because **a third of them were already broken**: 14 dead refs
+      incl. three `docs/docs/` leftovers from the flattening and four pointers to `tasks/todo.md` / <!-- link-check-ignore -->
+      `tasks/lessons.md` (the real files have no extension). All 14 fixed; 113 refs now resolve. <!-- link-check-ignore -->
+      Deliberate references to things that don't exist carry `<!-- link-check-ignore -->`.
+- [x] **API spec reconciled against code** — it documented 9 of 16 route modules; **25 live
+      endpoints were documented nowhere.** Added a coverage banner + "Modules 10–17" table
+      (method/path/roles, generated from the route files) so Phase 2 has something truthful to
+      build against, and corrected `GET /health` → `/api/v1/health` + documented `/api/v1/ready`.
+      ✅ **The 25 contracts are now written (PR #34)** — Modules 10–17 from the implementations:
+      query params, request bodies, response shapes, status + error codes, roles. All 16 modules
+      specified; the spec is again the thing to build the frontend against.
+- [x] **Stale counts corrected** — `00_SYSTEM_OVERVIEW`'s own "this is stale" banner had drifted
+      (said 9 migrations / 6 workers; actual 11 / 5). `04_DATABASE_ARCHITECTURE` claimed authority
+      over `packages/db/src/schema.sql`, which has never existed — the migrations are the schema. <!-- link-check-ignore -->
+- [x] **docs/README.md index refreshed** — 25 docs, `AUDIT_2026-07-27.md` is now the
+      engineering-health authority, and the API-spec coverage gap is stated in the index itself.
+- [x] **Agent-doc consolidation** — already done in the 2026-07-22 pass; `.claude/` is 7 agents +
+      6 skills + README with no duplication. Nothing further to merge.
+- [ ] **Numbering collisions: still deliberate, not deferred.** Renaming is now *safe* (the link
+      checker would catch any dangling ref), but the cost/benefit does not justify it: the index
+      mandates citing by filename, and `09_BUILD_STATE_v15.md` is referenced from session notes and
+      external records this repo cannot rewrite. Revisit only if agents actually misnavigate.
+
+### ⚠️ AUDIT FINDINGS NEEDING YOUR DECISION (details in docs/AUDIT_2026-07-27.md)
+- [x] **🔴 Prod migration ledger + schema drift — FIXED (PR #34, applied live).** `schema_migrations`
+      created on prod and baselined with all 12 filenames + real sha256 checksums. Legacy
+      `users.totp_secret` dropped via new **migration 012** (`DROP COLUMN IF EXISTS`, so it is a
+      no-op on staging/CI/fresh DBs — the same files now produce an identical schema everywhere).
+      Verified 0 of 2 users held a value before dropping. Post-state both projects: 12/12 tracked,
+      28/28 FORCE RLS, /health green.
+- [x] **🔴 Fastify 4 EOL → UPGRADED to 5.10.0** (PR #31, 2026-07-27). Plugins: cors 11, helmet 13,
+      cookie 11, multipart 10 (retires the v10→v8 downgrade). Only code change: Fastify 5 widened
+      `setErrorHandler`'s error param to `unknown` → annotated `FastifyError`. `fast-uri >=3.1.4`
+      `engines.node: >=20` added (Railway picks its own runtime). **Audit 42 → 28 findings,
+      criticals 5 → 2**; the fastify/find-my-way advisories are gone and the rest is dev
+      (vitest/vite/postcss) or build-time (tar, brace-expansion via bcrypt node-pre-gyp).
+- [ ] **fast-uri override still owed** — Fastify 5.10.0 resolves `fast-uri` 3.1.2 transitively via
+      ajv/the fastify compilers; needs ≥3.1.4 (host confusion). Fix is a pnpm `overrides` entry,
+      but it must live in `pnpm-workspace.yaml` (pnpm 10+ stopped reading `pnpm.overrides` from
+      package.json) and be written to the lockfile BY pnpm 11 — CI fails
+      `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH` otherwise. Blocked on the dev-env drift below.
+      **This drift has now cost three CI cycles** (overrides location, engines.node runtime pick,
+      and `allowBuilds` for sharp) — each passed locally on pnpm 9 and failed on CI's pnpm 11.
+- [x] **`engines.node` broke the staging deploy — FIXED (PR #32).** The Fastify 5 merge failed to
+      deploy: Railway's railpack **reads `engines.node` to CHOOSE the runtime**, so the `">=20"`
+      added for Fastify 5 made it install Node **20.20.2** — and pnpm 11.1.1 (from
+      `packageManager`) needs ≥22.13, so `pnpm install` died with
+      `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite`. Before that field existed railpack defaulted to a
+      newer Node, so a *loose lower bound pinned the build to the oldest allowed version*. Now
+      `">=22.13"` — the real floor, set by pnpm 11, and what CI already runs. Prod was unaffected
+      (deploys from `main`); staging kept serving the previous good build.
+- [ ] **Dev-env drift** — repo declares `packageManager: pnpm@11.1.1`; the dev machine runs pnpm
+      9.15.9 on Node 20.19.2, and pnpm 11 refuses to start on Node 20
+      (`ERR_UNKNOWN_BUILTIN_MODULE`). CI runs pnpm 11 / Node 22. Anything touching overrides or
+      lockfile config passes locally and fails in CI. Install Node 22 locally (nvm) and use
+      corepack, or pin CI's pnpm to the version this machine can actually run.
+- [ ] 🟡 Unknown routes return Fastify's default 404 body, not the `{success,code,message}`
+      envelope every other response uses (`code` is undefined). Add `setNotFoundHandler` before
+      the Phase-2 frontend starts consuming error shapes. Found during the Fastify 5 smoke test;
+      deliberately kept out of the upgrade PR to keep that diff reviewable.
+- [x] **🟠 Authorization matrix — RESOLVED against PRD §4.2 (PR #34).** Drift was worse than the
+      audit found: **3 violations**, not 1. chain_manager was denied student read/write (matrix: ✓),
+      and *wrongly allowed* payment edit and settings access (matrix: — for both). `viewer` is a
+      real read-only role → GET access to operational data, but NOT audit-log or reveal-cnic (a
+      security log and a decrypted CNIC are not "reports"). Matrix now lives in one file,
+      `apps/api/src/lib/roles.ts`, instead of inlined at 64 call sites — that duplication is why it
+      drifted invisibly. `roles.test.ts` asserts it against live responses per role. Zero live
+      impact: prod has 2 users, both hostel_owner.
+      ⚠️ PRD §4.3 per-warden `can_delete`/`can_settings`/`can_edit` flags remain UNIMPLEMENTED (no
+      columns in any migration) — wardens get the role-level answer. Deliberate; wire in roles.ts.
+- [ ] 🟡 Isolation tests cover 3 of 16 route modules; PRD gate says every endpoint (~half a day).
+- [ ] 🟡 11 merged remote branches to delete.
+
+## ★ SESSION 8 — PHASE 1 CODE BACKLOG CLOSED (2026-07-26, PR #28, branch `test/phase1-gate`)
+> Every item below is CI-verified on real Postgres+Redis. Suite: **7 files / 38 tests, 0 skipped.**
+- [x] **Isolation gate GREEN** (run 30224319107) — isolation 10/10, auth 5/5, dlq 2/2. Verified
+      from the job log that the tests RAN: with `DATABASE_URL` unset they skip and CI still
+      reports success, so the green tick alone proves nothing.
+- [x] **pg pools kept warm** (`191318b`) — `/ready` was ~425ms of TCP+TLS handshake to Supabase
+      Mumbai on every probe, because pg's 10s default idle timeout left the pool cold at a 5-min
+      probe interval. `allowExitOnIdle` is what makes `idleTimeoutMillis: 0` safe here (nothing
+      calls `pool.end()`, so unreaped sockets would hang the Vitest run). `connectionTimeoutMillis`
+      added so a Supabase that accepts TCP but never authenticates returns 503 instead of hanging.
+- [x] **globalSetup refuses a non-local DB** (`fd9dfed`) — it applies all 10 migrations and seeds
+      tenants, and `apps/api/.env` holds the PRODUCTION Supabase URL while Vitest loads `.env` into
+      `process.env`. A plain `pnpm --filter @hostyllo/api test` on a dev machine would have seeded
+      production. Fails closed, localhost only, no escape hatch. **Do not weaken this.**
+- [x] RLS CI gate (§2) · workspace-wide typecheck (`161794a`) · payment extras + audit tests (§0)
+      · students.ts JSON-Schema validation (§1.5) — details in each section.
+
+### ⚠️ FINDING — INVARIANT-2/3 ARE NOT ENFORCED (found 2026-07-26, NOT fixed, needs your call)
+**`apps/api/eslint.config.js` never loads `eslint-plugin-hostyllo`.** It registers only
+`@typescript-eslint`. So `require-with-tenant` and `no-hostel-id-from-request` — the two rules
+CLAUDE.md names as the enforcement for INVARIANT-2 and INVARIANT-3 — have **never run in CI**.
+`@hostyllo/config` is not even a dependency of `apps/api`, so the config could not import it.
+
+This makes two documented claims false, and they should be corrected either way:
+  - CLAUDE.md: "INVARIANT-2 & 3 are the only two checked by the ESLint plugin"
+  - PRD Phase 2 entry gate: "`withTenant()` ESLint rule active and blocking violations in CI"
+
+Measured before reporting (probe config, since deleted; `eslint.config.js` untouched):
+  - `hostyllo/require-with-tenant` → **90 errors**
+  - `hostyllo/no-hostel-id-from-request` → **0 errors** (INVARIANT-3 does look genuinely respected)
+
+NOT wired up, deliberately. The rule matches any `.query/.select/.insert/.update/.delete` member
+call, so most of the 90 are legitimate or false positives: privileged-pool use in workers and the
+auth bootstrap (correct by design — see migration 010's two connection identities), the test files
+and globalSetup, and 2 hits in `lib/crypto.ts`, which has no DB access at all. Turning it on as
+`error` today just reddens CI.
+
+**Decision needed:** scope the rule to `src/routes/**` only, or refine it to recognise the
+privileged pool, before enabling. That is a design call about where the boundary sits, so it is
+yours — see tasks/phase2-proposal.md §3.
+
+### Founder-blocked — nothing further can proceed on these without you
+- [ ] **Rotate live secrets (C3)** — see line above; credentials still sit in a working-tree `.env`.
+- [ ] **CNIC encryption verified** — needs a live-DB check + one run of `scripts/backfill-cnic.mjs`.
+- [ ] **Sentry**: close `HOSTYLLO-API-2` and confirm the `hostyllo-uptime` cron monitor is deleted.
+      Root cause was fixed in code (`9764e80`); the monitor itself is a dashboard action.
+- [ ] **Supabase Pro + PITR** (INVARIANT-6) and the red Vercel frontend deploy.
+- [ ] **Merge PR #28** — the loop does not merge. Review and promote when you are happy.
+
 ## 0. Payment defects — FIXED 2026-07-22 (14/14 unit tests green)
 - [x] Remove leftover AI comment at `apps/api/src/routes/payments.ts:5`
 - [x] `POST /payments`: `extra_charges` in schema (label+amount, max 20) + persisted into `payment_extra_charges`
@@ -28,7 +415,12 @@
 - [x] BONUS: migration 003 CHECK said `'voided'` but all code uses `'void'` → void-confirm would
       have violated the constraint at runtime. Migration fixed. ⚠️ If a live DB already has the
       old constraint applied, it needs `ALTER TABLE ... DROP/ADD CONSTRAINT`.
-- [ ] Integration tests covering extras persistence + audit rows (needs live DB — see section 2)
+- [x] Integration tests covering extras persistence + audit rows — **DONE 2026-07-26** (`df21115`,
+      `apps/api/src/__tests__/payments.test.ts`, 6 tests green in CI). Covers: extra_charges rows
+      persisted with label+amount; total_due includes them; payment_created audit row carries the
+      extras; PATCH recalculates from the REAL extras (edits to the total that would apply if
+      extras were dropped, so the old bug flips both unpaid and status); payment_updated audit row
+      holds old+new state; audit_log rejects UPDATE and DELETE (INVARIANT-5, live trigger).
 
 ## 0.5 NEW bugs discovered during the fix (not yet fixed)
 - [x] FIXED 2026-07-22: `workers/billing-sync.ts` (5×) + `workers/email-send.ts` (1×) audit_log
@@ -73,10 +465,37 @@
       GET/POST/PATCH student routes still exclude `chain_manager` while import/reveal-cnic
       include it — an authorization-policy inconsistency for the owner to decide (add
       chain_manager to student read/write? left unchanged).
-- [ ] students.ts pre-existing routes still lack JSON-Schema validation (hand-rolled checks only)
+- [x] students.ts JSON-Schema validation — **DONE 2026-07-26** (`d892d11`, 7 tests green in CI).
+      Params/querystring/body schemas on every route. Fixed three 500s-that-should-be-400s
+      (`/students/not-a-uuid` → uuid cast failure; `?limit=abc` → `LIMIT NaN`; PATCH `status` →
+      CHECK violation) and one guard wrong the other way: `!monthly_fee` rejected a fee of 0, so a
+      scholarship/free bed could not be recorded — column is NUMERIC(10,2) NOT NULL DEFAULT 0.
+      Status enum mirrors migration 002's CHECK. No `maximum` on limit on purpose: the handler
+      already clamps to 100, and a 400 there would be a silent contract change for callers.
 - [ ] DEFERRED (no code consumer yet — not adding dead schema): warden flags
       (`can_edit/can_delete/can_settings`) for DELETE-gating; hostel branding fields
       (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
+- [ ] **`payments.notes` is accepted and silently discarded** — found 2026-07-27 while building the
+      web payment form. Both `POST /payments` (payments.ts:109) and `PATCH /payments/:id`
+      (payments.ts:401) declare `notes` in their JSON Schema, but migration 003 defines no `notes`
+      column and neither handler references one — the INSERT column list stops at `created_by`. A
+      client can send a note, receive 201, and have it vanish. This is the same defect class as the
+      `extra_charges` bug fixed in §0 (in the schema, never persisted), which is why it is worth
+      fixing rather than tolerating. Two honest options: **(a)** add the column in a migration and
+      persist it on create + PATCH, or **(b)** drop `notes` from both schemas so the contract stops
+      promising it. (a) is the more useful one — a warden recording "paid in two instalments, second
+      by JazzCash" has nowhere else to put it. Deliberately NOT fixed in the frontend slice: it is
+      an API + live-schema change, not a UI one. `apps/web` omits the field until this is resolved.
+- [ ] **`GET /payments/defaulters` omits `paymentId`** — found 2026-07-28 while building the
+      defaulters screen (payments.ts:263-281). The endpoint returns `studentId` but not the id of
+      the payment row that is actually outstanding, which blocks the screen's whole purpose: every
+      defaulter *already has* a payment row for that month (the query filters on status
+      pending/partial), so settling one is `PATCH /payments/:id`, never `POST /payments` — a POST
+      hits the duplicate-month guard (payments.ts:145-154) and 409s on every row. With no payment
+      id in the response there is nothing to deep-link a settle action to, so `apps/web` ships the
+      list with rows linking to the student instead of a "collect" button that could not work.
+      FIX: add `p.id as "paymentId"` to the SELECT. One line, no schema change, unblocks the
+      collect flow. Pairs with the still-unbuilt payment-edit UI (`PATCH /payments/:id`).
 
 ## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
 - [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts
@@ -137,12 +556,25 @@
       regression coverage on every push.
 
 ## 2. Verification gate (turn 🟡 → ✅)
-- [ ] Live/local Postgres + Redis for integration tests
-- [ ] `isolation.test.ts` green (JWT A → data B → 404 everywhere)
-- [ ] RLS CI check: `SELECT tablename FROM pg_tables WHERE rowsecurity=false` → 0 rows
+- [x] Live/local Postgres + Redis for integration tests — CI `integration-tests` job supplies
+      ephemeral postgres:16 + redis:7 service containers. NOT runnable on a dev machine: there is
+      no local PG/Redis/Docker, and `apps/api/.env` holds the PRODUCTION Supabase URL. globalSetup
+      now refuses any non-localhost DATABASE_URL (commit `fd9dfed`) — it applies all 10 migrations
+      and seeds tenants, so pointing it at prod would have injected test data into the live DB.
+- [x] `isolation.test.ts` green (JWT A → data B → 404 everywhere) — **10/10, CI run 30224319107
+      (PR #28), 2026-07-26.** Whole suite: 25 passed / 5 files / 0 skipped, against real PG+Redis
+      with `DATABASE_URL_APP=hostyllo_app` so FORCE-RLS is actually exercised. Verified from the
+      job log that the tests RAN — a missing DATABASE_URL makes them skip and still report success.
+- [x] RLS CI check — **DONE 2026-07-26** (`87871e9` + `6717069`). `scripts/verify-rls-ci.sql`,
+      wired as a CI step after the integration suite (globalSetup is what applies the migrations).
+      Checks `relforcerowsecurity`, not just `relrowsecurity` — ENABLE alone leaves the owner
+      bypassing RLS, which is what made the pre-010 policies decorative. Asserts the core tables
+      exist first, because `string_agg` over zero rows returns NULL and the gate would otherwise
+      pass vacuously on a schema where the migrations silently failed.
 - [x] `/health` returns `db: ok` + `redis: ok` — **LIVE 2026-07-23**
-- [ ] DLQ round-trip → row in `dlq_jobs`
-- [ ] CNIC encryption verified (no plaintext column)
+- [x] DLQ round-trip → row in `dlq_jobs` — `dlq.test.ts` 2/2 green in the same CI run.
+- [ ] CNIC encryption verified (no plaintext column) — BLOCKED on founder: needs a live-DB check
+      that no plaintext CNIC remains + `scripts/backfill-cnic.mjs` run once against prod.
 
 ## 3. Founder-only (external dashboards — Claude can't verify)
 - [x] Railway (API + Redis) live · Sentry wired · uptime monitor active · branch rulesets working

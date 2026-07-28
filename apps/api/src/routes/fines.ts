@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CAN_OPERATE, CAN_READ, CHAIN_LEVEL } from '../lib/roles.js';
 
 export async function finesRoutes(app: FastifyInstance) {
 
   // GET /fines
   app.get('/fines', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -73,7 +74,7 @@ export async function finesRoutes(app: FastifyInstance) {
 
   // POST /fines
   app.post('/fines', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       body: {
         type: 'object',
@@ -130,7 +131,7 @@ export async function finesRoutes(app: FastifyInstance) {
 
   // PATCH /fines/:id  (edit, or mark paid/unpaid)
   app.patch('/fines/:id', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_OPERATE)],
     schema: {
       params: {
         type: 'object',
@@ -200,7 +201,7 @@ export async function finesRoutes(app: FastifyInstance) {
 
   // DELETE /fines/:id (soft delete)
   app.delete('/fines/:id', {
-    preHandler: [requireAuth, requireRole(['hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CHAIN_LEVEL)],
     schema: {
       params: {
         type: 'object',

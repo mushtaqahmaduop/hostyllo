@@ -967,7 +967,7 @@ See [all issues](https://github.com/mushtaqahmaduop/hostyllo/issues) and [all PR
 - **Email**: [support@hostyllo.com](mailto:support@hostyllo.com)
 - **GitHub**: [mushtaqahmaduop/hostyllo](https://github.com/mushtaqahmaduop/hostyllo)
 - **Issues**: [GitHub Issues](https://github.com/mushtaqahmaduop/hostyllo/issues)
-- **Documentation**: [AGENT_SESSION_GUIDE.md](./AGENT_SESSION_GUIDE.md)
+- **Documentation**: [docs/README.md](./docs/README.md) — the authoritative index (source-of-truth precedence + collision disambiguation)
 
 ---
 

@@ -1,0 +1,496 @@
+/* ============================================================
+   HOSTYLLO — Design Tokens  v1.0
+   Source of truth. Components consume these only.
+   Never write a raw hex, px font-size, or ms duration elsewhere.
+   ============================================================ */
+
+/* ---------- 1. PRIMITIVE RAMPS (never used directly in components) ---------- */
+:root {
+  /* Indigo — brand / interactive */
+  --indigo-50:  #EEF0FE;
+  --indigo-100: #E0E3FD;
+  --indigo-200: #C4C9FB;
+  --indigo-300: #A2AAF8;
+  --indigo-400: #7C86F1;
+  --indigo-500: #4F46E5;
+  --indigo-600: #4338CA;
+  --indigo-700: #3730A3;
+  --indigo-800: #2E2A80;
+  --indigo-900: #1E1B4B;
+
+  /* Graphite — neutrals (cool-tinted) */
+  --graphite-0:   #FFFFFF;
+  --graphite-25:  #F7F7F8;
+  --graphite-50:  #F1F1F3;
+  --graphite-100: #E4E4E7;
+  --graphite-200: #D4D4D8;
+  --graphite-300: #A1A1AA;
+  --graphite-400: #8A8A93;
+  --graphite-500: #71717E;
+  --graphite-600: #52525B;
+  --graphite-700: #35353F;
+  --graphite-800: #26262E;
+  --graphite-850: #1A1A21;
+  --graphite-900: #131318;
+  --graphite-950: #0B0B0F;
+  --graphite-1000:#08080B;
+
+  /* Amber — ACTION REQUIRED ONLY */
+  --amber-50:  #FEF6E7;
+  --amber-100: #FDECC8;
+  --amber-400: #F5C563;
+  --amber-500: #F59E0B;
+  --amber-600: #D18700;
+  --amber-800: #8A6A2E;
+
+  /* Brass — editorial accent, non-interactive */
+  --brass-light: #8A6A2E;
+  --brass-dark:  #C9A96E;
+
+  /* Emerald — money confirmed */
+  --emerald-50:  #ECFDF5;
+  --emerald-400: #34D399;
+  --emerald-600: #059669;
+  --emerald-700: #047857;
+
+  /* Red — destructive / failed */
+  --red-50:  #FEF2F2;
+  --red-400: #F87171;
+  --red-600: #DC2626;
+  --red-700: #B91C1C;
+}
+
+/* ---------- 2. SEMANTIC TOKENS — LIGHT (default) ---------- */
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --hs-canvas:            var(--graphite-25);
+  --hs-surface:           var(--graphite-0);
+  --hs-surface-raised:    var(--graphite-0);
+  --hs-surface-sunken:    var(--graphite-50);
+  --hs-surface-inverse:   var(--graphite-950);
+  --hs-surface-hover:     rgba(11, 11, 15, 0.035);
+  --hs-surface-active:    rgba(79, 70, 229, 0.06);
+  --hs-overlay:           rgba(11, 11, 15, 0.48);
+
+  /* Hairlines */
+  --hs-hairline:          var(--graphite-100);
+  --hs-hairline-strong:   var(--graphite-200);
+
+  /* Text */
+  --hs-text-primary:      var(--graphite-950);
+  --hs-text-secondary:    var(--graphite-600);
+  --hs-text-tertiary:     var(--graphite-400);
+  --hs-text-disabled:     var(--graphite-300);
+  --hs-text-inverse:      var(--graphite-25);
+  --hs-text-on-brand:     #FFFFFF;
+
+  /* Brand / interactive */
+  --hs-brand:             var(--indigo-500);
+  --hs-brand-hover:       var(--indigo-600);
+  --hs-brand-active:      var(--indigo-700);
+  --hs-brand-text:        var(--indigo-600);
+  --hs-brand-tint:        rgba(79, 70, 229, 0.06);
+  --hs-brand-tint-strong: rgba(79, 70, 229, 0.12);
+  --hs-focus-ring:        var(--indigo-500);
+
+  /* Action required (amber) */
+  --hs-attention:         var(--amber-500);
+  --hs-attention-text:    var(--amber-800);
+  --hs-attention-tint:    rgba(245, 158, 11, 0.10);
+  --hs-attention-surface: var(--amber-50);
+
+  /* Positive (money in) */
+  --hs-positive:          var(--emerald-600);
+  --hs-positive-text:     var(--emerald-700);
+  --hs-positive-tint:     rgba(5, 150, 105, 0.10);
+  --hs-positive-surface:  var(--emerald-50);
+
+  /* Negative (failed / destructive) */
+  --hs-negative:          var(--red-600);
+  --hs-negative-text:     var(--red-700);
+  --hs-negative-tint:     rgba(220, 38, 38, 0.08);
+  --hs-negative-surface:  var(--red-50);
+
+  /* Editorial accent */
+  --hs-accent:            var(--brass-light);
+  --hs-accent-tint:       rgba(138, 106, 46, 0.10);
+
+  /* Chart series — fixed order, max 5 categorical */
+  --hs-chart-1: var(--indigo-500);
+  --hs-chart-2: var(--indigo-400);
+  --hs-chart-3: var(--indigo-200);
+  --hs-chart-4: var(--brass-dark);
+  --hs-chart-5: var(--graphite-500);
+  --hs-chart-grid: var(--hs-hairline);
+  --hs-chart-axis: var(--hs-text-tertiary);
+  --hs-chart-hero-fill: rgba(79, 70, 229, 0.08);
+
+  /* Elevation */
+  --hs-e0: none;
+  --hs-e1: 0 1px 2px rgba(11,11,15,.06), 0 1px 3px rgba(11,11,15,.04);
+  --hs-e2: 0 4px 8px rgba(11,11,15,.06), 0 2px 4px rgba(11,11,15,.04);
+  --hs-e3: 0 12px 32px rgba(11,11,15,.12), 0 4px 8px rgba(11,11,15,.06);
+}
+
+/* ---------- 3. SEMANTIC TOKENS — DARK ---------- */
+.dark {
+  color-scheme: dark;
+
+  --hs-canvas:            var(--graphite-950);
+  --hs-surface:           var(--graphite-900);
+  --hs-surface-raised:    var(--graphite-850);
+  --hs-surface-sunken:    var(--graphite-1000);
+  --hs-surface-inverse:   var(--graphite-25);
+  --hs-surface-hover:     rgba(255, 255, 255, 0.04);
+  --hs-surface-active:    rgba(124, 134, 241, 0.12);
+  --hs-overlay:           rgba(5, 5, 8, 0.64);
+
+  --hs-hairline:          var(--graphite-800);
+  --hs-hairline-strong:   var(--graphite-700);
+
+  --hs-text-primary:      #F4F4F6;   /* never pure white — halation on TN panels */
+  --hs-text-secondary:    #A1A1AB;
+  --hs-text-tertiary:     var(--graphite-500);
+  --hs-text-disabled:     var(--graphite-600);
+  --hs-text-inverse:      var(--graphite-950);
+  --hs-text-on-brand:     #FFFFFF;
+
+  --hs-brand:             #5B54E8;   /* fills */
+  --hs-brand-hover:       #6B64EC;
+  --hs-brand-active:      #4F46E5;
+  --hs-brand-text:        var(--indigo-400);  /* text + icons lift for contrast */
+  --hs-brand-tint:        rgba(124, 134, 241, 0.10);
+  --hs-brand-tint-strong: rgba(124, 134, 241, 0.18);
+  --hs-focus-ring:        var(--indigo-400);
+
+  --hs-attention:         var(--amber-500);
+  --hs-attention-text:    var(--amber-400);
+  --hs-attention-tint:    rgba(245, 158, 11, 0.14);
+  --hs-attention-surface: rgba(245, 158, 11, 0.16);
+
+  --hs-positive:          var(--emerald-400);
+  --hs-positive-text:     var(--emerald-400);
+  --hs-positive-tint:     rgba(52, 211, 153, 0.12);
+  --hs-positive-surface:  rgba(52, 211, 153, 0.14);
+
+  --hs-negative:          var(--red-400);
+  --hs-negative-text:     var(--red-400);
+  --hs-negative-tint:     rgba(248, 113, 113, 0.12);
+  --hs-negative-surface:  rgba(248, 113, 113, 0.14);
+
+  --hs-accent:            var(--brass-dark);
+  --hs-accent-tint:       rgba(201, 169, 110, 0.12);
+
+  --hs-chart-1: var(--indigo-400);
+  --hs-chart-2: var(--indigo-300);
+  --hs-chart-3: #5B54E8;
+  --hs-chart-4: var(--brass-dark);
+  --hs-chart-5: var(--graphite-400);
+  --hs-chart-hero-fill: rgba(124, 134, 241, 0.10);
+
+  /* Dark elevation = lighter surface + border, not shadow */
+  --hs-e0: none;
+  --hs-e1: 0 1px 2px rgba(0,0,0,.40);
+  --hs-e2: 0 4px 12px rgba(0,0,0,.48);
+  --hs-e3: 0 16px 40px rgba(0,0,0,.60);
+}
+
+/* ---------- 4. TYPOGRAPHY ---------- */
+:root {
+  /* The `--font-*` references are next/font handles set on <html> in app/layout.tsx. next/font
+     downloads and self-hosts the files at build time, which is what §4.1's "all self-hosted — CSP
+     forbids external font CDNs" requires; the quoted names after each are the fallback for anyone
+     who has the face installed locally, and the generics close the stack. */
+  --hs-font-display: var(--font-newsreader), "Newsreader", Georgia, serif;
+  --hs-font-ui:      var(--font-geist), "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --hs-font-mono:    var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --hs-font-urdu:    var(--font-noto-naskh), "Noto Naskh Arabic", var(--hs-font-ui);
+
+  /* size / line-height */
+  --hs-type-hero:        3rem;     --hs-lh-hero:        3.25rem;  /* 48/52 */
+  --hs-type-display:     1.875rem; --hs-lh-display:     2.25rem;  /* 30/36 */
+  --hs-type-h1:          1.5rem;   --hs-lh-h1:          2rem;     /* 24/32 */
+  --hs-type-h2:          1.25rem;  --hs-lh-h2:          1.75rem;  /* 20/28 */
+  --hs-type-h3:          1rem;     --hs-lh-h3:          1.5rem;   /* 16/24 */
+  --hs-type-body:        0.875rem; --hs-lh-body:        1.25rem;  /* 14/20 */
+  --hs-type-body-sm:     0.8125rem;--hs-lh-body-sm:     1.125rem; /* 13/18 */
+  --hs-type-caption:     0.75rem;  --hs-lh-caption:     1rem;     /* 12/16 */
+  --hs-type-eyebrow:     0.6875rem;--hs-lh-eyebrow:     1rem;     /* 11/16 */
+  --hs-type-mono:        0.8125rem;--hs-lh-mono:        1.25rem;  /* 13/20 */
+  --hs-type-mono-sm:     0.75rem;  --hs-lh-mono-sm:     1rem;     /* 12/16 */
+
+  --hs-weight-regular: 400;
+  --hs-weight-medium:  500;  /* hero figure only */
+  --hs-weight-semibold:600;
+
+  --hs-tracking-tight:  -0.02em;
+  --hs-tracking-snug:   -0.01em;
+  --hs-tracking-normal:  0;
+  --hs-tracking-wide:    0.08em;  /* eyebrows only */
+}
+
+/* ---------- 5. SPACE / RADIUS / LAYOUT ---------- */
+:root {
+  --hs-space-1: 0.25rem;  /*  4 */
+  --hs-space-2: 0.5rem;   /*  8 */
+  --hs-space-3: 0.75rem;  /* 12 */
+  --hs-space-4: 1rem;     /* 16 */
+  --hs-space-5: 1.25rem;  /* 20 */
+  --hs-space-6: 1.5rem;   /* 24 */
+  --hs-space-8: 2rem;     /* 32 */
+  --hs-space-10:2.5rem;   /* 40 */
+  --hs-space-12:3rem;     /* 48 */
+  --hs-space-16:4rem;     /* 64 */
+
+  --hs-radius-sm:   4px;
+  --hs-radius-md:   6px;
+  --hs-radius-lg:   8px;
+  --hs-radius-xl:   12px;
+  --hs-radius-full: 999px;
+
+  --hs-sidebar-w:            264px;
+  --hs-sidebar-w-collapsed:  72px;
+  --hs-topbar-h:             56px;
+  --hs-content-max:          1440px;
+  --hs-row-h-comfortable:    52px;
+  --hs-row-h-compact:        40px;
+  /* Resolved row height. The app shell re-points this via [data-density] (base.css) so a table
+     never takes a density prop; Comfortable is the default, ledger pages opt into Compact. */
+  --hs-row-h:                var(--hs-row-h-comfortable);
+  --hs-control-h:            36px;
+  --hs-control-h-sm:         32px;
+  --hs-control-h-touch:      44px;
+  --hs-threshold-w:          2px;   /* the signature bar */
+}
+
+/* ---------- 6. MOTION ---------- */
+:root {
+  --hs-dur-instant:    90ms;
+  --hs-dur-fast:      140ms;
+  --hs-dur-base:      200ms;
+  --hs-dur-slow:      280ms;
+  --hs-dur-deliberate:400ms;
+  --hs-dur-count:     560ms;   /* hero figure count-up, once per session */
+
+  --hs-ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --hs-ease-out:      cubic-bezier(0, 0, .2, 1);
+  --hs-ease-in:       cubic-bezier(.4, 0, 1, 1);
+  --hs-ease-emphasis: cubic-bezier(.2, 0, 0, 1.2); /* threshold bar + hero only */
+
+  --hs-stagger: 40ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --hs-dur-instant:    0.01ms;
+    --hs-dur-fast:       0.01ms;
+    --hs-dur-base:       0.01ms;
+    --hs-dur-slow:       0.01ms;
+    --hs-dur-deliberate: 0.01ms;
+    --hs-dur-count:      0.01ms;
+    --hs-stagger:        0ms;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- 7. BASE APPLICATION ---------- */
+html { color-scheme: light dark; }
+
+body {
+  background: var(--hs-canvas);
+  color: var(--hs-text-primary);
+  font-family: var(--hs-font-ui);
+  font-size: var(--hs-type-body);
+  line-height: var(--hs-lh-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures everywhere a number can align or update */
+.hs-num, table, [data-numeric], input[type="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.hs-ledger {                    /* Tier 2: table numerics, IDs, receipts, CNIC */
+  font-family: var(--hs-font-mono);
+  font-size: var(--hs-type-mono);
+  line-height: var(--hs-lh-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.hs-figure {                    /* Tier 1: the one hero figure per screen */
+  font-family: var(--hs-font-ui);
+  font-size: var(--hs-type-hero);
+  line-height: var(--hs-lh-hero);
+  font-weight: var(--hs-weight-medium);
+  letter-spacing: var(--hs-tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.hs-eyebrow {
+  font-size: var(--hs-type-eyebrow);
+  line-height: var(--hs-lh-eyebrow);
+  font-weight: var(--hs-weight-semibold);
+  letter-spacing: var(--hs-tracking-wide);
+  text-transform: uppercase;
+  color: var(--hs-text-tertiary);
+}
+
+/* Signature: the Threshold Rule — leading-edge bar, mirrors in RTL */
+.hs-threshold {
+  position: relative;
+  padding-inline-start: var(--hs-space-4);
+}
+.hs-threshold::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--hs-threshold-w);
+  background: var(--hs-brand);
+  border-radius: var(--hs-radius-full);
+  transition: background var(--hs-dur-fast) var(--hs-ease-standard);
+}
+.hs-threshold[data-state="attention"]::before { background: var(--hs-attention); }
+
+/* Focus — never remove without replacing */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--hs-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--hs-radius-sm);
+}
+
+/* Skeleton: opacity pulse, not a moving shimmer (cheaper on low-end GPUs) */
+@keyframes hs-pulse { 0%,100% { opacity: 1 } 50% { opacity: .45 } }
+.hs-skeleton {
+  background: var(--hs-surface-sunken);
+  border-radius: var(--hs-radius-sm);
+  animation: hs-pulse 1.4s var(--hs-ease-standard) infinite;
+}
+
+/* ---------- 8. TAILWIND v4 MAPPING ---------- */
+/* For Tailwind v3, mirror these under theme.extend instead.
+   `inline` matters: it emits `var(--hs-…)` into the utility rather than copying the value at build
+   time, so a single class follows the theme switch instead of freezing the light-mode colour.
+   Every entry here is a *reference* to a §2/§3 token — this block introduces no new values. */
+@theme inline {
+  /* Surfaces */
+  --color-canvas:         var(--hs-canvas);
+  --color-surface:        var(--hs-surface);
+  --color-surface-raised: var(--hs-surface-raised);
+  --color-surface-sunken: var(--hs-surface-sunken);
+  --color-surface-inverse:var(--hs-surface-inverse);
+  --color-surface-hover:  var(--hs-surface-hover);
+  --color-surface-active: var(--hs-surface-active);
+  --color-overlay:        var(--hs-overlay);
+
+  /* Hairlines — `border-hairline` is the default structure of the whole UI (§2 Law 3) */
+  --color-hairline:       var(--hs-hairline);
+  --color-hairline-strong:var(--hs-hairline-strong);
+
+  /* Text — three levels of grey speech (§3.2) */
+  --color-fg:            var(--hs-text-primary);
+  --color-fg-secondary:  var(--hs-text-secondary);
+  --color-fg-tertiary:   var(--hs-text-tertiary);
+  --color-fg-disabled:   var(--hs-text-disabled);
+  --color-fg-inverse:    var(--hs-text-inverse);
+  --color-fg-on-brand:   var(--hs-text-on-brand);
+
+  /* Brand — "you can act on this" */
+  --color-brand:            var(--hs-brand);
+  --color-brand-hover:      var(--hs-brand-hover);
+  --color-brand-active:     var(--hs-brand-active);
+  --color-brand-text:       var(--hs-brand-text);
+  --color-brand-tint:       var(--hs-brand-tint);
+  --color-brand-tint-strong:var(--hs-brand-tint-strong);
+
+  /* Attention — "a human must act". Never used for information. */
+  --color-attention:        var(--hs-attention);
+  --color-attention-text:   var(--hs-attention-text);
+  --color-attention-tint:   var(--hs-attention-tint);
+  --color-attention-surface:var(--hs-attention-surface);
+
+  /* Positive — money confirmed. Never a background for a zero. */
+  --color-positive:        var(--hs-positive);
+  --color-positive-text:   var(--hs-positive-text);
+  --color-positive-tint:   var(--hs-positive-tint);
+  --color-positive-surface:var(--hs-positive-surface);
+
+  /* Negative — destructive / failed */
+  --color-negative:        var(--hs-negative);
+  --color-negative-text:   var(--hs-negative-text);
+  --color-negative-tint:   var(--hs-negative-tint);
+  --color-negative-surface:var(--hs-negative-surface);
+
+  /* Editorial accent — brass. Non-interactive: eyebrows, ledger rules, empty-state marks. */
+  --color-accent:      var(--hs-accent);
+  --color-accent-tint: var(--hs-accent-tint);
+
+  /* Charts */
+  --color-chart-1: var(--hs-chart-1);
+  --color-chart-2: var(--hs-chart-2);
+  --color-chart-3: var(--hs-chart-3);
+  --color-chart-4: var(--hs-chart-4);
+  --color-chart-5: var(--hs-chart-5);
+
+  --font-display: var(--hs-font-display);
+  --font-sans:    var(--hs-font-ui);
+  --font-mono:    var(--hs-font-mono);
+  --font-urdu:    var(--hs-font-urdu);
+
+  /* Type scale (§4.2). Paired line-heights so `text-body` sets both and no component
+     ever needs a raw px font-size. */
+  --text-hero:        var(--hs-type-hero);
+  --text-hero--line-height: var(--hs-lh-hero);
+  --text-display:     var(--hs-type-display);
+  --text-display--line-height: var(--hs-lh-display);
+  --text-h1:          var(--hs-type-h1);
+  --text-h1--line-height: var(--hs-lh-h1);
+  --text-h2:          var(--hs-type-h2);
+  --text-h2--line-height: var(--hs-lh-h2);
+  --text-h3:          var(--hs-type-h3);
+  --text-h3--line-height: var(--hs-lh-h3);
+  --text-body:        var(--hs-type-body);
+  --text-body--line-height: var(--hs-lh-body);
+  --text-body-sm:     var(--hs-type-body-sm);
+  --text-body-sm--line-height: var(--hs-lh-body-sm);
+  --text-caption:     var(--hs-type-caption);
+  --text-caption--line-height: var(--hs-lh-caption);
+  --text-eyebrow:     var(--hs-type-eyebrow);
+  --text-eyebrow--line-height: var(--hs-lh-eyebrow);
+  --text-mono:        var(--hs-type-mono);
+  --text-mono--line-height: var(--hs-lh-mono);
+  --text-mono-sm:     var(--hs-type-mono-sm);
+  --text-mono-sm--line-height: var(--hs-lh-mono-sm);
+
+  --tracking-tight:  var(--hs-tracking-tight);
+  --tracking-snug:   var(--hs-tracking-snug);
+  --tracking-wide:   var(--hs-tracking-wide);
+
+  --radius-sm: var(--hs-radius-sm);
+  --radius-md: var(--hs-radius-md);
+  --radius-lg: var(--hs-radius-lg);
+  --radius-xl: var(--hs-radius-xl);
+
+  --shadow-e1: var(--hs-e1);
+  --shadow-e2: var(--hs-e2);
+  --shadow-e3: var(--hs-e3);
+
+  /* §9 easings. `--ease-*` is a real Tailwind namespace, so these become `ease-standard` etc.
+     The matching durations are NOT here: Tailwind v4 has no `--duration-*` theme namespace, so
+     declaring them would compile silently to nothing. They are defined as explicit `@utility`
+     rules in base.css instead — verified generated, not assumed. */
+  --ease-standard: var(--hs-ease-standard);
+  --ease-out:      var(--hs-ease-out);
+  --ease-in:       var(--hs-ease-in);
+  --ease-emphasis: var(--hs-ease-emphasis);
+}

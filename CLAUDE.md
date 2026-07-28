@@ -3,6 +3,10 @@
 > Auto-loaded by Claude Code every session. This is the behavioral contract for the
 > HOSTYLLO engineering team (architect, backend, frontend, database, security, devops, qa).
 > **PRD authority:** `docs/01_MASTER_PRD_v15.md`. If anything here conflicts with the PRD, the PRD wins.
+> **UI authority:** `docs/15_UI_SPEC_v1.md` — appearance only; behaviour still follows the PRD.
+> It supersedes `docs/04_UX_DESIGN_SYSTEM.md`'s palette, tokens and type (the gold/teal dark-first
+> system is dead). Tokens live in `apps/web/src/styles/tokens.css`; a hardcoded hex, px font-size or
+> ms duration in a component is a build failure. Read §16 (hard NO list) before generating any screen.
 > **Deep reference:** `docs/06_CLAUDE_MD_v15.md` (full stack/queue/redis/env tables).
 
 ---
@@ -22,11 +26,21 @@ HOSTYLLO — a multi-tenant SaaS hostel-management platform for Pakistan (global
 The tracker (`docs/09_BUILD_STATE_v15.md`) has drifted more than once — always verify.
 
 Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
-- 10 DB migrations (`packages/db/migrations/001–010`) — the 28-table schema + FORCE-RLS/app-role.
+- 11 DB migrations (`packages/db/migrations/001–011`) — the 28-table schema + FORCE-RLS/app-role
+  + function hardening. ⚠️ Live **production has no `schema_migrations` ledger** (hand-migrated,
+  never baselined) and carries a legacy `users.totp_secret` column that a migrated-from-scratch DB
+  does not have — staging and prod schemas are NOT identical. See `docs/AUDIT_2026-07-27.md`.
 - `packages/db`: canonical `withTenant.ts` (single pool layer), `paymentService.ts`, `formatters.ts` + tests.
 - `apps/api`: full Fastify server, **16 route modules** (auth, students, rooms, payments, expenses,
   dashboard, cancellations, maintenance, complaints, checkin, notices, transfers, fines, users,
-  settings, audit-log), auth middleware, global error handler, 6 workers.
+  settings, audit-log) totalling 65 endpoints, auth middleware, global error handler, and
+  **4 workers** (auto-cancel, billing-sync, email-send, rent-generate) plus the `dlq.ts` helper.
+  The "7 queues" in `docs/06_CLAUDE_MD_v15.md` counts two WhatsApp queues that are not built — a
+  Phase-2 feature, not missing Phase-1 work.
+  ⚠️ **No BullMQ *producer* exists anywhere in `apps/api`** — only `Worker` is ever constructed, so
+  none of the four receives a job. Under investigation; see `tasks/todo`.
+  `pdf-receipts` was deleted 2026-07-28: receipts are rendered on demand by
+  `GET /payments/:id/receipt`. See `docs/05_API_SPECIFICATION.md` Module 4 for why.
 - `packages/config/eslint-plugin-hostyllo` (withTenant + no-hostel-id-from-request rules).
 - `tsc --strict` clean; 14/14 payment unit tests green.
 
@@ -56,7 +70,15 @@ INVARIANT-6  Supabase PITR active before any client data — Free tier forbidden
 ```
 
 **How each is actually enforced (do not overstate):** INVARIANT-2 & 3 are the only two checked
-by the ESLint plugin (`packages/config/eslint-plugin-hostyllo`). INVARIANT-1 is enforced in
+by the ESLint plugin (`packages/config/eslint-plugin-hostyllo`), and only over
+`apps/api/src/routes/**` — workers and the pre-auth bootstrap use the privileged pool by design
+(migration 010 defines two connection identities), so the rules would report ~90 correct-by-design
+calls if run workspace-wide. The handful of privileged queries inside `src/routes` carry a
+line-level `eslint-disable` with a justification, and an exception that stops being needed fails
+the build (`reportUnusedDisableDirectives: 'error'`). The rules run in CI via `pnpm run lint` and
+have their own regression tests (`packages/config/eslint-plugin-hostyllo/index.test.js`) — until
+2026-07-27 the plugin was never loaded by any ESLint config, so both rules had in fact never run.
+INVARIANT-1 is enforced in
 `lib/jwt.ts` (`algorithms:['RS256']`); INVARIANT-4 by the schema; INVARIANT-5 by a DB trigger
 (`audit_log_immutable`, migration 006) + FORCE RLS (migration 010); INVARIANT-6 is operational
 (verify with `scripts/verify-pitr.sh`). The broader rules 1–30 live in `docs/06_CLAUDE_MD_v15.md`
@@ -115,13 +137,16 @@ Invoke a skill with the Skill tool (e.g. `/security-audit`) when its procedure f
 
 ```bash
 # If payment code was touched — all 14 must pass, zero partial credit
-pnpm vitest packages/db/src/__tests__/paymentService.test.ts
+pnpm --filter @hostyllo/db exec vitest run src/__tests__/paymentService.test.ts
 
-# Cross-tenant isolation — after EVERY endpoint: A's JWT → B's data MUST return 404 (not 403/200)
-pnpm vitest packages/db/src/__tests__/isolation.test.ts
+# Cross-tenant isolation — after EVERY endpoint: A's JWT → B's data MUST return 404 (not 403/200).
+# Needs a LOCAL Postgres + Redis: globalSetup refuses any non-localhost DATABASE_URL, because it
+# applies every migration and seeds tenants. Without a DB the suite SKIPS and still exits 0 —
+# a green run proves nothing unless the log says the tests ran. CI is the real gate.
+pnpm --filter @hostyllo/api exec vitest run src/__tests__/isolation.test.ts
 
-# RLS must be on for every tenant table — must return 0 rows
-# SELECT tablename FROM pg_tables WHERE rowsecurity = false;
+# RLS must be ENABLE + FORCE on every tenant table. ENABLE alone lets the owner bypass it.
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/verify-rls-ci.sql
 ```
 
 ## CODE QUALITY

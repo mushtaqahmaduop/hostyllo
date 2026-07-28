@@ -383,7 +383,7 @@ All secrets stored in Railway environment variables and Vercel environment varia
 
 ## 8. QUARTERLY DR DRILL CHECKLIST
 
-Run on 1st of each quarter. Takes approximately 2 hours. Log results in `tasks/decision-log.md`.
+Run on 1st of each quarter. Takes approximately 2 hours. Log results in the decision log section of `docs/09_BUILD_STATE_v15.md`.
 
 ```
 QUARTERLY DR DRILL — [DATE]

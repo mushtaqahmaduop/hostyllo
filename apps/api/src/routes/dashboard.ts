@@ -1,12 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { CAN_READ } from '../lib/roles.js';
 
 export async function dashboardRoutes(app: FastifyInstance) {
 
   // GET /dashboard/stats
   app.get('/dashboard/stats', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
       querystring: {
         type: 'object',
@@ -71,7 +72,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
   // GET /dashboard/alerts
   app.get('/dashboard/alerts', {
-    preHandler: [requireAuth, requireRole(['warden', 'hostel_owner', 'chain_manager'])],
+    preHandler: [requireAuth, requireRole(CAN_READ)],
   }, async (request, reply) => {
 
     const result = await withTenant(request.hostelId, async (db) => {
