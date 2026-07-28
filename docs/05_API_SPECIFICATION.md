@@ -818,13 +818,23 @@ status   = amountPaidPkr >= totalDue ? 'paid' : amountPaidPkr > 0 ? 'partial' : 
     "totalDuePkr": 8300,
     "amountPaidPkr": 8300,
     "unpaidPkr": 0,
-    "status": "paid"
+    "status": "paid",
+    "notes": ""
   }
 }
 ```
 
 The receipt is available immediately at `GET /payments/:id/receipt`. There is no `receiptStatus`, no
 asynchronous generation step and no waiting.
+
+**`notes` is persisted as of 2026-07-28 (migration 013).** It had been declared in this request
+body — and in `PATCH /payments/:id` — since the route was written, while no column existed and
+neither handler referenced one: a client could send a note, receive `201`, and have it vanish. It
+is now stored, echoed on create, returned by `GET /payments/:id`, and editable through `PATCH`.
+Capped at 1000 characters by the request schema, so an over-long note is a `400`, not a `500`.
+It is **not** returned by `GET /payments` — free text in a ledger table would be truncated to
+uselessness in every row. An omitted `notes` on `PATCH` leaves the stored note unchanged rather
+than clearing it.
 
 **Error codes:**
 | Code | HTTP | Trigger |
