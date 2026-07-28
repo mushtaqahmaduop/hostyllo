@@ -557,8 +557,9 @@ export async function paymentsRoutes(app: FastifyInstance) {
         return { ok: true };
       }
 
-      // Owner: full edit — recalculate with the payment's REAL extra charges
-      // (pg returns NUMERIC as strings, so coerce before doing math)
+      // Owner: full edit — recalculate with the payment's REAL extra charges.
+      // The Number() calls below are belt-and-braces: NUMERIC is parsed to a number at the driver
+      // (packages/db/src/withTenant.ts) since 2026-07-28, so they no longer carry the arithmetic.
       const p = payment.rows[0];
       const extrasResult = await db.query(`
         SELECT amount FROM public.payment_extra_charges

@@ -119,7 +119,14 @@ describe.skipIf(!HAS_DB)('GET /payments/defaulters', () => {
       payload: { paid: RENT },
     });
     expect(patch.statusCode, patch.body).toBe(200);
-    expect(patch.json().data.status).toBe('paid');
+
+    // PATCH answers `data: null`, so the settled state is read back from the row rather than from
+    // the response.
+    const row = await pool.query('SELECT status, unpaid FROM public.payments WHERE id = $1', [
+      createdPaymentId,
+    ]);
+    expect(row.rows[0].status).toBe('paid');
+    expect(Number(row.rows[0].unpaid)).toBe(0);
 
     const after = await app.inject({
       method: 'GET',
