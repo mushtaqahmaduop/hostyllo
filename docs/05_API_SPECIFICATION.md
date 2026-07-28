@@ -930,6 +930,7 @@ A voided payment still returns its receipt — an operator may need a copy for t
   "data": {
     "defaulters": [
       {
+        "paymentId": "uuid",
         "studentId": "uuid",
         "studentName": "Ahmed Khan",
         "phone": "0312-3456789",
@@ -937,9 +938,7 @@ A voided payment still returns its receipt — an operator may need a copy for t
         "totalDuePkr": 8000,
         "amountPaidPkr": 0,
         "unpaidPkr": 8000,
-        "status": "pending",
-        "paymentRiskScore": "medium",
-        "whatsappMessage": "Dear Ahmed Khan, your rent for June 2026 is PKR 8,000. Room: 4. Please arrange payment. — Hostel Name"
+        "status": "pending"
       }
     ],
     "totalDefaulters": 5,
@@ -947,6 +946,15 @@ A voided payment still returns its receipt — an operator may need a copy for t
   }
 }
 ```
+
+**`paymentId` is the row to settle** (added 2026-07-28). Every defaulter already has a payment row
+for the month — that is what the pending/partial filter selects — so collecting from one is
+`PATCH /payments/:id`. `POST /payments` cannot be used: it hits the duplicate-month guard and
+returns `409 PAY_DUPLICATE_MONTH`. Without this field a client has nothing to target.
+
+⚠️ **Not implemented:** `paymentRiskScore` and `whatsappMessage` were specified here but have never
+been built, and the WhatsApp work they belong to is deferred. They are omitted above rather than
+left in as a promise the endpoint does not keep.
 
 ---
 

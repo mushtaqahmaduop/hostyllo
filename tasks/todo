@@ -486,7 +486,17 @@ yours — see tasks/phase2-proposal.md §3.
       promising it. (a) is the more useful one — a warden recording "paid in two instalments, second
       by JazzCash" has nowhere else to put it. Deliberately NOT fixed in the frontend slice: it is
       an API + live-schema change, not a UI one. `apps/web` omits the field until this is resolved.
-- [ ] **`GET /payments/defaulters` omits `paymentId`** — found 2026-07-28 while building the
+- [x] **`GET /payments/defaulters` omits `paymentId` — FIXED 2026-07-28 (session 12).**
+      `p.id as "paymentId"` added to the SELECT; `defaulters.test.ts` (3 tests) asserts the whole
+      chain rather than the field alone — the id comes back, a POST for the same month really does
+      409 `PAY_DUPLICATE_MONTH` (which is *why* the id is needed), and PATCHing that id settles the
+      row and drops it from the list. API spec Module 4 updated; while there, `paymentRiskScore`
+      and `whatsappMessage` were removed from the documented response — both were specified and
+      never built, and the WhatsApp work they belong to is deferred. `apps/web`'s `Defaulter` type
+      now carries `paymentId`. The rows still link to the student, because the remaining blocker
+      moved: the payment-edit UI does not exist yet.
+      <details><summary>original report</summary>
+      found 2026-07-28 while building the
       defaulters screen (payments.ts:263-281). The endpoint returns `studentId` but not the id of
       the payment row that is actually outstanding, which blocks the screen's whole purpose: every
       defaulter *already has* a payment row for that month (the query filters on status
@@ -496,6 +506,7 @@ yours — see tasks/phase2-proposal.md §3.
       list with rows linking to the student instead of a "collect" button that could not work.
       FIX: add `p.id as "paymentId"` to the SELECT. One line, no schema change, unblocks the
       collect flow. Pairs with the still-unbuilt payment-edit UI (`PATCH /payments/:id`).
+      </details>
 
 ## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
 - [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts

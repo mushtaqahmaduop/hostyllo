@@ -24,6 +24,8 @@ export const metadata = { title: 'Defaulters' };
 
 /** GET /payments/defaulters — API spec Module 4. `month` is required and takes YYYY-MM. */
 type Defaulter = {
+  /** The outstanding payment row itself — settling a defaulter is a PATCH of this id. */
+  paymentId: string;
   studentId: string;
   studentName: string;
   phone: string | null;
@@ -157,9 +159,9 @@ export default async function DefaultersPage({
        * `PATCH /payments/:id`, not a new payment: `POST /payments` would hit the duplicate-month
        * guard and 409 on every single row.
        *
-       * The blocker is that `GET /payments/defaulters` returns `studentId` but not the payment's
-       * own id, so there is nothing here to deep-link an edit to. Logged in tasks/todo. Until the
-       * endpoint returns `paymentId`, each row links to the student instead.
+       * The endpoint now returns `paymentId` (fixed 2026-07-28), so the deep-link target exists.
+       * What is still missing is the screen it would point at: there is no payment-edit UI yet.
+       * Until that lands, each row links to the student instead.
        */}
       {data.defaulters.length === 0 ? (
         <EmptyState

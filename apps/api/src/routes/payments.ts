@@ -270,6 +270,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
     const result = await withTenant(request.hostelId, async (db) => {
       const defaulters = await db.query(`
         SELECT
+          p.id as "paymentId",
           p.student_id as "studentId",
           s.name as "studentName",
           s.phone,
