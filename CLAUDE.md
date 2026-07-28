@@ -3,6 +3,10 @@
 > Auto-loaded by Claude Code every session. This is the behavioral contract for the
 > HOSTYLLO engineering team (architect, backend, frontend, database, security, devops, qa).
 > **PRD authority:** `docs/01_MASTER_PRD_v15.md`. If anything here conflicts with the PRD, the PRD wins.
+> **UI authority:** `docs/15_UI_SPEC_v1.md` — appearance only; behaviour still follows the PRD.
+> It supersedes `docs/04_UX_DESIGN_SYSTEM.md`'s palette, tokens and type (the gold/teal dark-first
+> system is dead). Tokens live in `apps/web/src/styles/tokens.css`; a hardcoded hex, px font-size or
+> ms duration in a component is a build failure. Read §16 (hard NO list) before generating any screen.
 > **Deep reference:** `docs/06_CLAUDE_MD_v15.md` (full stack/queue/redis/env tables).
 
 ---
