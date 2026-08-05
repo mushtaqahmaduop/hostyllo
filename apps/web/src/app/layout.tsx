@@ -64,9 +64,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Pinch-zoom stays available. These users are often reading small numbers in poor light, and
   // disabling zoom would be an accessibility failure, not a polish decision (§12).
+  // The two canvas values from tokens.css §2/§3 — warm, never pure black.
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0B0B0F' },
-    { media: '(prefers-color-scheme: light)', color: '#F7F7F8' },
+    { media: '(prefers-color-scheme: dark)', color: '#181715' },
+    { media: '(prefers-color-scheme: light)', color: '#f0eee6' },
   ],
 };
 

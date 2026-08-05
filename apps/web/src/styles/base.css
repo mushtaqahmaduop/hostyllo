@@ -211,16 +211,24 @@
     --hs-row-h: var(--hs-row-h-compact);
   }
 
+  /* `.hs-code`, `.hs-num` and `.hs-ledger` moved to tokens.css §7 when numerals
+     became mono everywhere — they belong beside the font tokens they depend on. */
+
   /*
-   * §4.3 Tier 2 without the forced right-alignment of `.hs-ledger`. IDs, CNICs and receipt numbers
-   * are mono and tabular but read left-to-right in their column; only quantities align on the end
-   * edge, and those use `.hs-ledger`.
+   * Was the one sanctioned gradient (v1 §16.1a) — the "Schedule report" CTA.
+   *
+   * The redesign has no gradients on UI chrome at all, so the stops are gone and
+   * `--hs-brand-gradient` no longer exists. The class is kept, flat, rather than
+   * deleted: it is still referenced by reports-toolbar.tsx, and a removed class
+   * fails silently — the button would render transparent-on-transparent with no
+   * error anywhere. It retires with that screen's redesign.
    */
-  .hs-code {
-    font-family: var(--hs-font-mono);
-    font-size: var(--hs-type-mono);
-    line-height: var(--hs-lh-mono);
-    font-variant-numeric: tabular-nums;
+  .hs-cta-gradient {
+    background: var(--hs-brand);
+    color: var(--hs-text-on-brand);
+  }
+  .hs-cta-gradient:hover {
+    background: var(--hs-brand-hover);
   }
 
   /*
