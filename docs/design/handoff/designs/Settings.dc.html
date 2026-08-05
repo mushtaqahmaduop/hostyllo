@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ui:'Geist',-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --page:#0f0f0f; --card:#141414; --elev:#1c1c1c; --hov:#262626;
+    --bd:#2a2a2a; --bd2:#363636;
+    --t1:#e5e5e5; --t2:#a3a3a3; --t3:#737373;
+    --ac:#8b5cf6; --ac-cta:#7c3aed; --ac-soft:rgba(139,92,246,.12); --ac-bd:rgba(139,92,246,.28);
+    --warn:#fbbf24; --warn-soft:rgba(251,191,36,.10); --warn-bd:rgba(251,191,36,.22);
+    --bad:#f87171; --bad-soft:rgba(248,113,113,.10); --bad-bd:rgba(248,113,113,.22);
+    --ok:#4ade80; --ok-soft:rgba(74,222,128,.10); --ok-bd:rgba(74,222,128,.22);
+    --sh:0 1px 2px rgba(0,0,0,.4);
+  }
+  [data-theme="light"]{
+    --page:#fafafa; --card:#ffffff; --elev:#ffffff; --hov:#f5f5f5;
+    --bd:#e5e5e5; --bd2:#d4d4d4;
+    --t1:#171717; --t2:#525252; --t3:#a3a3a3;
+    --ac:#7c3aed; --ac-cta:#7c3aed; --ac-soft:#f5f3ff; --ac-bd:#ddd6fe;
+    --warn:#b45309; --warn-soft:#fffbeb; --warn-bd:#fde68a;
+    --bad:#b91c1c; --bad-soft:#fef2f2; --bad-bd:#fecaca;
+    --ok:#15803d; --ok-soft:#f0fdf4; --ok-bd:#bbf7d0;
+    --sh:0 1px 2px rgba(0,0,0,.04);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--page);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  a{color:var(--ac);text-decoration:none}
+  a:hover{color:var(--ac-cta)}
+  .n{font-family:var(--mono);font-feature-settings:'tnum' 1;letter-spacing:-.01em}
+  input,select{font-family:var(--ui)}
+  input::placeholder{color:var(--t3)}
+  input:focus,select:focus{outline:none;border-color:var(--ac)!important}
+  .s::-webkit-scrollbar{width:10px;height:10px}
+  .s::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+  .s::-webkit-scrollbar-track{background:transparent}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--page);color:var(--t1);font-family:var(--ui)">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside style="width:203px;flex:none;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--bd)">
+    <div style="display:flex;align-items:center;gap:10px;padding:15px 14px 13px;flex:none">
+      <img src="./assets/logo.png" alt="Hostyllo" style="width:30px;height:30px;flex:none;border-radius:8px;display:block"/>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:.03em;line-height:1.15">HOSTYLLO</div>
+        <div style="font-size:10.5px;color:var(--t3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Daman Hostel For Boys</div>
+      </div>
+    </div>
+
+    <nav class="s" style="flex:1;overflow-y:auto;padding:2px 8px 60px">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <div style="margin-bottom:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:9px 8px 6px">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+            <a onClick="{{ it.go }}" style="display:flex;align-items:center;gap:10px;height:33px;padding:0 9px;border-radius:6px;font-size:12.5px;cursor:pointer;margin-bottom:1px;{{ it.style }}">
+              <span style="flex:none;display:flex;width:16px;height:16px">{{ it.icon }}</span>
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+              <sc-if value="{{ it.hasBadge }}" hint-placeholder-val="{{ false }}">
+                <span class="n" style="flex:none;font-size:10px;font-weight:600;min-width:17px;height:17px;padding:0 5px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;{{ it.badgeStyle }}">{{ it.badge }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 13px;border-top:1px solid var(--bd);background:var(--card)">
+      <div style="width:27px;height:27px;flex:none;border-radius:50%;background:var(--ac-soft);border:1px solid var(--ac-bd);display:flex;align-items:center;justify-content:center;color:var(--ac);font-size:11px;font-weight:600">K</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;line-height:1.2">Khan</div>
+        <div style="font-size:10px;color:var(--t3);line-height:1.3">Administrator</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+  </aside>
+
+  <!-- ════════════ MAIN ════════════ -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+    <header style="flex:none;display:flex;align-items:center;padding:11px 18px;border-bottom:1px solid var(--bd);background:var(--card)">
+      <div style="flex:none;min-width:0">
+        <h1 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Settings</h1>
+        <div style="font-size:11.5px;color:var(--t3);margin-top:2px;white-space:nowrap">Manage your hostel, app preferences and system configuration</div>
+      </div>
+
+      <div style="flex:1;min-width:16px"></div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:8px">
+        <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+          <span class="n" style="font-size:11px;color:var(--warn);white-space:nowrap">{{ dirtyLabel }}</span>
+        </sc-if>
+
+        <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span class="n">Jul 2026</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+
+        <button title="Notifications" style="position:relative;width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+          <span class="n" style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9999px;background:var(--bad);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">7</span>
+        </button>
+
+        <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <span style="display:flex">{{ themeIcon }}</span>
+        </button>
+
+        <button onClick="{{ save }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:none;border-radius:8px;color:#fff;font:600 12.5px/1 var(--ui);white-space:nowrap;{{ saveStyle }}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Save Changes</button>
+      </div>
+    </header>
+
+    <!-- TABS -->
+    <div class="s" style="flex:none;display:flex;align-items:center;gap:2px;padding:0 18px;overflow-x:auto;border-bottom:1px solid var(--bd);background:var(--card)">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="9">
+        <button onClick="{{ t.go }}" style="display:flex;align-items:center;gap:7px;flex:none;height:42px;padding:0 13px;background:transparent;border:none;border-bottom:2px solid transparent;font:600 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap;{{ t.style }}">
+          <span style="display:flex">{{ t.icon }}</span>{{ t.label }}
+        </button>
+      </sc-for>
+    </div>
+
+    <!-- ════════════ BODY ════════════ -->
+    <div class="s" style="flex:1;overflow-y:auto;padding:14px 18px 24px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+
+        <!-- ─────── LEFT: PANELS ─────── -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:13px">
+
+          <!-- service health matrix (Integrations) -->
+          <sc-if value="{{ isIntegrations }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">Service Health</div>
+                  <div style="font-size:11px;color:var(--t3);margin-top:2px">Connected services and 30-day uptime</div>
+                </div>
+                <span class="n" style="flex:none;font-size:9.5px;font-weight:600;padding:3px 9px;border-radius:9999px;{{ healthPill }}">{{ healthLabel }}</span>
+              </div>
+              <div style="padding:13px 15px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px">
+                <sc-for list="{{ services }}" as="s" hint-placeholder-count="4">
+                  <div style="border:1px solid var(--bd);border-radius:8px;background:var(--page);padding:11px 12px">
+                    <div style="display:flex;align-items:flex-start;gap:9px">
+                      <span style="width:26px;height:26px;flex:none;border-radius:6px;background:var(--hov);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ s.icon }}</span>
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:12px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</div>
+                        <div class="n" style="font-size:9px;color:var(--t3);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.id }}</div>
+                      </div>
+                      <div style="flex:none;text-align:right">
+                        <div class="n" style="font-size:12px;font-weight:600;line-height:1.2;{{ s.uptimeColor }}">{{ s.uptime }}</div>
+                        <div style="font-size:8.5px;color:var(--t3);line-height:1.3">Uptime</div>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;gap:2px;height:26px;margin-top:10px">
+                      <sc-for list="{{ s.bars }}" as="b" hint-placeholder-count="10">
+                        <div title="{{ b.title }}" style="flex:1;border-radius:2px;height:{{ b.h }};{{ b.fill }}"></div>
+                      </sc-for>
+                    </div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:7px">
+                      <span style="font-size:8.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Latency</span>
+                      <span class="n" style="font-size:10.5px;font-weight:500">{{ s.latency }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- theme engine (App & System) -->
+          <sc-if value="{{ isApp }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">Appearance</div>
+                <div style="font-size:11px;color:var(--t3);margin-top:2px">Theme, density and motion for this workspace</div>
+              </div>
+              <div style="padding:13px 15px;display:grid;grid-template-columns:1.15fr 1fr;gap:16px">
+                <div>
+                  <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:9px">Theme</div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
+                    <sc-for list="{{ themeCards }}" as="tc" hint-placeholder-count="3">
+                      <button onClick="{{ tc.go }}" style="display:flex;flex-direction:column;gap:7px;padding:8px;border-radius:8px;cursor:pointer;background:transparent;{{ tc.style }}">
+                        <div style="width:100%;height:52px;border-radius:6px;border:1px solid var(--bd);overflow:hidden;display:flex;{{ tc.swatch }}">
+                          <div style="width:32%;height:100%;{{ tc.swatchBar }}"></div>
+                        </div>
+                        <span style="font-size:11px;font-weight:600;{{ tc.labelStyle }}">{{ tc.label }}</span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:11px">
+                  <div>
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Interface density</div>
+                    <div style="display:flex;align-items:center;gap:2px;height:32px;padding:3px;border-radius:8px;background:var(--page);border:1px solid var(--bd)">
+                      <sc-for list="{{ densities }}" as="d" hint-placeholder-count="3">
+                        <button onClick="{{ d.go }}" style="flex:1;height:24px;border:none;border-radius:6px;font:600 11.5px/1 var(--ui);cursor:pointer;{{ d.style }}">{{ d.label }}</button>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Brand accent</div>
+                    <div style="display:flex;align-items:center;gap:9px;height:32px;padding:0 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd)">
+                      <span style="width:15px;height:15px;flex:none;border-radius:50%;background:var(--ac-cta);box-shadow:0 0 0 2px var(--page),0 0 0 3px var(--ac-bd)"></span>
+                      <span style="flex:1;font-size:11.5px;color:var(--t2)">Violet — fixed by brand</span>
+                      <span class="n" style="flex:none;font-size:10px;color:var(--t3)">#7C3AED</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- generic settings sections -->
+          <sc-for list="{{ sections }}" as="sec" hint-placeholder-count="2">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">{{ sec.title }}</div>
+                <div style="font-size:11px;color:var(--t3);margin-top:2px">{{ sec.desc }}</div>
+              </div>
+              <div style="display:flex;flex-direction:column">
+                <sc-for list="{{ sec.rows }}" as="r" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:12px;padding:11px 15px;border-bottom:1px solid var(--bd)">
+                    <span style="width:30px;height:30px;flex:none;border-radius:7px;background:var(--hov);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ r.icon }}</span>
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <span style="font-size:12.5px;font-weight:500;line-height:1.3">{{ r.label }}</span>
+                        <sc-if value="{{ r.isNew }}" hint-placeholder-val="{{ false }}">
+                          <span style="flex:none;font-size:8.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:1.5px 6px;border-radius:9999px;background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac);white-space:nowrap">{{ r.newLabel }}</span>
+                        </sc-if>
+                      </div>
+                      <div style="font-size:11px;color:var(--t3);line-height:1.4;text-wrap:pretty">{{ r.desc }}</div>
+                    </div>
+
+                    <div style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                      <sc-if value="{{ r.isSelect }}" hint-placeholder-val="{{ false }}">
+                        <div style="position:relative;width:{{ r.w }}">
+                          <select value="{{ r.value }}" onChange="{{ r.set }}" style="width:100%;height:34px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 30px 0 11px;color:var(--t1);font-size:12.5px;appearance:none;cursor:pointer">
+                            <sc-for list="{{ r.options }}" as="o" hint-placeholder-count="3">
+                              <option value="{{ o }}">{{ o }}</option>
+                            </sc-for>
+                          </select>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:11px;top:11px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ r.isToggle }}" hint-placeholder-val="{{ false }}">
+                        <div onClick="{{ r.set }}" title="{{ r.stateLabel }}" style="width:38px;height:21px;flex:none;border-radius:9999px;cursor:pointer;padding:2.5px;display:flex;align-items:center;{{ r.track }}">
+                          <div style="width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)"></div>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ r.isStep }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:center;height:34px;border-radius:6px;background:var(--page);border:1px solid var(--bd);overflow:hidden">
+                          <button onClick="{{ r.dec }}" style="width:30px;height:32px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;border-right:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"></path></svg>
+                          </button>
+                          <span class="n" style="min-width:38px;text-align:center;font-size:12.5px;font-weight:600">{{ r.value }}</span>
+                          <span style="font-size:11px;color:var(--t3);padding-right:9px">{{ r.unit }}</span>
+                          <button onClick="{{ r.inc }}" style="width:30px;height:32px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;border-left:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+                          </button>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ r.isText }}" hint-placeholder-val="{{ false }}">
+                        <input class="{{ r.cls }}" value="{{ r.value }}" onChange="{{ r.set }}" style="width:{{ r.w }};height:34px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px"/>
+                      </sc-if>
+
+                      <sc-if value="{{ r.isSeg }}" hint-placeholder-val="{{ false }}">
+                        <div style="display:flex;align-items:center;gap:2px;height:32px;padding:3px;border-radius:8px;background:var(--page);border:1px solid var(--bd)">
+                          <sc-for list="{{ r.segs }}" as="sg" hint-placeholder-count="3">
+                            <button onClick="{{ sg.go }}" style="height:24px;padding:0 11px;border:none;border-radius:6px;font:600 11.5px/1 var(--ui);cursor:pointer;{{ sg.style }}">{{ sg.label }}</button>
+                          </sc-for>
+                        </div>
+                      </sc-if>
+
+                      <sc-if value="{{ r.isAction }}" hint-placeholder-val="{{ false }}">
+                        <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">{{ r.actionLabel }}</button>
+                      </sc-if>
+
+                      <sc-if value="{{ r.hasHint }}" hint-placeholder-val="{{ false }}">
+                        <span class="n" style="font-size:10px;color:var(--t3);white-space:nowrap">{{ r.hint }}</span>
+                      </sc-if>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+
+          <!-- room types + tag lists (Configuration) -->
+          <sc-if value="{{ isConfig }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">Room Types</div>
+                  <div style="font-size:11px;color:var(--t3);margin-top:2px">Capacity and default rent applied to new rooms</div>
+                </div>
+                <button style="display:flex;align-items:center;gap:6px;flex:none;height:30px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add type</button>
+              </div>
+              <div class="s" style="overflow-x:auto">
+                <table style="width:100%;min-width:560px;border-collapse:separate;border-spacing:0;font-size:12px">
+                  <thead><tr>
+                    <sc-for list="{{ typeCols }}" as="c" hint-placeholder-count="5">
+                      <th style="font:700 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:10px 15px;border-bottom:1px solid var(--bd);white-space:nowrap;{{ c.align }}">{{ c.label }}</th>
+                    </sc-for>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ roomTypes }}" as="t" hint-placeholder-count="5">
+                      <tr>
+                        <td style="padding:9px 15px;border-bottom:1px solid var(--bd);white-space:nowrap;font-weight:500">{{ t.name }}</td>
+                        <td class="n" style="padding:9px 15px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap">{{ t.capacity }}</td>
+                        <td class="n" style="padding:9px 15px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap;font-weight:600">{{ t.rent }}</td>
+                        <td class="n" style="padding:9px 15px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap;color:var(--t2)">{{ t.rooms }}</td>
+                        <td style="padding:9px 15px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap">
+                          <div style="display:inline-flex;align-items:center;gap:3px">
+                            <sc-for list="{{ t.actions }}" as="a" hint-placeholder-count="2">
+                              <button title="{{ a.name }}" style="width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:transparent;border:1px solid transparent;color:var(--t3);cursor:pointer" style-hover="background:var(--hov);color:var(--t1);border-color:var(--bd)">{{ a.icon }}</button>
+                            </sc-for>
+                          </div>
+                        </td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <sc-for list="{{ tagPanels }}" as="tp" hint-placeholder-count="3">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+                <div style="padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                  <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">{{ tp.title }}</div>
+                  <div style="font-size:11px;color:var(--t3);margin-top:2px">{{ tp.desc }}</div>
+                </div>
+                <div style="padding:13px 15px;display:flex;flex-wrap:wrap;gap:7px;align-items:center">
+                  <sc-for list="{{ tp.tags }}" as="tg" hint-placeholder-count="6">
+                    <span style="display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 6px 0 11px;border-radius:9999px;background:var(--page);border:1px solid var(--bd);font-size:11.5px;color:var(--t1);white-space:nowrap">
+                      {{ tg.label }}
+                      <button title="Remove" style="width:17px;height:17px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:50%;background:var(--hov);border:none;color:var(--t3);cursor:pointer" style-hover="color:var(--t1)">
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                      </button>
+                    </span>
+                  </sc-for>
+                  <button style="display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:9999px;background:transparent;border:1px dashed var(--bd2);color:var(--t3);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="border-color:var(--ac);color:var(--t1)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>{{ tp.addLabel }}</button>
+                </div>
+              </div>
+            </sc-for>
+          </sc-if>
+
+          <!-- notification matrix -->
+          <sc-if value="{{ isNotif }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">Delivery Matrix</div>
+                <div style="font-size:11px;color:var(--t3);margin-top:2px">Which channel fires for each event</div>
+              </div>
+              <div class="s" style="overflow-x:auto">
+                <table style="width:100%;min-width:600px;border-collapse:separate;border-spacing:0;font-size:12px">
+                  <thead><tr>
+                    <th style="font:700 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:10px 15px;border-bottom:1px solid var(--bd);text-align:left">Event</th>
+                    <sc-for list="{{ channels }}" as="c" hint-placeholder-count="4">
+                      <th style="font:700 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:10px 12px;border-bottom:1px solid var(--bd);text-align:center;white-space:nowrap">{{ c }}</th>
+                    </sc-for>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ notifRows }}" as="r" hint-placeholder-count="7">
+                      <tr>
+                        <td style="padding:9px 15px;border-bottom:1px solid var(--bd)">
+                          <div style="font-size:12px;font-weight:500;line-height:1.3">{{ r.label }}</div>
+                          <div style="font-size:10.5px;color:var(--t3);line-height:1.4">{{ r.desc }}</div>
+                        </td>
+                        <sc-for list="{{ r.cells }}" as="cl" hint-placeholder-count="4">
+                          <td style="padding:9px 12px;border-bottom:1px solid var(--bd);text-align:center">
+                            <div onClick="{{ cl.set }}" style="width:34px;height:19px;margin:0 auto;border-radius:9999px;cursor:pointer;padding:2.5px;display:flex;align-items:center;{{ cl.track }}">
+                              <div style="width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)"></div>
+                            </div>
+                          </td>
+                        </sc-for>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- api credentials + webhooks -->
+          <sc-if value="{{ isIntegrations }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">API Credentials</div>
+                  <div style="font-size:11px;color:var(--t3);margin-top:2px">Keys issued for this workspace</div>
+                </div>
+                <button style="display:flex;align-items:center;gap:6px;flex:none;height:30px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add key</button>
+              </div>
+              <div class="s" style="overflow-x:auto">
+                <table style="width:100%;min-width:680px;border-collapse:separate;border-spacing:0;font-size:12px">
+                  <thead><tr>
+                    <sc-for list="{{ keyCols }}" as="c" hint-placeholder-count="6">
+                      <th style="font:700 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:10px 15px;border-bottom:1px solid var(--bd);white-space:nowrap;{{ c.align }}">{{ c.label }}</th>
+                    </sc-for>
+                  </tr></thead>
+                  <tbody>
+                    <sc-for list="{{ apiKeys }}" as="k" hint-placeholder-count="3">
+                      <tr>
+                        <td style="padding:9px 15px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                          <div style="display:flex;align-items:center;gap:9px">
+                            <span style="width:24px;height:24px;flex:none;border-radius:5px;background:var(--hov);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ k.icon }}</span>
+                            <span style="font-weight:500">{{ k.name }}</span>
+                          </div>
+                        </td>
+                        <td class="n" style="padding:9px 15px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ k.id }}</td>
+                        <td class="n" style="padding:9px 15px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ k.created }}</td>
+                        <td class="n" style="padding:9px 15px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ k.used }}</td>
+                        <td style="padding:9px 15px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                          <span style="font-size:9.5px;font-weight:600;padding:2.5px 8px;border-radius:9999px;background:var(--hov);border:1px solid var(--bd);color:var(--t2)">{{ k.scope }}</span>
+                        </td>
+                        <td style="padding:9px 15px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap">
+                          <div style="display:inline-flex;align-items:center;gap:3px">
+                            <sc-for list="{{ k.actions }}" as="a" hint-placeholder-count="3">
+                              <button title="{{ a.name }}" style="width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:transparent;border:1px solid transparent;color:var(--t3);cursor:pointer" style-hover="background:var(--hov);color:var(--t1);border-color:var(--bd)">{{ a.icon }}</button>
+                            </sc-for>
+                          </div>
+                        </td>
+                      </tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">Webhooks</div>
+                <div style="font-size:11px;color:var(--t3);margin-top:2px">System events pushed to external endpoints</div>
+              </div>
+              <div style="padding:13px 15px;display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ hooks }}" as="h" hint-placeholder-count="3">
+                  <div style="border:1px solid var(--bd);border-radius:8px;background:var(--page);padding:11px 12px;display:flex;align-items:center;gap:12px">
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:12px;font-weight:600;white-space:nowrap">{{ h.name }}</span>
+                        <span style="font-size:9px;font-weight:600;padding:1.5px 7px;border-radius:9999px;white-space:nowrap;{{ h.pill }}">{{ h.state }}</span>
+                      </div>
+                      <div class="n" style="font-size:10.5px;color:var(--t3);line-height:1.5;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ h.url }}</div>
+                    </div>
+                    <div style="flex:none;display:flex;align-items:center;gap:8px">
+                      <span class="n" style="font-size:10px;color:var(--t3);white-space:nowrap">{{ h.meta }}</span>
+                      <button style="height:28px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer">Test</button>
+                      <div onClick="{{ h.set }}" style="width:34px;height:19px;flex:none;border-radius:9999px;cursor:pointer;padding:2.5px;display:flex;align-items:center;{{ h.track }}">
+                        <div style="width:14px;height:14px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)"></div>
+                      </div>
+                    </div>
+                  </div>
+                </sc-for>
+                <button style="height:34px;border-radius:8px;background:transparent;border:1px dashed var(--bd2);color:var(--t3);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--ac);color:var(--t1)">Add endpoint</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- active sessions (Security) -->
+          <sc-if value="{{ isSecurity }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">Active Sessions</div>
+                  <div style="font-size:11px;color:var(--t3);margin-top:2px">Devices currently signed in to this workspace</div>
+                </div>
+                <button style="flex:none;height:30px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">Sign out all</button>
+              </div>
+              <div style="display:flex;flex-direction:column">
+                <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:11px;padding:10px 15px;border-bottom:1px solid var(--bd)">
+                    <span style="width:28px;height:28px;flex:none;border-radius:6px;background:var(--hov);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ s.icon }}</span>
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.device }}</span>
+                        <sc-if value="{{ s.isCurrent }}" hint-placeholder-val="{{ false }}">
+                          <span style="flex:none;font-size:9px;font-weight:600;padding:1.5px 7px;border-radius:9999px;background:var(--hov);border:1px solid var(--bd);color:var(--t2);white-space:nowrap">This device</span>
+                        </sc-if>
+                      </div>
+                      <div class="n" style="font-size:10.5px;color:var(--t3);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.meta }}</div>
+                    </div>
+                    <span style="flex:none;font-size:11.5px;color:var(--t2);white-space:nowrap">{{ s.user }}</span>
+                    <button style="flex:none;height:27px;padding:0 10px;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t2);font:500 11px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">Revoke</button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- backup history (Backup & Data) -->
+          <sc-if value="{{ isBackup }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="display:flex;align-items:center;gap:10px;padding:12px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;letter-spacing:-.01em">Recent Snapshots</div>
+                  <div style="font-size:11px;color:var(--t3);margin-top:2px">Point-in-time restores held in your region</div>
+                </div>
+                <button style="flex:none;height:30px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">Back up now</button>
+              </div>
+              <div style="display:flex;flex-direction:column">
+                <sc-for list="{{ snapshots }}" as="s" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;gap:11px;padding:10px 15px;border-bottom:1px solid var(--bd)">
+                    <span style="width:28px;height:28px;flex:none;border-radius:6px;background:var(--hov);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ s.icon }}</span>
+                    <div style="flex:1;min-width:0">
+                      <div class="n" style="font-size:12px;font-weight:500;line-height:1.3">{{ s.when }}</div>
+                      <div style="font-size:10.5px;color:var(--t3);line-height:1.4">{{ s.kind }}</div>
+                    </div>
+                    <span class="n" style="flex:none;font-size:11.5px;color:var(--t2);white-space:nowrap">{{ s.size }}</span>
+                    <span style="flex:none;font-size:9.5px;font-weight:600;padding:2.5px 8px;border-radius:9999px;background:var(--hov);border:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ s.state }}</span>
+                    <button style="flex:none;height:27px;padding:0 10px;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t2);font:500 11px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">Restore</button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- danger zone (Advanced) -->
+          <sc-if value="{{ isAdvanced }}" hint-placeholder-val="{{ false }}">
+            <div style="background:var(--card);border:1px solid var(--bad-bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="padding:12px 15px;border-bottom:1px solid var(--bad-bd);background:var(--bad-soft)">
+                <div style="font-size:13px;font-weight:600;letter-spacing:-.01em;color:var(--bad)">Danger Zone</div>
+                <div style="font-size:11px;color:var(--t2);margin-top:2px">These actions affect the whole workspace and cannot be undone</div>
+              </div>
+              <div style="display:flex;flex-direction:column">
+                <sc-for list="{{ dangers }}" as="d" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;padding:11px 15px;border-bottom:1px solid var(--bd)">
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:12.5px;font-weight:500;line-height:1.3">{{ d.label }}</div>
+                      <div style="font-size:11px;color:var(--t3);line-height:1.4;text-wrap:pretty">{{ d.desc }}</div>
+                    </div>
+                    <button style="flex:none;height:32px;padding:0 12px;border-radius:6px;background:transparent;border:1px solid var(--bad-bd);color:var(--bad);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--bad-soft)">{{ d.action }}</button>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- ─────── RIGHT RAIL ─────── -->
+        <aside style="width:290px;flex:none;flex-direction:column;gap:13px;display:{{ railDisplay }}">
+
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+            <div style="display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+              <span style="flex:1;font-size:13px;font-weight:600;letter-spacing:-.01em">Hostel Profile</span>
+              <button style="display:flex;align-items:center;gap:6px;flex:none;height:28px;padding:0 10px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"></path><path d="M18.4 2.6a2 2 0 0 1 3 3L12 15l-4 1 1-4z"></path></svg>Edit</button>
+            </div>
+            <div style="padding:13px 15px;display:flex;gap:11px;border-bottom:1px solid var(--bd)">
+              <div style="width:44px;height:44px;flex:none;border-radius:8px;background:var(--hov);border:1px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--t2)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-6h6v6"></path></svg>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Daman Hostel For Boys</span>
+                  <span style="flex:none;font-size:9px;font-weight:600;padding:1.5px 7px;border-radius:9999px;background:var(--hov);border:1px solid var(--bd);color:var(--t2)">Active</span>
+                </div>
+                <div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:3px">Street 5, University Road<br/>Peshawar, Khyber Pakhtunkhwa</div>
+              </div>
+            </div>
+            <div style="padding:11px 15px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ contact }}" as="c" hint-placeholder-count="2">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <span style="flex:none;display:flex;color:var(--t3)">{{ c.icon }}</span>
+                  <span class="{{ c.cls }}" style="flex:1;min-width:0;font-size:11.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="padding:11px 15px;display:flex;flex-direction:column;gap:8px">
+              <sc-for list="{{ profileMeta }}" as="p" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:9px">
+                  <span style="flex:none;display:flex;color:var(--t3)">{{ p.icon }}</span>
+                  <span style="flex:1;font-size:11.5px;color:var(--t2);white-space:nowrap">{{ p.label }}</span>
+                  <span class="n" style="flex:none;font-size:11.5px;font-weight:500;white-space:nowrap">{{ p.value }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+            <div style="padding:13px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+              <span style="font-size:13px;font-weight:600;letter-spacing:-.01em">Storage Usage</span>
+            </div>
+            <div style="padding:14px 15px;display:flex;align-items:center;gap:15px">
+              <div style="position:relative;flex:none;width:88px;height:88px">
+                <svg viewBox="0 0 100 100" style="width:88px;height:88px;transform:rotate(-90deg)">
+                  <circle cx="50" cy="50" r="40" fill="none" stroke="var(--hov)" stroke-width="11"></circle>
+                  <circle cx="50" cy="50" r="40" fill="none" stroke="var(--ac)" stroke-width="11" stroke-linecap="round" stroke-dasharray="{{ storageDash }}"></circle>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                  <span class="n" style="font-size:16px;font-weight:600;line-height:1.1">{{ storagePct }}</span>
+                  <span style="font-size:9px;color:var(--t3);line-height:1.3">Used</span>
+                </div>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ storageRows }}" as="s" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:baseline;gap:8px">
+                    <span style="flex:1;font-size:11.5px;color:var(--t2);white-space:nowrap">{{ s.label }}</span>
+                    <span class="n" style="flex:none;font-size:12px;font-weight:500;white-space:nowrap">{{ s.value }}</span>
+                  </div>
+                </sc-for>
+                <button style="height:30px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;margin-top:2px" style-hover="background:var(--hov)">Manage storage</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+            <div style="padding:13px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+              <span style="font-size:13px;font-weight:600;letter-spacing:-.01em">Quick Actions</span>
+            </div>
+            <div style="padding:13px 15px;display:grid;grid-template-columns:1fr 1fr;gap:9px">
+              <sc-for list="{{ quickActions }}" as="q" hint-placeholder-count="4">
+                <button style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap;overflow:hidden" style-hover="background:var(--hov)">
+                  <span style="flex:none;display:flex;color:var(--t2)">{{ q.icon }}</span>
+                  <span style="flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis">{{ q.label }}</span>
+                </button>
+              </sc-for>
+            </div>
+            <div style="padding:0 15px 13px">
+              <button style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;height:34px;border-radius:6px;background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac);font:600 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>Download system report</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:1024},&quot;startTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;General&quot;,&quot;Hostel Profile&quot;,&quot;Configuration&quot;,&quot;Financial&quot;,&quot;App &amp; System&quot;,&quot;Security&quot;,&quot;Notifications&quot;,&quot;Backup &amp; Data&quot;,&quot;Integrations&quot;,&quot;Advanced&quot;],&quot;default&quot;:&quot;Hostel Profile&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;showRail&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;},&quot;flagNewSettings&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+class Component extends DCLogic {
+  state = { theme:'dark', tab:null, v:{}, dirty:{} };
+
+  ic(d, w){
+    return React.createElement('svg', {
+      width:w||15, height:w||15, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor',
+      strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round',
+      dangerouslySetInnerHTML:{ __html:d },
+    });
+  }
+
+  /* ═════ defaults — the single source of truth for every control ═════ */
+  /* Values marked (app) come from HOSTIX-APP/renderer/src/config.js DB.settings.
+     Values marked (new) do not exist in the desktop app — they are cloud-side additions. */
+  defaults(){
+    return {
+      /* app */
+      appName:'Hostyllo', hostelName:'Daman Hostel For Boys', tagline:'Safe & comfortable living',
+      location:'4/1 Kakakhel Street, Danishabad Shaheen Town, Peshawar',
+      phone:'0312-3456789', email:'info@damanhostel.com', currency:'PKR',
+      defaultWANumber:'0312-3456789', receiptCounter:1482, nameFont:'DM Serif Display',
+
+      /* new — workspace preferences */
+      language:'English', dateFormat:'DD MMM YYYY', timeFormat:'12 Hour (AM/PM)', landing:'Dashboard',
+      timezone:'Asia/Karachi (PKT +05:00)', numeralStyle:'Tabular',
+      academicYear:'2026 – 2027', graceDays:3, noticeDays:15,
+      autoAssign:true, roomSharing:true, autoReceipts:true,
+      messDefault:'6,500', partialPayments:true, autoLateFee:true, lateFeePct:2,
+
+      themeMode:'Dark', density:'Compact', reduceMotion:false, sidebarPinned:true, showTips:true,
+
+      twoFactor:true, sessionTimeout:15, passwordPolicy:'Strong (12+, mixed case, symbol)',
+      lockoutAttempts:5, ipAllowlist:false, auditRetention:'24 months', ssoEnforced:false,
+
+      digestTime:'08:00', quietHours:true, escalateOverdue:true,
+
+      autoBackup:true, backupFreq:'Every 6 hours', retention:'90 days', region:'Asia Pacific (Singapore)',
+      exportFormat:'Excel (.xlsx)',
+
+      apiRateLimit:600, maintenanceMode:false, betaFeatures:false, webhookRetries:3,
+    };
+  }
+
+  val(k){
+    const v = this.state.v;
+    return v[k] === undefined ? this.defaults()[k] : v[k];
+  }
+
+  set(k, x){
+    this.setState(s => ({
+      v: Object.assign({}, s.v, { [k]:x }),
+      dirty: Object.assign({}, s.dirty, { [k]:true }),
+    }));
+  }
+
+  /* control builders — trailing `n` marks a setting the desktop app does not have */
+  sel(k, icon, label, desc, options, w, hint, n){
+    return { kind:'select', k, icon, label, desc, options, w:w || '210px', hint, n };
+  }
+  tog(k, icon, label, desc, n){ return { kind:'toggle', k, icon, label, desc, n }; }
+  step(k, icon, label, desc, unit, min, max, n){ return { kind:'step', k, icon, label, desc, unit, min, max, n }; }
+  txt(k, icon, label, desc, w, mono, n){ return { kind:'text', k, icon, label, desc, w:w || '210px', mono, n }; }
+  seg(k, icon, label, desc, segs, n){ return { kind:'seg', k, icon, label, desc, segs, n }; }
+  act(icon, label, desc, actionLabel, n){ return { kind:'action', icon, label, desc, actionLabel, n }; }
+
+  renderVals(){
+    const st = this.state;
+    const I = {
+      globe:'<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+      cal:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+      clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+      coin:'<circle cx="12" cy="12" r="10"/><path d="M12 7v10"/><path d="M9.5 9.5h5"/><path d="M9.5 14.5h5"/>',
+      cap:'<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',
+      grid:'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+      bed:'<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',
+      users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
+      receipt:'<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 9h8"/><path d="M8 13h6"/>',
+      timer:'<path d="M12 22a10 10 0 1 1 10-10"/><path d="M12 7v5l3 2"/><path d="m16 19 2 2 4-4"/>',
+      build:'<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/>',
+      phone:'<path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.229 12 12 0 0 0 5.392 5.388"/>',
+      mail:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+      pin:'<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+      hash:'<line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>',
+      shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+      lock:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+      key:'<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/>',
+      bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+      moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>',
+      db:'<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/>',
+      cloud:'<path d="M12 13v8"/><path d="M4 14.9A5 5 0 0 1 8 6a6 6 0 0 1 11.6 2.1A4.5 4.5 0 0 1 18 21"/><path d="m8 17 4-4 4 4"/>',
+      down:'<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
+      zap:'<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+      flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+      gauge:'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+      code:'<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+      sliders:'<line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/>',
+      plug:'<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"/>',
+      cog:'<circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>',
+      wallet:'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+      msg:'<path d="M12 20a8 8 0 1 0-8-8 8 8 0 0 0 1.3 4.4L4 21z"/>',
+      bank:'<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21v-7"/><path d="M15 21v-7"/><path d="m2 10 10-6 10 6z"/>',
+      box:'<path d="M12 22V12"/><path d="M3.29 7 12 12l8.71-5"/><path d="M20 8.5v7L12 20l-8-4.5v-7L12 4z"/>',
+      laptop:'<rect width="18" height="12" x="3" y="4" rx="2"/><path d="M2 20h20"/>',
+      mobile:'<rect width="12" height="20" x="6" y="2" rx="2"/><path d="M11 18h2"/>',
+      search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/>',
+      list:'<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+      refresh:'<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>',
+      eye:'<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+      copy:'<rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+      trash:'<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+      alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+      wrench:'<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-1.4-1.4z"/>',
+      chart:'<path d="M4 20h16"/><rect width="3.4" height="7" x="5" y="11" rx="1"/><rect width="3.4" height="12" x="10.3" y="6" rx="1"/><rect width="3.4" height="5" x="15.6" y="13" rx="1"/>',
+      swap:'<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
+      x:'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+      staff:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      help:'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+      pulse:'<path d="M3 12h4l3 8 4-16 3 8h4"/>',
+      globe2:'<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>',
+    };
+    const ic = (k, w) => this.ic(I[k], w);
+
+    /* ═════ tab model ═════ */
+    const TABS = [
+      { id:'General', icon:'sliders' },
+      { id:'Hostel Profile', icon:'build' },
+      { id:'Configuration', icon:'box' },
+      { id:'Financial', icon:'wallet' },
+      { id:'App & System', icon:'cog' },
+      { id:'Security', icon:'shield' },
+      { id:'Notifications', icon:'bell' },
+      { id:'Backup & Data', icon:'db' },
+      { id:'Integrations', icon:'plug' },
+      { id:'Advanced', icon:'code' },
+    ];
+    const tab = st.tab || this.props.startTab || 'General';
+
+    const SECTIONS = {
+      'General': [
+        { title:'General Settings', desc:'Basic preferences and configuration for your workspace', rows:[
+          this.sel('currency', 'coin', 'Currency', 'Applied to every amount in the system', ['PKR','USD','EUR','GBP','AED','SAR'], '200px', 'Rendered as PKR 16,000 — never doubled'),
+          this.sel('language', 'globe', 'System language', 'Default language for the application', ['English','\u0627\u0631\u062f\u0648 (Urdu)','\u067e\u069a\u062a\u0648 (Pashto)'], '200px', '', 1),
+          this.sel('dateFormat', 'cal', 'Date format', 'Used across tables, receipts and reports', ['DD MMM YYYY','DD/MM/YYYY','MM/DD/YYYY','YYYY-MM-DD'], '200px', '', 1),
+          this.sel('timeFormat', 'clock', 'Time format', 'Preferred clock for timestamps', ['12 Hour (AM/PM)','24 Hour'], '200px', '', 1),
+          this.sel('timezone', 'globe2', 'Time zone', 'All timestamps and schedules follow this zone', ['Asia/Karachi (PKT +05:00)','Asia/Dubai (GST +04:00)','UTC'], '250px', '', 1),
+          this.sel('landing', 'grid', 'Default page', 'Landing page after sign-in', ['Dashboard','Students','Rooms','Payments','Reports'], '200px', '', 1),
+        ]},
+        { title:'Operational Settings', desc:'Daily operations and business rules — new in the cloud version', rows:[
+          this.tog('autoAssign', 'bed', 'Room auto assignment', 'Assign the best available bed to new students', 1),
+          this.tog('roomSharing', 'users', 'Allow room sharing', 'Permit multiple students in one room, up to room-type capacity', 1),
+          this.tog('autoReceipts', 'receipt', 'Auto generate receipts', 'Issue a receipt as soon as payment clears', 1),
+          this.step('graceDays', 'timer', 'Late fee grace days', 'Days after due date before a late fee applies', 'days', 0, 30, 1),
+          this.step('noticeDays', 'cal', 'Check-out notice period', 'Notice a student must give before leaving', 'days', 0, 60, 1),
+          this.sel('academicYear', 'cap', 'Academic year', 'Groups reports and archives into a session', ['2026 – 2027','2025 – 2026','2024 – 2025'], '200px', 'Sep 01, 2026 – Aug 31, 2027', 1),
+        ]},
+      ],
+      'Hostel Profile': [
+        { title:'Identity', desc:'How this hostel appears on receipts, reports and notices', rows:[
+          this.txt('hostelName', 'build', 'Hostel name', 'Printed at the top of every document', '250px'),
+          this.txt('tagline', 'msg', 'Tagline', 'Sits beneath the name on printed documents', '250px'),
+          this.txt('location', 'pin', 'Location', 'Full street address used on receipts', '300px'),
+          this.txt('phone', 'phone', 'Contact phone', 'Shown to students on receipts and notices', '200px', true),
+          this.txt('email', 'mail', 'Email address', 'Reply-to address for automated mail', '250px'),
+          this.txt('defaultWANumber', 'msg', 'Default WhatsApp number', 'Number reminders are sent from', '200px', true),
+        ]},
+        { title:'Documents', desc:'Numbering and display of generated paperwork', rows:[
+          this.step('receiptCounter', 'receipt', 'Receipt counter', 'Next receipt number to be issued', '', 1, 99999),
+          this.sel('nameFont', 'hash', 'Hostel name font', 'Display face for the name on printed documents', ['DM Serif Display','Playfair Display','Cinzel','Libre Baskerville'], '220px'),
+          this.txt('appName', 'cog', 'System name', 'Product name shown in the interface and reports', '200px'),
+        ]},
+        { title:'Branches', desc:'Multi-branch structure — new in the cloud version', rows:[
+          this.act('build', 'Branches', 'Main, Gulberg and Faisalabad are active on this account', 'Manage branches', 1),
+          this.act('swap', 'Transfer rules', 'Who may move a student between branches', 'Configure', 1),
+        ]},
+      ],
+      'Financial': [
+        { title:'Rent & Mess', desc:'Defaults applied when admitting a student', rows:[
+          this.act('bed', 'Default rents', 'Set per room type under Configuration', 'Open configuration'),
+          this.txt('messDefault', 'receipt', 'Default mess fee', 'Monthly mess charge shown as rent + mess', '200px', true, 2),
+          this.act('wallet', 'Payment methods', 'Cash, JazzCash, EasyPaisa, Bank Transfer, Cheque', 'Edit methods'),
+        ]},
+        { title:'Collection', desc:'Payment behaviour and late-fee automation — new in the cloud version', rows:[
+          this.tog('partialPayments', 'wallet', 'Allow partial payments', 'Accept an amount below the outstanding balance', 1),
+          this.tog('autoLateFee', 'timer', 'Automatic late fee', 'Charge the late fee once grace days lapse', 1),
+          this.step('lateFeePct', 'chart', 'Late fee rate', 'Percentage of outstanding rent per month', '%', 0, 25, 1),
+          this.seg('numeralStyle', 'hash', 'Numeral style', 'Alignment of figures in tables and reports', ['Tabular','Proportional'], 1),
+        ]},
+      ],
+      'App & System': [
+        { title:'Behaviour', desc:'How the interface responds while you work', rows:[
+          this.tog('sidebarPinned', 'list', 'Keep sidebar pinned', 'Leave navigation open on wide screens', 1),
+          this.tog('reduceMotion', 'zap', 'Reduce motion', 'Minimise transitions and animated charts', 1),
+          this.tog('showTips', 'help', 'Show inline tips', 'Explain fields the first time you use them', 1),
+        ]},
+      ],
+      'Security': [
+        { title:'Access Control', desc:'Who can sign in and how they are verified — all new in the cloud version', rows:[
+          this.tog('twoFactor', 'shield', 'Two-factor authentication', 'Required for owner and accountant roles', 1),
+          this.tog('ssoEnforced', 'key', 'Enforce single sign-on', 'Staff must sign in through your identity provider', 1),
+          this.sel('passwordPolicy', 'lock', 'Password policy', 'Minimum strength for all workspace accounts', ['Strong (12+, mixed case, symbol)','Medium (8+, mixed case)','Basic (8+)'], '270px', '', 1),
+          this.step('sessionTimeout', 'timer', 'Auto-lock after', 'Idle time before a session locks', 'min', 5, 120, 1),
+          this.step('lockoutAttempts', 'x', 'Lock after failed attempts', 'Consecutive failures before the account locks', 'tries', 3, 10, 1),
+          this.tog('ipAllowlist', 'globe2', 'Restrict by IP', 'Only allow sign-in from approved networks', 1),
+          this.sel('auditRetention', 'db', 'Audit log retention', 'How long the activity trail is kept', ['24 months','12 months','6 months'], '200px', '', 1),
+        ]},
+      ],
+      'Notifications': [
+        { title:'Delivery Preferences', desc:'When and how the workspace reaches out — new in the cloud version', rows:[
+          this.sel('digestTime', 'clock', 'Daily digest time', 'Summary of dues, complaints and check-outs', ['08:00','09:00','18:00','21:00'], '200px', '', 1),
+          this.tog('quietHours', 'moon', 'Quiet hours', 'Hold non-urgent messages between 22:00 and 07:00', 1),
+          this.tog('escalateOverdue', 'alert', 'Escalate overdue dues', 'Notify the warden after 30 days outstanding', 1),
+        ]},
+      ],
+      'Backup & Data': [
+        { title:'Cloud Backups', desc:'Replaces the desktop app\u2019s manual JSON export and restore', rows:[
+          this.tog('autoBackup', 'cloud', 'Automatic backups', 'Snapshot the workspace on a fixed schedule', 1),
+          this.sel('backupFreq', 'refresh', 'Backup frequency', 'How often a snapshot is taken', ['Every 6 hours','Every 12 hours','Daily','Weekly'], '200px', '', 1),
+          this.sel('retention', 'db', 'Retention window', 'How long snapshots stay restorable', ['90 days','30 days','12 months'], '200px', '', 1),
+          this.sel('region', 'globe2', 'Data residency', 'Region your data is stored and backed up in', ['Asia Pacific (Singapore)','Middle East (UAE)','Europe (Frankfurt)'], '250px', '', 1),
+          this.sel('exportFormat', 'down', 'Export format', 'Default format when you export records', ['Excel (.xlsx)','CSV','PDF'], '200px', '', 1),
+        ]},
+      ],
+      'Integrations': [
+        { title:'Connected Channels', desc:'Third-party services this workspace talks to — new in the cloud version', rows:[
+          this.act('msg', 'WhatsApp Business', 'Rent reminders and receipts to students', 'Configure', 1),
+          this.act('bank', 'Bank feed', 'Match incoming transfers to student payments', 'Configure', 1),
+          this.act('mail', 'Transactional email', 'Invoices, digests and password resets', 'Configure', 1),
+          this.step('webhookRetries', 'refresh', 'Webhook retries', 'Attempts before an endpoint is marked failing', 'tries', 0, 10, 1),
+        ]},
+      ],
+      'Advanced': [
+        { title:'Platform', desc:'Operational limits and release channel — new in the cloud version', rows:[
+          this.step('apiRateLimit', 'gauge', 'API rate limit', 'Requests per minute across all keys', 'rpm', 60, 6000, 1),
+          this.tog('betaFeatures', 'flag', 'Early access features', 'Opt this workspace into unreleased features', 1),
+          this.tog('maintenanceMode', 'wrench', 'Maintenance mode', 'Sign everyone out and show a maintenance notice', 1),
+          this.act('search', 'Search index', 'Rebuild if students or rooms look stale in search', 'Rebuild index', 1),
+        ]},
+      ],
+    };
+
+    /* build the visible rows */
+    const rowsFor = list => list.map(r => {
+      const v = r.k ? this.val(r.k) : null;
+      const base = {
+        icon: ic(r.icon, 15), label:r.label, desc:r.desc,
+        isSelect:false, isToggle:false, isStep:false, isText:false, isSeg:false, isAction:false,
+        hasHint: !!r.hint, hint:r.hint || '',
+        isNew: !!r.n && this.props.flagNewSettings !== false, newLabel: r.n === 2 ? 'New field' : 'New',
+        w:r.w || '210px', cls:r.mono ? 'n' : '', value:v, options:r.options || [], unit:r.unit || '',
+        segs:[], actionLabel:r.actionLabel || '', stateLabel:'', track:'', set:() => {}, inc:() => {}, dec:() => {},
+      };
+      if (r.kind === 'select') {
+        base.isSelect = true;
+        base.set = e => this.set(r.k, e.target.value);
+      } else if (r.kind === 'toggle') {
+        base.isToggle = true;
+        base.stateLabel = v ? 'On' : 'Off';
+        base.track = v
+          ? 'background:var(--ac-cta);justify-content:flex-end'
+          : 'background:var(--bd2);justify-content:flex-start';
+        base.set = () => this.set(r.k, !v);
+      } else if (r.kind === 'step') {
+        base.isStep = true;
+        base.value = typeof v === 'number' ? v.toLocaleString('en-US') : v;
+        const n = parseInt(String(v).replace(/[^0-9]/g, ''), 10) || 0;
+        const stepBy = r.max > 500 ? 60 : r.max > 60 ? 5 : 1;
+        base.inc = () => this.set(r.k, Math.min(r.max, n + stepBy));
+        base.dec = () => this.set(r.k, Math.max(r.min, n - stepBy));
+      } else if (r.kind === 'text') {
+        base.isText = true;
+        base.set = e => this.set(r.k, e.target.value);
+      } else if (r.kind === 'seg') {
+        base.isSeg = true;
+        base.segs = r.segs.map(s => ({
+          label:s,
+          go: () => this.set(r.k, s),
+          style: v === s ? 'background:var(--ac-cta);color:#fff' : 'background:transparent;color:var(--t2)',
+        }));
+      } else {
+        base.isAction = true;
+      }
+      return base;
+    });
+
+    const sections = (SECTIONS[tab] || []).map(s => ({ title:s.title, desc:s.desc, rows:rowsFor(s.rows) }));
+
+    /* ═════ configuration — room types, methods, categories, floors (all from config.js) ═════ */
+    const ROOM_TYPES = [
+      ['1-Seater', 1, 16000, 4],
+      ['2-Seater', 2, 16000, 28],
+      ['3-Seater', 3, 16000, 41],
+      ['4-Seater', 4, 16000, 19],
+      ['5-Seater', 5, 16000, 6],
+    ];
+    const TAG_PANELS = [
+      { title:'Payment Methods', desc:'Offered when recording a payment', addLabel:'Add method',
+        tags:['Cash','JazzCash','EasyPaisa','Bank Transfer','Cheque'].map(t => ({ label:t })) },
+      { title:'Expense Categories', desc:'Used to classify every expense entry', addLabel:'Add category',
+        tags:['Electricity','Water','Gas','Maintenance','Cleaning','Security','Internet','Furniture','Plumbing','Other'].map(t => ({ label:t })) },
+      { title:'Floors', desc:'Floor labels available when creating a room', addLabel:'Add floor',
+        tags:['Ground','1st','2nd','3rd'].map(t => ({ label:t })) },
+    ];
+
+    /* ═════ services (Integrations) ═════ */
+    const SERVICES = [
+      ['WhatsApp API','TWILIO_GW_04', 99.98, '124 ms', .04, 'msg'],
+      ['Bank Sync','PLAID_NODE_V3', 100, '342 ms', 0, 'bank'],
+      ['Cloud Storage','AWS_S3_CENTRAL', 94.21, '612 ms', .62, 'cloud'],
+      ['SMS Gateway','SINCH_DIRECT', 99.99, '45 ms', .02, 'mobile'],
+    ];
+    const services = SERVICES.map(s => {
+      const degraded = s[2] < 99;
+      const bars = [];
+      for (let i = 0; i < 10; i++) {
+        const dip = degraded && (i === 1 || i === 2 || i === 4);
+        bars.push({
+          h: (dip ? 34 : 62 + Math.round(Math.abs(Math.sin(i * 1.3 + s[4] * 9)) * 34)) + '%',
+          title: dip ? 'Degraded window' : 'Healthy',
+          fill: dip
+            ? 'background:var(--warn-soft);border:1px solid var(--warn-bd)'
+            : 'background:var(--ac-soft);border:1px solid var(--ac-bd)',
+        });
+      }
+      return {
+        name:s[0], id:s[1], uptime:s[2].toFixed(2) + '%', latency:s[3], icon:ic(s[5], 14), bars,
+        uptimeColor: degraded ? 'color:var(--warn)' : 'color:var(--t1)',
+      };
+    });
+    const anyDegraded = SERVICES.some(s => s[2] < 99);
+
+    /* ═════ api keys ═════ */
+    const KEY_ACT = [
+      ['Reveal','eye'], ['Copy','copy'], ['Revoke','trash'],
+    ];
+    const apiKeys = [
+      ['Public API','hsty_live_\u2022\u2022\u2022\u202289a2','12 Oct 2025','2 min ago','Read / write','globe2'],
+      ['Reporting Bot','hsty_test_\u2022\u2022\u2022\u202211c0','01 Dec 2025','Never','Read only','chart'],
+      ['Mobile App','hsty_live_\u2022\u2022\u2022\u2022x221','24 Sep 2025','Just now','Full access','mobile'],
+    ].map(k => ({
+      name:k[0], id:k[1], created:k[2], used:k[3], scope:k[4], icon:ic(k[5], 13),
+      actions: KEY_ACT.map(a => ({ name:a[0], icon:ic(a[1], 13) })),
+    }));
+
+    const hookState = this.val('hooks') || { payment:true, inventory:false, checkout:true };
+    const setHook = k => this.set('hooks', Object.assign({}, hookState, { [k]:!hookState[k] }));
+    const hooks = [
+      ['payment','Payment received','https://api.damanhostel.pk/v1/webhooks/payment-sync','214 calls · 24h'],
+      ['checkout','Student checked out','https://api.damanhostel.pk/v1/webhooks/checkout','38 calls · 24h'],
+      ['inventory','Inventory low stock','https://hooks.slack.com/services/T0000/B0000/XXXX','Paused'],
+    ].map(h => {
+      const on = !!hookState[h[0]];
+      return {
+        name:h[1], url:h[2], meta:h[3], state: on ? 'Active' : 'Inactive',
+        pill: on
+          ? 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)'
+          : 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)',
+        track: on
+          ? 'background:var(--ac-cta);justify-content:flex-end'
+          : 'background:var(--bd2);justify-content:flex-start',
+        set: () => setHook(h[0]),
+      };
+    });
+
+    /* ═════ notification matrix ═════ */
+    const CHANNELS = ['Email','SMS','WhatsApp','In-app'];
+    const EVENTS = [
+      ['Rent due reminder','Three days before the due date', [1,1,1,1]],
+      ['Payment received','Receipt to the student and guardian', [1,0,1,1]],
+      ['Overdue escalation','After grace days lapse', [1,1,1,1]],
+      ['New complaint','Raised by a student', [1,0,0,1]],
+      ['Maintenance update','Status change on a request', [0,0,1,1]],
+      ['Cancellation request','Awaiting warden review', [1,0,0,1]],
+      ['Low stock alert','Inventory below reorder level', [1,0,0,1]],
+      ['Staff attendance','Daily summary to the warden', [1,0,0,0]],
+    ];
+    const matrix = this.val('matrix') || {};
+    const notifRows = EVENTS.map((e, ri) => ({
+      label:e[0], desc:e[1],
+      cells: CHANNELS.map((c, ci) => {
+        const key = ri + ':' + ci;
+        const on = matrix[key] === undefined ? !!e[2][ci] : matrix[key];
+        return {
+          track: on
+            ? 'background:var(--ac-cta);justify-content:flex-end'
+            : 'background:var(--bd2);justify-content:flex-start',
+          set: () => this.set('matrix', Object.assign({}, matrix, { [key]: !on })),
+        };
+      }),
+    }));
+
+    /* ═════ sessions / snapshots ═════ */
+    const sessions = [
+      ['Chrome on Windows','Peshawar, PK · 39.57.xx.xx · active now','Khan', true, 'laptop'],
+      ['Hostyllo iOS app','Peshawar, PK · last seen 12 min ago','Faisal', false, 'mobile'],
+      ['Safari on macOS','Lahore, PK · last seen 2 hours ago','Sadia', false, 'laptop'],
+      ['Chrome on Android','Islamabad, PK · last seen yesterday','Imran', false, 'mobile'],
+    ].map(s => ({ device:s[0], meta:s[1], user:s[2], isCurrent:s[3], icon:ic(s[4], 14) }));
+
+    const snapshots = [
+      ['29 Jul 2026, 18:00','Scheduled · every 6 hours','412 MB','Verified'],
+      ['29 Jul 2026, 12:00','Scheduled · every 6 hours','410 MB','Verified'],
+      ['29 Jul 2026, 06:00','Scheduled · every 6 hours','409 MB','Verified'],
+      ['28 Jul 2026, 21:14','Manual · before rent rollover','407 MB','Verified'],
+      ['28 Jul 2026, 18:00','Scheduled · every 6 hours','406 MB','Verified'],
+    ].map(s => ({ when:s[0], kind:s[1], size:s[2], state:s[3], icon:ic('cloud', 14) }));
+
+    const dangers = [
+      { label:'Reset all settings', desc:'Return every preference on this page to its default value', action:'Reset settings' },
+      { label:'Purge archived records', desc:'Permanently delete students and payments archived before Jul 2024', action:'Purge records' },
+      { label:'Delete workspace', desc:'Removes all three branches, students, payments and backups for this account', action:'Delete workspace' },
+    ];
+
+    /* ═════ theme + density cards ═════ */
+    const themeMode = this.val('themeMode');
+    const THEMES = [
+      ['Dark', 'background:#141414', 'background:#0f0f0f'],
+      ['Light', 'background:#ffffff', 'background:#fafafa'],
+      ['Adaptive', 'background:linear-gradient(90deg,#141414 50%,#ffffff 50%)', 'background:rgba(0,0,0,.25)'],
+    ];
+    const themeCards = THEMES.map(t => ({
+      label:t[0], swatch:t[1], swatchBar:t[2],
+      go: () => {
+        this.set('themeMode', t[0]);
+        if (t[0] === 'Dark') this.setState({ theme:'dark' });
+        if (t[0] === 'Light') this.setState({ theme:'light' });
+      },
+      style: themeMode === t[0]
+        ? 'border:1px solid var(--ac);box-shadow:0 0 0 3px var(--ac-soft)'
+        : 'border:1px solid var(--bd)',
+      labelStyle: themeMode === t[0] ? 'color:var(--ac)' : 'color:var(--t2)',
+    }));
+
+    const density = this.val('density');
+    const densities = ['Compact','Cosy','Roomy'].map(d => ({
+      label:d,
+      go: () => this.set('density', d),
+      style: density === d ? 'background:var(--ac-cta);color:#fff' : 'background:transparent;color:var(--t2)',
+    }));
+
+    /* ═════ rail ═════ */
+    const used = 4.82, totalGb = 10;
+    const pct = used / totalGb * 100;
+    const CIRC = 2 * Math.PI * 40;
+
+    const QUICK = [
+      ['Clear cache','refresh'], ['System logs','list'],
+      ['Rebuild search','search'], ['Database health','db'],
+    ];
+
+    const dirtyCount = Object.keys(st.dirty).length;
+
+    const NAV = [
+      ['Main', [
+        ['Dashboard','grid',0], ['Students','cap',0], ['Rooms','bed',0],
+        ['Cancellations','x',3], ['Complaints','alert',4],
+      ]],
+      ['Finance', [
+        ['Payments','wallet',5], ['Expenses','receipt',0], ['Reports','chart',0], ['Funds Transfers','swap',0],
+      ]],
+      ['Inventory', [['Stock Inventory','box',0]]],
+      ['System', [
+        ['Staff','staff',0], ['Users','users',0], ['Maintenance','wrench',2],
+        ['Settings','cog',0], ['Activity Log','pulse',0], ['Help & Support','help',0],
+      ]],
+    ];
+
+    return {
+      theme: st.theme,
+      themeIcon: st.theme === 'dark'
+        ? this.ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>', 16)
+        : ic('moon', 16),
+      toggleTheme: () => this.setState(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
+      navGroups: NAV.map(g => ({
+        label:g[0],
+        items: g[1].map(it => ({
+          label:it[0], icon:ic(it[1], 16),
+          hasBadge: it[2] > 0, badge: it[2],
+          badgeStyle: it[0] === 'Complaints'
+            ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+            : it[0] === 'Cancellations'
+              ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+              : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+          go: () => { const R = {Dashboard:'Dashboard.dc.html',Students:'Students.dc.html',Rooms:'Rooms.dc.html',Cancellations:'Cancellations.dc.html',Complaints:'Complaints.dc.html',Payments:'Payments.dc.html',Expenses:'Expenses.dc.html',Reports:'Reports.dc.html',Settings:'Settings.dc.html'}[it[0]]; if (R) window.location.href = R; },
+          style: it[0] === 'Settings'
+            ? 'background:var(--ac-soft);color:var(--ac);font-weight:600'
+            : 'color:var(--t2);font-weight:500',
+        })),
+      })),
+
+      tabs: TABS.map(t => ({
+        label:t.id, icon:ic(t.icon, 14),
+        go: () => this.setState({ tab:t.id }),
+        style: tab === t.id
+          ? 'color:var(--ac);border-bottom-color:var(--ac)'
+          : 'color:var(--t3);border-bottom-color:transparent',
+      })),
+
+      sections,
+      railDisplay: this.props.showRail === false ? 'none' : 'flex',
+      isConfig: tab === 'Configuration',
+      typeCols: [
+        { label:'Room type', align:'text-align:left' }, { label:'Beds', align:'text-align:right' },
+        { label:'Default rent', align:'text-align:right' }, { label:'Rooms using', align:'text-align:right' },
+        { label:'', align:'text-align:right' },
+      ],
+      roomTypes: ROOM_TYPES.map(t => ({
+        name:t[0], capacity:t[1], rent:t[2].toLocaleString('en-US'), rooms:t[3],
+        actions: [{ name:'Edit', icon:ic('sliders', 13) }, { name:'Remove', icon:ic('trash', 13) }],
+      })),
+      tagPanels: TAG_PANELS,
+      isIntegrations: tab === 'Integrations',
+      isApp: tab === 'App & System',
+      isNotif: tab === 'Notifications',
+      isSecurity: tab === 'Security',
+      isBackup: tab === 'Backup & Data',
+      isAdvanced: tab === 'Advanced',
+
+      services,
+      healthLabel: anyDegraded ? 'One service degraded' : 'All systems normal',
+      healthPill: anyDegraded
+        ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+        : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+
+      keyCols: [
+        { label:'Service', align:'text-align:left' }, { label:'Key ID', align:'text-align:left' },
+        { label:'Created', align:'text-align:left' }, { label:'Last used', align:'text-align:left' },
+        { label:'Permissions', align:'text-align:left' }, { label:'', align:'text-align:right' },
+      ],
+      apiKeys, hooks,
+      channels: CHANNELS, notifRows,
+      sessions, snapshots, dangers,
+      themeCards, densities,
+
+      contact: [
+        { icon:ic('phone', 13), value:this.val('phone'), cls:'n' },
+        { icon:ic('mail', 13), value:this.val('email'), cls:'' },
+      ],
+      profileMeta: [
+        { icon:ic('hash', 13), label:'Hostel ID', value:'HST-001' },
+        { icon:ic('cal', 13), label:'Registered', value:'12 Jan 2024' },
+        { icon:ic('shield', 13), label:'Current plan', value:'Pro' },
+        { icon:ic('timer', 13), label:'Renews', value:'12 Jan 2027' },
+      ],
+      storagePct: pct.toFixed(0) + '%',
+      storageDash: (CIRC * pct / 100).toFixed(2) + ' ' + CIRC.toFixed(2),
+      storageRows: [
+        { label:'Used', value:used.toFixed(2) + ' GB' },
+        { label:'Total', value:totalGb.toFixed(2) + ' GB' },
+        { label:'Documents', value:'2,418 files' },
+      ],
+      quickActions: QUICK.map(q => ({ label:q[0], icon:ic(q[1], 14) })),
+
+      dirty: dirtyCount > 0,
+      dirtyLabel: dirtyCount === 1 ? '1 unsaved change' : dirtyCount + ' unsaved changes',
+      saveStyle: dirtyCount > 0
+        ? 'background:var(--ac-cta);cursor:pointer;box-shadow:0 1px 3px rgba(124,58,237,.4)'
+        : 'background:var(--ac-cta);opacity:.5;cursor:default',
+      save: () => { if (dirtyCount > 0) this.setState({ dirty:{} }); },
+    };
+  }
+}
+
+</script>
+</body>
+</html>

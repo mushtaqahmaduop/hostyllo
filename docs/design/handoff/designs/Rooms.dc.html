@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ui:'Geist',-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --page:#0f0f0f; --card:#141414; --elev:#1c1c1c; --hov:#262626;
+    --bd:#2a2a2a; --bd2:#363636;
+    --t1:#e5e5e5; --t2:#a3a3a3; --t3:#737373;
+    --ac:#8b5cf6; --ac-cta:#7c3aed; --ac-soft:rgba(139,92,246,.12); --ac-bd:rgba(139,92,246,.28);
+    --grad:linear-gradient(100deg,#7c3aed 0%,#a855f7 52%,#22d3ee 100%);
+    --warn:#fbbf24; --warn-soft:rgba(251,191,36,.10); --warn-bd:rgba(251,191,36,.22);
+    --bad:#f87171; --bad-soft:rgba(248,113,113,.10); --bad-bd:rgba(248,113,113,.22);
+    --info:#60a5fa; --info-soft:rgba(96,165,250,.10); --info-bd:rgba(96,165,250,.22);
+    --sh:0 1px 2px rgba(0,0,0,.4);
+    --sh-lg:0 8px 28px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.45);
+  }
+  [data-theme="light"]{
+    --page:#fafafa; --card:#ffffff; --elev:#ffffff; --hov:#f5f5f5;
+    --bd:#e5e5e5; --bd2:#d4d4d4;
+    --t1:#171717; --t2:#525252; --t3:#a3a3a3;
+    --ac:#7c3aed; --ac-cta:#7c3aed; --ac-soft:#f5f3ff; --ac-bd:#ddd6fe;
+    --warn:#b45309; --warn-soft:#fffbeb; --warn-bd:#fde68a;
+    --bad:#b91c1c; --bad-soft:#fef2f2; --bad-bd:#fecaca;
+    --info:#1d4ed8; --info-soft:#eff6ff; --info-bd:#bfdbfe;
+    --sh:0 1px 2px rgba(0,0,0,.04);
+    --sh-lg:0 8px 28px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--page);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  a{color:var(--ac);text-decoration:none}
+  a:hover{color:var(--ac-cta)}
+  .n{font-family:var(--mono);font-feature-settings:'tnum' 1;letter-spacing:-.01em}
+  input,select,textarea{font-family:var(--ui)}
+  input::placeholder,textarea::placeholder{color:var(--t3)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ac)!important}
+  .s::-webkit-scrollbar{width:10px;height:10px}
+  .s::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+  .s::-webkit-scrollbar-track{background:transparent}
+  tbody tr:hover td{background:var(--hov)}
+  @keyframes ov{from{opacity:0}to{opacity:1}}
+  @keyframes md{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--page);color:var(--t1);font-family:var(--ui)">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside style="width:203px;flex:none;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--bd);position:relative">
+    <div style="display:flex;align-items:center;gap:10px;padding:15px 14px 13px;flex:none">
+      <div style="width:30px;height:30px;flex:none;border-radius:8px;background:var(--ac-cta);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">H</div>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:.03em;line-height:1.15">HOSTYLLO</div>
+        <div style="font-size:10.5px;color:var(--t3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Daman Hostel For Boys</div>
+      </div>
+    </div>
+
+    <nav class="s" style="flex:1;overflow-y:auto;padding:2px 8px 96px">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="5">
+        <div style="margin-bottom:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:9px 8px 6px">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+            <a onClick="{{ it.go }}" style="display:flex;align-items:center;gap:10px;height:33px;padding:0 9px;border-radius:6px;font-size:12.5px;cursor:pointer;margin-bottom:1px;{{ it.style }}">
+              <span style="flex:none;display:flex;width:16px;height:16px">{{ it.icon }}</span>
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+              <sc-if value="{{ it.hasBadge }}" hint-placeholder-val="{{ false }}">
+                <span class="n" style="flex:none;font-size:10px;font-weight:600;min-width:17px;height:17px;padding:0 5px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;{{ it.badgeStyle }}">{{ it.badge }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+
+    <!-- quick action stack -->
+    <div style="position:absolute;left:12px;bottom:56px;display:flex;flex-direction:column;align-items:flex-start;gap:7px;z-index:20">
+      <sc-if value="{{ fabOpen }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:5px;padding:6px;border-radius:8px;background:var(--elev);border:1px solid var(--bd2);box-shadow:var(--sh-lg);width:167px">
+          <sc-for list="{{ quickActions }}" as="q" hint-placeholder-count="5">
+            <button style="display:flex;align-items:center;gap:9px;height:31px;padding:0 9px;border:none;border-radius:6px;background:transparent;color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;text-align:left" style-hover="background:var(--hov)">
+              <span style="flex:none;display:flex;color:var(--t2)">{{ q.icon }}</span>
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ q.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+      <button onClick="{{ toggleFab }}" title="Quick actions" style="width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:9999px;background:var(--grad);border:none;color:#fff;cursor:pointer;box-shadow:var(--sh-lg)">
+        <span style="display:flex">{{ fabIcon }}</span>
+      </button>
+    </div>
+
+    <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 13px;border-top:1px solid var(--bd);background:var(--card);position:relative;z-index:21">
+      <div style="width:27px;height:27px;flex:none;border-radius:50%;background:var(--ac-soft);border:1px solid var(--ac-bd);display:flex;align-items:center;justify-content:center;color:var(--ac);font-size:11px;font-weight:600">K</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;line-height:1.2">Khan</div>
+        <div style="font-size:10px;color:var(--t3);line-height:1.3">Administrator</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+  </aside>
+
+  <!-- ════════════ MAIN ════════════ -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+    <!-- header -->
+    <header style="flex:none;display:flex;align-items:center;padding:11px 18px;border-bottom:1px solid var(--bd);background:var(--card)">
+      <div style="flex:none;min-width:0">
+        <h1 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Rooms</h1>
+        <div style="font-size:11.5px;color:var(--t3);margin-top:2px;white-space:nowrap">Manage all hostel rooms, occupancy and availability</div>
+      </div>
+
+      <div style="flex:none;width:36px"></div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;width:326px;height:34px;padding:0 12px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t3);font-size:12.5px;cursor:text" style-hover="border-color:var(--bd2)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Search students, rooms, payments…</span>
+        <span class="n" style="flex:none;font-size:10px;padding:2px 5px;border-radius:4px;background:var(--card);border:1px solid var(--bd);white-space:nowrap">Ctrl K</span>
+      </div>
+
+      <div style="flex:1;min-width:16px"></div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:8px">
+        <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span class="n">Jul 29, 2026</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+
+        <button title="Notifications" style="position:relative;width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+          <span class="n" style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9999px;background:var(--bad);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">6</span>
+        </button>
+
+        <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <span style="display:flex">{{ themeIcon }}</span>
+        </button>
+
+        <div style="display:flex;flex:none;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(124,58,237,.4)">
+          <button onClick="{{ openAdd }}" style="display:flex;align-items:center;gap:6px;height:34px;padding:0 13px;border:none;background:var(--grad);color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add Room</button>
+          <div style="width:1px;background:rgba(255,255,255,.28);flex:none"></div>
+          <button onClick="{{ toggleFab }}" title="More room actions" style="width:26px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border:none;background:var(--grad);color:#fff;cursor:pointer">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ════════════ BODY ════════════ -->
+    <div class="s" style="flex:1;overflow-y:auto;padding:14px 18px 24px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+
+        <!-- ─────── LEFT COLUMN ─────── -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:13px">
+
+          <!-- KPI ROW -->
+          <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column;min-height:132px">
+
+                <sc-if value="{{ k.isChart }}" hint-placeholder-val="{{ true }}">
+                  <div style="padding:12px 13px 0;flex:1;display:flex;flex-direction:column">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+                      <div style="width:26px;height:26px;flex:none;border-radius:6px;background:var(--hov);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ k.icon }}</div>
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.label }}</span>
+                    </div>
+                    <div class="n" style="font-size:22px;font-weight:600;line-height:1.1;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.value }}</div>
+                    <div style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--t3);margin-top:4px;white-space:nowrap">
+                      <span style="display:flex;flex:none">{{ k.deltaIcon }}</span><span class="n">{{ k.delta }}</span>
+                    </div>
+                    <div style="flex:1;min-height:6px"></div>
+                    <svg viewBox="0 0 200 34" preserveAspectRatio="none" style="width:100%;height:30px;display:block">
+                      <polygon points="{{ k.area }}" fill="var(--ac-soft)"></polygon>
+                      <polyline points="{{ k.spark }}" fill="none" stroke="var(--ac)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                    </svg>
+                  </div>
+                </sc-if>
+
+                <sc-if value="{{ k.isDonut }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:12px 13px 13px;flex:1;display:flex;flex-direction:column;align-items:center">
+                    <div style="display:flex;align-items:center;gap:7px;align-self:stretch;margin-bottom:7px">
+                      <div style="width:22px;height:22px;flex:none;border-radius:5px;background:var(--hov);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ k.icon }}</div>
+                      <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.label }}</span>
+                    </div>
+                    <div style="position:relative;flex:none;width:62px;height:62px">
+                      <svg viewBox="0 0 100 100" style="width:62px;height:62px;transform:rotate(-90deg)">
+                        <circle cx="50" cy="50" r="41" fill="none" stroke="var(--hov)" stroke-width="11"></circle>
+                        <circle cx="50" cy="50" r="41" fill="none" stroke="var(--ac)" stroke-width="11" stroke-linecap="round" stroke-dasharray="{{ k.dash }}"></circle>
+                      </svg>
+                      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                        <span class="n" style="font-size:15px;font-weight:600;line-height:1">{{ k.value }}</span>
+                        <span style="font-size:8px;color:var(--t3);line-height:1.3">Occupied</span>
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--t3);margin-top:8px;white-space:nowrap">
+                      <span style="display:flex;flex:none">{{ k.deltaIcon }}</span><span class="n">{{ k.delta }}</span>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- FILTER BAR -->
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:11px 13px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;flex:1;min-width:200px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t3);font-size:12.5px;cursor:text" style-hover="border-color:var(--bd2)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+                <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Search by room number, floor, type or status…</span>
+              </div>
+              <sc-for list="{{ selects }}" as="sl" hint-placeholder-count="3">
+                <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 11px;flex:none;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+                  <span style="color:var(--t3)">{{ sl.prefix }}</span>{{ sl.label }}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+              </sc-for>
+              <div style="display:flex;flex:none;gap:2px;padding:2px;border-radius:8px;background:var(--page);border:1px solid var(--bd)">
+                <button onClick="{{ setGrid }}" title="Grid view" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:6px;cursor:pointer;{{ gridBtnStyle }}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="3" rx="1"></rect><rect width="7" height="7" x="14" y="14" rx="1"></rect><rect width="7" height="7" x="3" y="14" rx="1"></rect></svg>
+                </button>
+                <button onClick="{{ setList }}" title="Table view" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:6px;cursor:pointer;{{ listBtnStyle }}">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h.01"></path><path d="M3 18h.01"></path><path d="M3 6h.01"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M8 6h13"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ statusTabs }}" as="s" hint-placeholder-count="6">
+                <button onClick="{{ s.go }}" style="display:flex;align-items:center;gap:6px;height:27px;padding:0 11px;border-radius:9999px;font:12px/1 var(--ui);cursor:pointer;{{ s.style }}">
+                  {{ s.label }}<span class="n" style="font-size:10px;opacity:.7">{{ s.count }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- GRID VIEW -->
+          <sc-if value="{{ isGrid }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(244px,1fr));gap:12px">
+            <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="8">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px 13px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--sh)" style-hover="border-color:var(--bd2)">
+
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span class="n" style="flex:none;font-size:16px;font-weight:600;letter-spacing:-.01em">{{ r.no }}</span>
+                  <span style="flex:none;font-size:9.5px;font-weight:600;padding:2.5px 7px;border-radius:9999px;background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac);white-space:nowrap">{{ r.type }}</span>
+                  <div style="flex:1;min-width:2px"></div>
+                  <span style="flex:none;font-size:9.5px;font-weight:600;padding:2.5px 7px;border-radius:9999px;white-space:nowrap;{{ r.statusPill }}">{{ r.status }}</span>
+                  <button title="Room QR label" style="width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:var(--page);border:1px solid var(--bd);color:var(--t3);cursor:pointer" style-hover="color:var(--t1);border-color:var(--bd2)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"></rect><rect width="5" height="5" x="16" y="3" rx="1"></rect><rect width="5" height="5" x="3" y="16" rx="1"></rect><path d="M21 16h-3a2 2 0 0 0-2 2v3"></path><path d="M21 21v.01"></path><path d="M12 7v3a2 2 0 0 1-2 2H7"></path><path d="M3 12h.01"></path><path d="M12 3h.01"></path><path d="M12 16v.01"></path><path d="M16 12h1"></path><path d="M21 12v.01"></path><path d="M12 21v-1"></path></svg>
+                  </button>
+                </div>
+
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;font-size:11.5px">
+                  <span style="color:var(--t3);white-space:nowrap">Floor: <b style="color:var(--t1);font-weight:500">{{ r.floor }}</b></span>
+                  <span style="color:var(--t3);white-space:nowrap">Capacity: <b class="n" style="color:var(--t1);font-weight:500">{{ r.capLabel }}</b></span>
+                </div>
+
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+                  <span style="font-size:11.5px;color:var(--t3);white-space:nowrap">Monthly Rent</span>
+                  <span class="n" style="font-size:14px;font-weight:600;white-space:nowrap">PKR {{ r.rent }}</span>
+                </div>
+
+                <div>
+                  <div style="height:5px;border-radius:3px;background:var(--hov);overflow:hidden">
+                    <div style="height:100%;border-radius:3px;background:var(--ac);width:{{ r.pct }}"></div>
+                  </div>
+                  <div class="n" style="font-size:10px;color:var(--t3);text-align:right;margin-top:4px">{{ r.pct }}</div>
+                </div>
+
+                <!-- occupants / state -->
+                <div style="min-height:52px;display:flex;flex-direction:column;gap:7px">
+                  <sc-if value="{{ r.hasStudents }}" hint-placeholder-val="{{ true }}">
+                    <sc-for list="{{ r.students }}" as="sd" hint-placeholder-count="2">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="width:26px;height:26px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;{{ sd.avatar }}">{{ sd.initials }}</span>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:11.5px;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sd.name }}</div>
+                          <div style="font-size:10px;color:var(--t3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sd.course }}</div>
+                        </div>
+                        <sc-if value="{{ sd.hasDue }}" hint-placeholder-val="{{ false }}">
+                          <span class="n" style="flex:none;font-size:9.5px;font-weight:600;padding:3px 7px;border-radius:9999px;background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad);white-space:nowrap">PKR {{ sd.due }} Due</span>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </sc-if>
+
+                  <sc-if value="{{ r.isEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:12px 8px;border-radius:8px;background:var(--page);border:1px dashed var(--bd2)">
+                      <span style="display:flex;color:var(--t3)">{{ r.emptyIcon }}</span>
+                      <span style="font-size:11px;color:var(--t3);text-align:center">No students assigned</span>
+                    </div>
+                  </sc-if>
+
+                  <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 9px;border-radius:8px;{{ r.noteStyle }}">
+                      <span style="flex:none;display:flex;margin-top:1px">{{ r.noteIcon }}</span>
+                      <div style="min-width:0;flex:1">
+                        <div style="font-size:11px;font-weight:500;line-height:1.35">{{ r.noteTitle }}</div>
+                        <div style="font-size:10px;opacity:.85;line-height:1.35;margin-top:2px">{{ r.noteSub }}</div>
+                        <div class="n" style="font-size:10px;opacity:.85;line-height:1.35">{{ r.noteMeta }}</div>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:5px">
+                  <sc-for list="{{ r.amenities }}" as="am" hint-placeholder-count="4">
+                    <span title="{{ am.name }}" style="width:23px;height:23px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:var(--page);border:1px solid var(--bd);color:var(--t3)">{{ am.icon }}</span>
+                  </sc-for>
+                  <div style="flex:1;min-width:2px"></div>
+                  <span style="flex:none;font-size:9.5px;font-weight:600;padding:3px 8px;border-radius:9999px;white-space:nowrap;{{ r.duesPill }}">{{ r.duesLabel }}</span>
+                </div>
+
+                <div style="display:flex;gap:5px;padding-top:9px;border-top:1px solid var(--bd)">
+                  <button onClick="{{ r.view }}" style="flex:1;display:flex;align-items:center;justify-content:center;height:28px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">View</button>
+                  <button style="flex:1;display:flex;align-items:center;justify-content:center;height:28px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Edit</button>
+                  <button style="flex:1;display:flex;align-items:center;justify-content:center;height:28px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;{{ r.assignStyle }}">Assign</button>
+                  <button title="More" style="width:28px;height:28px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="5" r=".4"></circle><circle cx="12" cy="12" r=".4"></circle><circle cx="12" cy="19" r=".4"></circle></svg>
+                  </button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+
+          <!-- TABLE VIEW -->
+          <sc-if value="{{ isList }}" hint-placeholder-val="{{ false }}">
+          <div class="s" style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:auto">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:940px">
+              <thead><tr>
+                <sc-for list="{{ tableCols }}" as="c" hint-placeholder-count="9">
+                  <th style="position:sticky;top:0;z-index:1;font:700 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:11px 14px;background:var(--elev);border-bottom:1px solid var(--bd);white-space:nowrap;{{ c.align }}">{{ c.label }}</th>
+                </sc-for>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="8">
+                  <tr>
+                    <td class="n" style="padding:10px 14px;border-bottom:1px solid var(--bd);font-weight:600;white-space:nowrap">{{ r.no }}</td>
+                    <td style="padding:10px 14px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ r.type }}</td>
+                    <td style="padding:10px 14px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ r.floor }}</td>
+                    <td class="n" style="padding:10px 14px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ r.capLabel }}</td>
+                    <td style="padding:10px 14px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div style="width:56px;height:5px;border-radius:3px;background:var(--hov);overflow:hidden;flex:none">
+                          <div style="height:100%;border-radius:3px;background:var(--ac);width:{{ r.pct }}"></div>
+                        </div>
+                        <span class="n" style="font-size:11px;color:var(--t2)">{{ r.pct }}</span>
+                      </div>
+                    </td>
+                    <td class="n" style="padding:10px 14px;border-bottom:1px solid var(--bd);text-align:right;font-weight:600;white-space:nowrap">{{ r.rent }}</td>
+                    <td style="padding:10px 14px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis">{{ r.studentNames }}</td>
+                    <td style="padding:10px 14px;border-bottom:1px solid var(--bd);white-space:nowrap"><span style="font-size:9.5px;font-weight:600;padding:2.5px 7px;border-radius:9999px;{{ r.statusPill }}">{{ r.status }}</span></td>
+                    <td style="padding:10px 14px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap">
+                      <button onClick="{{ r.view }}" style="height:26px;padding:0 9px;border-radius:5px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">View</button>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+          </sc-if>
+
+          <!-- PAGINATION -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:2px">
+            <span style="font-size:12px;color:var(--t3)">{{ pageLabel }}</span>
+            <div style="display:flex;align-items:center;gap:5px">
+              <button style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t3);cursor:not-allowed">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"></path></svg>
+              </button>
+              <sc-for list="{{ pages }}" as="p" hint-placeholder-count="7">
+                <button style="min-width:28px;height:28px;padding:0 7px;border-radius:6px;font:12px/1 var(--ui);cursor:pointer;{{ p.style }}">{{ p.label }}</button>
+              </sc-for>
+              <button style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);cursor:pointer" style-hover="background:var(--hov)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ─────── RIGHT RAIL — one bounded panel ─────── -->
+        <aside style="width:290px;flex:none;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+
+          <div style="flex:none;display:flex;align-items:center;gap:8px;padding:13px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+            <span style="flex:1;font-size:13px;font-weight:600;letter-spacing:-.01em">Insights &amp; Overview</span>
+            <button title="Refresh" style="width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:transparent;border:1px solid var(--bd);color:var(--t3);cursor:pointer" style-hover="color:var(--t1)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
+            </button>
+          </div>
+
+          <!-- Occupancy by Floor -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+              <span style="font-size:12px;font-weight:600">Occupancy by Floor</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View full report</a>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ floors }}" as="fl" hint-placeholder-count="5">
+                <div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px">
+                    <span style="font-size:11.5px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ fl.label }}</span>
+                    <span class="n" style="flex:none;font-size:10.5px;color:var(--t3)"><b style="color:var(--t1);font-weight:600">{{ fl.pct }}</b> {{ fl.ratio }}</span>
+                  </div>
+                  <div style="height:4px;border-radius:2px;background:var(--hov);overflow:hidden">
+                    <div style="height:100%;border-radius:2px;background:var(--ac);width:{{ fl.pct }}"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Room Type Distribution -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+              <span style="font-size:12px;font-weight:600">Room Type Distribution</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View details</a>
+            </div>
+            <div style="display:flex;align-items:center;gap:13px">
+              <div style="position:relative;flex:none;width:86px;height:86px">
+                <svg viewBox="0 0 100 100" style="width:86px;height:86px;transform:rotate(-90deg)">
+                  <sc-for list="{{ donut }}" as="d" hint-placeholder-count="5">
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="{{ d.color }}" stroke-width="13" stroke-dasharray="{{ d.dash }}" stroke-dashoffset="{{ d.offset }}"></circle>
+                  </sc-for>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                  <span class="n" style="font-size:17px;font-weight:600;line-height:1">{{ totalRooms }}</span>
+                  <span style="font-size:8.5px;color:var(--t3);line-height:1.3">Total Rooms</span>
+                </div>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+                <sc-for list="{{ donut }}" as="d" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;white-space:nowrap">
+                    <span style="width:7px;height:7px;flex:none;border-radius:2px;background:{{ d.color }}"></span>
+                    <span style="flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis">{{ d.label }}</span>
+                    <span class="n" style="flex:none;color:var(--t1);font-weight:500">{{ d.pct }}</span>
+                    <span class="n" style="flex:none;color:var(--t3)">{{ d.countLabel }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vacant Rooms -->
+          <div style="border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:13px 15px 9px">
+              <span style="font-size:12px;font-weight:600">Vacant Rooms</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+            </div>
+            <sc-for list="{{ vacantList }}" as="v" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 15px;cursor:pointer" style-hover="background:var(--hov)">
+                <span class="n" style="flex:none;font-size:11.5px;font-weight:600;width:44px">{{ v.no }}</span>
+                <span style="flex:1;min-width:0;font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.floor }}</span>
+                <span style="flex:none;font-size:11px;color:var(--t3);white-space:nowrap">{{ v.type }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:8px 15px 13px">
+              <a style="font-size:11px;cursor:pointer">+ {{ vacantMore }} more vacant rooms</a>
+            </div>
+          </div>
+
+          <!-- Rooms Needing Maintenance -->
+          <div style="border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:13px 15px 9px">
+              <span style="font-size:12px;font-weight:600">Rooms Needing Maintenance</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+            </div>
+            <sc-for list="{{ attention }}" as="a" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 15px">
+                <span class="n" style="flex:none;font-size:11.5px;font-weight:600;width:44px">{{ a.no }}</span>
+                <span style="flex:1;min-width:0;font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.issue }}</span>
+                <span style="flex:none;font-size:9px;font-weight:600;padding:2.5px 7px;border-radius:9999px;{{ a.pill }}">{{ a.level }}</span>
+              </div>
+            </sc-for>
+            <div style="padding:8px 15px 13px">
+              <a style="font-size:11px;cursor:pointer">+ {{ maintMore }} more maintenance requests</a>
+            </div>
+          </div>
+
+          <!-- Recently Assigned -->
+          <div>
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:13px 15px 9px">
+              <span style="font-size:12px;font-weight:600">Recently Assigned</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+            </div>
+            <sc-for list="{{ recent }}" as="rc" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 15px">
+                <span style="width:24px;height:24px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600;{{ rc.avatar }}">{{ rc.initials }}</span>
+                <span style="flex:1;min-width:0;font-size:11.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ rc.name }}</span>
+                <span class="n" style="flex:none;font-size:10.5px;font-weight:600;color:var(--t2)">{{ rc.no }}</span>
+                <span class="n" style="flex:none;font-size:9.5px;color:var(--t3);white-space:nowrap">{{ rc.when }}</span>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- explicit end of panel -->
+          <div style="flex:none;padding:11px 15px;border-top:1px solid var(--bd);background:var(--elev);display:flex;align-items:center;gap:9px">
+            <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:32px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>Export inventory</button>
+            <span class="n" style="flex:none;font-size:9.5px;color:var(--t3);white-space:nowrap">Updated 2m ago</span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ ADD NEW ROOM ════════════ -->
+  <sc-if value="{{ isAdd }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;background:rgba(0,0,0,.64);display:flex;align-items:center;justify-content:center;padding:32px 20px;z-index:60;animation:ov .14s ease">
+    <div onClick="{{ stop }}" style="width:800px;max-width:100%;max-height:calc(100vh - 64px);display:flex;flex-direction:column;background:var(--elev);border:1px solid var(--bd2);border-radius:12px;box-shadow:var(--sh-lg);animation:md .2s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+
+      <div style="flex:none;display:flex;align-items:center;gap:11px;padding:14px 18px;border-bottom:1px solid var(--bd)">
+        <span style="flex:1;font-size:14.5px;font-weight:600;letter-spacing:-.01em">Add New Room</span>
+        <button onClick="{{ close }}" style="width:27px;height:27px;flex:none;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="s" style="flex:1;overflow-y:auto;padding:16px 18px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+
+          <div>
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Room Number <span style="color:var(--bad)">*</span></label>
+            <input placeholder="e.g. A-101" class="n" style="width:100%;height:35px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px"/>
+          </div>
+          <div>
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Floor <span style="color:var(--bad)">*</span></label>
+            <div style="position:relative">
+              <select style="width:100%;height:35px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 11px;color:var(--t3);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>Select Floor</option><option>Ground</option><option>First</option><option>Second</option><option>Third</option><option>Fourth</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:12px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Room Type <span style="color:var(--bad)">*</span></label>
+            <div style="position:relative">
+              <select style="width:100%;height:35px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 11px;color:var(--t3);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>Select Type</option><option>1 Seater</option><option>2 Seater</option><option>3 Seater</option><option>4 Seater</option><option>5 Seater</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:12px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Monthly Rent (PKR) <span style="color:var(--bad)">*</span></label>
+            <input value="0.00" class="n" style="width:100%;height:35px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px"/>
+          </div>
+
+          <div style="grid-column:1/2">
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Total Beds <span style="color:var(--bad)">*</span></label>
+            <div style="position:relative">
+              <select style="width:100%;height:35px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 11px;color:var(--t3);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>Select Beds</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:12px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+
+          <div style="grid-column:2/4">
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Amenities</label>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:35px">
+              <sc-for list="{{ amenityOpts }}" as="ao" hint-placeholder-count="4">
+                <button style="display:flex;align-items:center;gap:5px;height:27px;padding:0 9px;border-radius:6px;font:500 11px/1 var(--ui);cursor:pointer;white-space:nowrap;{{ ao.style }}">
+                  <span style="display:flex;flex:none">{{ ao.icon }}</span>{{ ao.name }}
+                  <sc-if value="{{ ao.on }}" hint-placeholder-val="{{ true }}">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" style="opacity:.6"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                  </sc-if>
+                </button>
+              </sc-for>
+              <a style="font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;margin-left:2px">+ Add</a>
+            </div>
+          </div>
+
+          <div style="grid-column:4/5;grid-row:2/4">
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Room Photo</label>
+            <div style="height:calc(100% - 22px);min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:8px;background:var(--page);border:1px dashed var(--bd2);cursor:pointer;padding:14px" style-hover="border-color:var(--ac-bd)">
+              <div style="width:36px;height:36px;border-radius:8px;background:var(--hov);display:flex;align-items:center;justify-content:center;color:var(--t3)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+              </div>
+              <span style="font-size:11.5px;font-weight:500;color:var(--t1)">Upload Photo</span>
+              <span style="font-size:10px;color:var(--t3);text-align:center;line-height:1.4">JPG, PNG up to 5MB</span>
+            </div>
+          </div>
+
+          <div style="grid-column:1/3">
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Notes <span style="color:var(--t3);font-weight:400">(Optional)</span></label>
+            <textarea placeholder="Enter any additional notes…" style="width:100%;height:74px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:9px 11px;color:var(--t1);font-size:12.5px;resize:vertical;line-height:1.5"></textarea>
+          </div>
+
+          <div style="grid-column:3/4">
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Room Color Tag</label>
+            <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-top:5px">
+              <sc-for list="{{ colorTags }}" as="ct" hint-placeholder-count="8">
+                <span title="{{ ct.name }}" style="width:20px;height:20px;flex:none;border-radius:50%;cursor:pointer;background:{{ ct.hex }};{{ ct.ring }}"></span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:13px 18px;border-top:1px solid var(--bd)">
+        <span style="flex:1;font-size:11px;color:var(--t3)"><span style="color:var(--bad)">*</span> Required fields</span>
+        <button onClick="{{ close }}" style="height:34px;padding:0 15px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Save Draft</button>
+        <button onClick="{{ close }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 16px;border-radius:6px;background:var(--grad);border:none;color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;box-shadow:0 1px 3px rgba(124,58,237,.4)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path><path d="M6 8v9"></path></svg>Create Room</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:1024}}">
+class Component extends DCLogic {
+  state = { theme:'dark', view:'grid', status:'All', modal:null, fab:true };
+
+  ic(d, w){
+    return React.createElement('svg', {
+      width:w||15, height:w||15, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor',
+      strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round',
+      dangerouslySetInnerHTML:{ __html:d },
+    });
+  }
+
+  renderVals(){
+    const st = this.state;
+    const fmt = n => n.toLocaleString('en-US');
+    const initials = n => n.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+
+    /* ═════ one source of truth: 115 rooms, 300 beds, 252 occupied (84%) ═════ */
+    const TYPES = [
+      { seats:1, count:22, rent:42000, label:'1 Seater', color:'#8b5cf6' },
+      { seats:2, count:34, rent:36000, label:'2 Seater', color:'#a78bfa' },
+      { seats:3, count:31, rent:28000, label:'3 Seater', color:'#c4b5fd' },
+      { seats:4, count:23, rent:24000, label:'4 Seater', color:'#6d28d9' },
+      { seats:5, count:5,  rent:20000, label:'5 Seater', color:'#4c1d95' },
+    ];
+    const FLOORS = ['Ground','First','Second','Third','Fourth'];
+    const PREFIX = ['A','B','C','D','E'];
+
+    const house = [];
+    const seq = [0,0,0,0,0];
+    TYPES.forEach((t, ti) => {
+      for (let i = 0; i < t.count; i++) {
+        const fi = (ti + i) % 5;
+        seq[fi] += 1;
+        house.push({
+          no: PREFIX[fi] + '-' + (fi + 1) + String(seq[fi]).padStart(2,'0'),
+          cap:t.seats, rent:t.rent, type:t.label,
+          floor:FLOORS[fi], floorIdx:fi, occ:0,
+        });
+      }
+    });
+    house.sort((a,b) => a.floorIdx - b.floorIdx || a.no.localeCompare(b.no));
+
+    let left = 252;
+    house.forEach((r, i) => {
+      if (left <= 0) return;
+      let want = r.cap;
+      if (i % 9 === 4) want = Math.max(0, r.cap - 1);
+      if (i % 17 === 8) want = 0;
+      const take = Math.min(want, left);
+      r.occ = take; left -= take;
+    });
+    for (let i = house.length - 1; i >= 0 && left > 0; i--) {
+      const add = Math.min(house[i].cap - house[i].occ, left);
+      house[i].occ += add; left -= add;
+    }
+
+    const MAINT = {
+      'B-202':{ issue:'Electrical wiring issue', level:'High',   ref:'MT-245', due:'31 Jul 2026' },
+      'C-304':{ issue:'Plumbing leakage',        level:'Medium', ref:'MT-251', due:'03 Aug 2026' },
+      'D-401':{ issue:'Fan not working',         level:'Low',    ref:'MT-256', due:'07 Aug 2026' },
+      'A-107':{ issue:'Window latch broken',     level:'Low',    ref:'MT-258', due:'09 Aug 2026' },
+    };
+    const RESERVED = { 'C-301':{ name:'Hamza Ahmad', when:'01 Aug 2026' } };
+    const CLEANING = { 'B-203':1 };
+    house.forEach(r => {
+      if (MAINT[r.no]) { r.status = 'Maintenance'; r.occ = 0; }
+      else if (RESERVED[r.no]) { r.status = 'Reserved'; r.occ = 0; }
+      else if (CLEANING[r.no]) r.status = 'Cleaning';
+      else if (r.occ === 0) r.status = 'Vacant';
+      else r.status = 'Occupied';
+    });
+
+    const totalRooms = house.length;
+    const totalBeds = house.reduce((a,r) => a + r.cap, 0);
+    const occBeds = house.reduce((a,r) => a + r.occ, 0);
+    const vacBeds = totalBeds - occBeds;
+    const occRate = Math.round(occBeds / totalBeds * 100);
+    const revenue = house.filter(r => r.occ > 0).reduce((a,r) => a + r.rent, 0);
+
+    /* ═════ KPI cards ═════ */
+    const mkSpark = seed => {
+      const pts = [];
+      for (let i = 0; i <= 11; i++) {
+        const n = Math.sin(i * .8 + seed) * 6 + Math.sin(i * 2.1 + seed * 2) * 3;
+        pts.push([i * (200/11), 22 - n]);
+      }
+      const line = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+      return { spark:line, area:line + ' 200,34 0,34' };
+    };
+    const up = this.ic('<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>', 11);
+    const down = this.ic('<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>', 11);
+    const CIRC62 = 2 * Math.PI * 41;
+
+    const kpis = [
+      { label:'Total Rooms',    value:fmt(totalRooms), delta:'5 this month',        icon:this.ic('<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>', 14),         isChart:true, isDonut:false, deltaIcon:up,   seed:.4 },
+      { label:'Total Beds',     value:fmt(totalBeds),  delta:'12 this month',       icon:this.ic('<path d="M2 9V5a2 2 0 0 1 2-2h2"/><path d="M2 15v4a2 2 0 0 0 2 2h2"/><path d="M18 3h2a2 2 0 0 1 2 2v4"/><path d="M18 21h2a2 2 0 0 0 2-2v-4"/><rect width="8" height="8" x="8" y="8" rx="1"/>', 14), isChart:true, isDonut:false, deltaIcon:up,   seed:1.2 },
+      { label:'Occupied Beds',  value:fmt(occBeds),    delta:'8 this month',        icon:this.ic('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', 14),                     isChart:true, isDonut:false, deltaIcon:up,   seed:2.1 },
+      { label:'Vacant Beds',    value:fmt(vacBeds),    delta:'4 this month',        icon:this.ic('<path d="M9 22V12h6v10"/><path d="m2 10.6 10-8 10 8"/>', 14),                                                 isChart:true, isDonut:false, deltaIcon:down, seed:2.9 },
+      { label:'Occupancy Rate', value:occRate + '%',   delta:'6% vs last month',    icon:this.ic('<path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>', 12),                     isChart:false, isDonut:true, deltaIcon:up, dash:(CIRC62 * occRate / 100).toFixed(1) + ' ' + CIRC62.toFixed(1) },
+      { label:'Monthly Revenue', value:'PKR ' + fmt(revenue), delta:'18.6% vs last month', icon:this.ic('<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>', 14),           isChart:true, isDonut:false, deltaIcon:up,   seed:4.4 },
+    ].map(k => k.isChart ? Object.assign(k, mkSpark(k.seed)) : k);
+
+    /* ═════ status filters ═════ */
+    const STATUSES = ['All','Vacant','Occupied','Maintenance','Reserved','Cleaning'];
+    const statusTabs = STATUSES.map(s => ({
+      label:s,
+      count: s === 'All' ? totalRooms : house.filter(r => r.status === s).length,
+      go: () => this.setState({ status:s }),
+      style: st.status === s
+        ? 'background:var(--ac-cta);border:1px solid var(--ac-cta);color:#fff;font-weight:600'
+        : 'background:var(--page);border:1px solid var(--bd);color:var(--t2);font-weight:500',
+    }));
+
+    /* ═════ roster for the visible page ═════ */
+    const ROSTER = {
+      'A-101':[['Umar Farooq','BSCS - 2nd Year',0]],
+      'A-102':[['Gauhar Rehman','BSCS - 2nd Year',0],['Adnan Khan','BBA - 1st Year',0]],
+      'A-103':[['Asif Raza','BSCS - 3rd Year',0],['Rahid Ullah','BCOM - 2nd Year',2000]],
+      'A-105':[['Muhammad Talha','BSSE - 2nd Year',0],['Mubeen','BBA - 1st Year',0]],
+      'A-106':[['Zain Abbas','BSCS - 2nd Year',0],['Saad Iqbal','Pharm-D - 1st Year',0]],
+      'B-201':[['Ali Hassan','BCOM - 1st Year',1000],['Hamid Noor','BS Nursing - 2nd Year',0]],
+      'B-203':[['Sifat Ullah','BS Health Sci. - 1st Year',0]],
+      'B-204':[['Abdullah Shah','BS Civil Eng. - 3rd Year',0],['Ahmad Noor','BS Law - 1st Year',0],['Danyal Shah','FSc Pre-Med',0]],
+      'C-302':[['Azeem Ullah','FSc Pre-Medical',0],['Kauser Rehman','MDCAT Prep',0]],
+      'C-303':[['Zabit Khan','BSCS - 4th Year',0],['Naveed Anjum','BBA - 2nd Year',0]],
+    };
+    const AMENITY = {
+      wifi:['Wi-Fi','<path d="M12 20h.01"/><path d="M2 8.82a15 15 0 0 1 20 0"/><path d="M5 12.859a10 10 0 0 1 14 0"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/>'],
+      ac:['Air conditioning','<path d="M12 2v20"/><path d="m17 5-5 5-5-5"/><path d="m17 19-5-5-5 5"/><path d="M2 12h20"/>'],
+      bath:['Attached bath','<path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4.683 3 4 3.683 4 4.5V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5H4"/><path d="M8 5 5 8"/>'],
+      tv:['TV','<rect width="20" height="15" x="2" y="3" rx="2"/><path d="m8 21 4-4 4 4"/>'],
+      balcony:['Balcony','<path d="M3 21h18"/><path d="M5 21V10l7-6 7 6v11"/><path d="M9 21v-6h6v6"/>'],
+    };
+    const avatarSet = [
+      'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac)',
+      'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+    ];
+    const statusPill = s => {
+      if (s === 'Maintenance') return 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)';
+      if (s === 'Vacant') return 'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac)';
+      return 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)';
+    };
+
+    const pool = st.status === 'All' ? house : house.filter(r => r.status === st.status);
+    const rooms = pool.slice(0, 8).map(r => {
+      const roster = ROSTER[r.no] || [];
+      const maint = MAINT[r.no];
+      const resv = RESERVED[r.no];
+      const totalDue = roster.reduce((a,s) => a + s[2], 0);
+      const amenKeys = r.cap >= 4 ? ['wifi','ac','bath','tv','balcony']
+                     : r.cap === 3 ? ['wifi','ac','bath','tv']
+                     : ['wifi','ac','bath'];
+      return {
+        no:r.no, type:r.type, floor:r.floor, status:r.status,
+        statusPill: statusPill(r.status),
+        capLabel: r.occ + '/' + r.cap + (r.cap === 1 ? ' Bed' : ' Beds'),
+        pct: Math.round(r.occ / r.cap * 100) + '%',
+        rent: fmt(r.rent),
+        hasStudents: roster.length > 0,
+        isEmpty: roster.length === 0 && !maint && !resv,
+        emptyIcon: this.ic('<path d="M18 21a8 8 0 0 0-16 0"/><circle cx="10" cy="8" r="5"/><path d="M22 20c0-3.37-2-6.5-4-8a5 5 0 0 0-.45-8.3"/>', 18),
+        students: roster.map((s,i) => ({
+          name:s[0], course:s[1], initials:initials(s[0]),
+          avatar:avatarSet[i % 2], hasDue:s[2] > 0, due:fmt(s[2]),
+        })),
+        hasNote: !!maint || !!resv,
+        noteStyle: maint
+          ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+          : 'background:var(--info-soft);border:1px solid var(--info-bd);color:var(--info)',
+        noteIcon: maint
+          ? this.ic('<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>', 14)
+          : this.ic('<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>', 14),
+        noteTitle: maint ? maint.issue : 'Reserved for',
+        noteSub: maint ? 'Maintenance #' + maint.ref : resv ? resv.name : '',
+        noteMeta: maint ? 'Due: ' + maint.due : resv ? 'Check-in: ' + resv.when : '',
+        duesLabel: totalDue > 0 ? 'PKR ' + fmt(totalDue) + ' Due' : 'No Dues',
+        duesPill: totalDue > 0
+          ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+          : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+        assignStyle: (r.occ < r.cap && r.status !== 'Maintenance')
+          ? '' : 'opacity:.4;cursor:not-allowed',
+        amenities: amenKeys.map(k => ({ name:AMENITY[k][0], icon:this.ic(AMENITY[k][1], 12) })),
+        studentNames: roster.length ? roster.map(s => s[0]).join(', ') : '—',
+        view: () => {},
+      };
+    });
+
+    /* ═════ right rail ═════ */
+    const floors = FLOORS.map((f, i) => {
+      const grp = house.filter(r => r.floorIdx === i);
+      const cap = grp.reduce((a,r) => a + r.cap, 0);
+      const occ = grp.reduce((a,r) => a + r.occ, 0);
+      const p = cap ? Math.round(occ / cap * 100) : 0;
+      return { label:f + ' Floor', pct:p + '%', ratio:'(' + occ + '/' + cap + ')' };
+    });
+
+    const CIRC = 2 * Math.PI * 38;
+    let acc = 0;
+    const donut = TYPES.map(t => {
+      const frac = t.count / totalRooms;
+      const seg = {
+        label:t.label, color:t.color,
+        pct: Math.round(frac * 100) + '%',
+        countLabel: '(' + t.count + ')',
+        dash: (CIRC * frac).toFixed(2) + ' ' + CIRC.toFixed(2),
+        offset: (-CIRC * acc).toFixed(2),
+      };
+      acc += frac;
+      return seg;
+    });
+
+    const allVacant = house.filter(r => r.status === 'Vacant');
+    const vacantList = allVacant.slice(0, 4).map(r => ({ no:r.no, floor:r.floor, type:r.type }));
+
+    const maintKeys = Object.keys(MAINT);
+    const attention = maintKeys.slice(0, 3).map(no => ({
+      no, issue:MAINT[no].issue, level:MAINT[no].level,
+      pill: MAINT[no].level === 'High'
+        ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+        : MAINT[no].level === 'Medium'
+          ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+          : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+    }));
+
+    const recent = [
+      ['Umar Farooq','A-101','26 Jul, 10:15 AM'],
+      ['Asif Raza','A-103','25 Jul, 04:30 PM'],
+      ['Ali Hassan','B-201','24 Jul, 09:10 AM'],
+    ].map((r,i) => ({ name:r[0], no:r[1], when:r[2], initials:initials(r[0]), avatar:avatarSet[i % 2] }));
+
+    /* ═════ modal bits ═════ */
+    const amenityOpts = [
+      ['wifi', true], ['ac', true], ['bath', true], ['balcony', false],
+    ].map(a => ({
+      name: AMENITY[a[0]][0] === 'Air conditioning' ? 'AC' : AMENITY[a[0]][0] === 'Wi-Fi' ? 'WiFi' : AMENITY[a[0]][0],
+      icon: this.ic(AMENITY[a[0]][1], 12),
+      on: a[1],
+      style: a[1]
+        ? 'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac)'
+        : 'background:var(--page);border:1px solid var(--bd);color:var(--t2)',
+    }));
+
+    const colorTags = [
+      ['Violet','#8b5cf6'], ['Blue','#3b82f6'], ['Green','#22c55e'], ['Olive','#a3a635'],
+      ['Amber','#f59e0b'], ['Orange','#f97316'], ['Pink','#ec4899'], ['Grey','#71717a'],
+    ].map((c,i) => ({
+      name:c[0], hex:c[1],
+      ring: i === 0 ? 'box-shadow:0 0 0 2px var(--elev),0 0 0 4px var(--ac)' : '',
+    }));
+
+    const quickActions = [
+      ['Add Room','<path d="M5 12h14"/><path d="M12 5v14"/>'],
+      ['Bulk Import Rooms','<path d="M12 3v12"/><path d="m17 8-5-5-5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>'],
+      ['Generate QR Labels','<rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M12 3h.01"/><path d="M3 12h.01"/>'],
+      ['Export Excel','<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>'],
+      ['Print Floor Map','<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/>'],
+    ].map(q => ({ label:q[0], icon:this.ic(q[1], 14) }));
+
+    const tableCols = [
+      ['Room',''],['Type',''],['Floor',''],['Beds',''],['Occupancy',''],
+      ['Rent','text-align:right'],['Students',''],['Status',''],['','text-align:right'],
+    ].map(c => ({ label:c[0], align:c[1] }));
+
+    const pages = ['1','2','3','4','5','…','10'].map(p => ({
+      label:p,
+      style: p === '1'
+        ? 'background:var(--ac-cta);border:1px solid var(--ac-cta);color:#fff;font-weight:600'
+        : 'background:var(--card);border:1px solid var(--bd);color:var(--t2)',
+    }));
+
+    const NAV = [
+      ['Main', [
+        ['Dashboard','<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',0],
+        ['Students','<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',0],
+        ['Rooms','<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',0],
+        ['Cancellations','<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',3],
+        ['Complaints','<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',4],
+      ]],
+      ['Finance', [
+        ['Payments','<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',0],
+        ['Expenses','<path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>',0],
+        ['Reports','<path d="M4 20h16"/><rect width="3.4" height="7" x="5" y="11" rx="1"/><rect width="3.4" height="12" x="10.3" y="6" rx="1"/><rect width="3.4" height="5" x="15.6" y="13" rx="1"/>',0],
+        ['Funds Transfers','<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',0],
+      ]],
+      ['Inventory', [
+        ['Stock Inventory','<path d="M12 22V12"/><path d="M3.29 7 12 12l8.71-5"/><path d="M20 8.5v7L12 20l-8-4.5v-7L12 4z"/>',0],
+      ]],
+      ['System', [
+        ['Staff','<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',0],
+        ['Users','<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',0],
+        ['Maintenance','<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-1.4-1.4z"/>',2],
+        ['Settings','<circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>',0],
+        ['Backup & Restore','<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>',0],
+        ['Activity Log','<path d="M3 12h4l3 8 4-16 3 8h4"/>',0],
+        ['Help & Support','<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',0],
+      ]],
+    ];
+
+    return {
+      theme: st.theme,
+      themeIcon: st.theme === 'dark'
+        ? this.ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>', 16)
+        : this.ic('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>', 16),
+      toggleTheme: () => this.setState(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
+      navGroups: NAV.map(g => ({
+        label:g[0],
+        items: g[1].map(it => ({
+          label:it[0],
+          icon:this.ic(it[1], 16),
+          hasBadge: it[2] > 0,
+          badge: it[2],
+          badgeStyle: it[0] === 'Complaints'
+            ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+            : it[0] === 'Cancellations'
+              ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+              : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+          go: () => { const R = {Dashboard:'Dashboard.dc.html',Students:'Students.dc.html',Rooms:'Rooms.dc.html',Cancellations:'Cancellations.dc.html',Complaints:'Complaints.dc.html',Payments:'Payments.dc.html',Expenses:'Expenses.dc.html',Reports:'Reports.dc.html',Settings:'Settings.dc.html'}[it[0]]; if (R) window.location.href = R; },
+          style: it[0] === 'Rooms'
+            ? 'background:var(--ac-soft);color:var(--ac);font-weight:600'
+            : 'color:var(--t2);font-weight:500',
+        })),
+      })),
+
+      kpis, statusTabs, rooms, floors, donut, vacantList, attention, recent,
+      amenityOpts, colorTags, quickActions, tableCols, pages,
+      selects: [
+        { prefix:'', label:'All Floors' },
+        { prefix:'', label:'All Room Types' },
+        { prefix:'Sort: ', label:'Room #' },
+      ],
+      totalRooms: fmt(totalRooms),
+      vacantMore: Math.max(0, allVacant.length - 4),
+      maintMore: Math.max(0, maintKeys.length - 3),
+      pageLabel: 'Showing 1 to ' + rooms.length + ' of ' + fmt(pool.length) + ' rooms',
+      isGrid: st.view === 'grid',
+      isList: st.view === 'list',
+      gridBtnStyle: st.view === 'grid' ? 'background:var(--ac-cta);color:#fff' : 'background:transparent;color:var(--t3)',
+      listBtnStyle: st.view === 'list' ? 'background:var(--ac-cta);color:#fff' : 'background:transparent;color:var(--t3)',
+      setGrid: () => this.setState({ view:'grid' }),
+      setList: () => this.setState({ view:'list' }),
+      fabOpen: st.fab,
+      fabIcon: st.fab
+        ? this.ic('<path d="M18 6 6 18"/><path d="m6 6 12 12"/>', 16)
+        : this.ic('<path d="M5 12h14"/><path d="M12 5v14"/>', 16),
+      toggleFab: () => this.setState(s => ({ fab: !s.fab })),
+      isAdd: st.modal === 'add',
+      openAdd: () => this.setState({ modal:'add' }),
+      close: () => this.setState({ modal:null }),
+      stop: (e) => { if (e && e.stopPropagation) e.stopPropagation(); },
+    };
+  }
+}
+</script>
+</body>
+</html>

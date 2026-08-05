@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anthropic / Claude — Design System Teardown</title>
+<style>
+:root{
+  /* ---- MARKETING SURFACE (anthropic.com) ---- */
+  --slate-dark:#141413;
+  --slate-medium:#3d3d3a;
+  --cloud-dark:#87867f;
+  --cloud-medium:#b0aea5;
+  --stone:#cccbc8;
+  --oat-warm:#e3dacc;
+  --manilla:#f5e3c7;
+  --ivory-medium:#f0eee6;
+  --ivory-light:#faf9f5;
+  --clay:#d97757;
+  --clay-deep:#c6613f;
+
+  /* ---- PRODUCT SURFACE (claude.com / app) ---- */
+  --p-primary:#cc785c;
+  --p-primary-active:#a9583e;
+  --p-primary-disabled:#e6dfd8;
+  --p-ink:#141413;
+  --p-body:#3d3d3a;
+  --p-body-strong:#252523;
+  --p-muted:#6c6a64;
+  --p-muted-soft:#8e8b82;
+  --p-hairline:#e6dfd8;
+  --p-hairline-soft:#ebe6df;
+  --p-canvas:#faf9f5;
+  --p-surface-soft:#f5f0e8;
+  --p-surface-card:#efe9de;
+  --p-surface-cream-strong:#e8e0d2;
+  --p-surface-dark:#181715;
+  --p-surface-dark-elevated:#252320;
+  --p-surface-dark-soft:#1f1e1b;
+  --p-on-dark:#faf9f5;
+  --p-on-dark-soft:#a09d96;
+  --p-teal:#5db8a6;
+  --p-amber:#e8a55a;
+  --p-success:#5db872;
+  --p-warning:#d4a017;
+  --p-error:#c64545;
+
+  /* ---- TYPE ---- */
+  --font-serif:"Anthropic Serif",ui-serif,Georgia,Cambria,"Times New Roman",serif;
+  --font-sans:"Anthropic Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"Anthropic Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  --unit:4px;
+  --max:1120px;
+
+  /* ---- MOTION ---- */
+  --dur-fast:120ms;
+  --dur-base:180ms;
+  --dur-slow:280ms;
+  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --ease-inout:cubic-bezier(.4,0,.2,1);
+
+  /* live theme slots */
+  --bg:var(--ivory-medium);
+  --card:var(--ivory-light);
+  --feature:var(--manilla);
+  --deep:var(--oat-warm);
+  --text:var(--slate-dark);
+  --text-2:var(--slate-medium);
+  --text-mute:var(--cloud-dark);
+  --rule:var(--stone);
+  --accent:var(--clay);
+  --accent-hover:var(--clay-deep);
+}
+html[data-theme="dark"]{
+  --bg:#181715;
+  --card:#1f1e1b;
+  --feature:#252320;
+  --deep:#252320;
+  --text:#faf9f5;
+  --text-2:#d8d5cd;
+  --text-mute:#a09d96;
+  --rule:#35322d;
+  --accent:#cc785c;
+  --accent-hover:#e08a6d;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--font-serif);font-size:19px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  transition:background var(--dur-slow) var(--ease-inout),color var(--dur-slow) var(--ease-inout);
+}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 20px}
+
+/* ---------- chrome ---------- */
+header.top{
+  position:sticky;top:0;z-index:50;background:var(--bg);
+  border-bottom:1px solid var(--rule);
+}
+header.top .wrap{display:flex;align-items:center;justify-content:space-between;height:56px}
+.mark{font-family:var(--font-sans);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+.toggle{
+  font-family:var(--font-sans);font-size:12px;font-weight:600;letter-spacing:-.02em;
+  background:var(--card);color:var(--text);border:1px solid var(--rule);
+  border-radius:12px;padding:7px 14px;cursor:pointer;
+  transition:background var(--dur-base) var(--ease-out),border-color var(--dur-base) var(--ease-out);
+}
+.toggle:hover{background:var(--deep)}
+.toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- hero ---------- */
+.hero{padding:76px 0 56px;border-bottom:1px solid var(--rule)}
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-mute);margin:0 0 20px}
+h1{font-family:var(--font-serif);font-weight:400;font-size:clamp(38px,7vw,68px);line-height:1.08;letter-spacing:-.01em;margin:0 0 20px}
+.lede{font-size:20px;line-height:1.45;max-width:56ch;color:var(--text-2);margin:0}
+.sans-display{font-family:var(--font-sans);font-weight:700;font-size:clamp(28px,5vw,44px);line-height:1.1;letter-spacing:-.02em;margin:32px 0 0}
+
+/* ---------- section scaffold ---------- */
+section{padding:64px 0;border-bottom:1px solid var(--rule)}
+h2{font-family:var(--font-sans);font-weight:700;font-size:28px;line-height:1.2;letter-spacing:-.02em;margin:0 0 8px}
+h3{font-family:var(--font-sans);font-weight:600;font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-mute);margin:40px 0 14px}
+.note{font-size:17px;color:var(--text-2);max-width:64ch;margin:0 0 8px}
+.rule-note{border-left:2px solid var(--accent);padding-left:14px;margin:20px 0;font-size:17px;color:var(--text-2)}
+
+/* ---------- swatches ---------- */
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;margin-top:16px}
+.sw{border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--card)}
+.sw .chip{height:64px}
+.sw .meta{padding:9px 11px 11px}
+.sw .n{font-family:var(--font-sans);font-size:12px;font-weight:600;letter-spacing:-.01em;display:block}
+.sw .h{font-family:var(--font-mono);font-size:11px;color:var(--text-mute);display:block;margin-top:2px}
+.sw .r{font-family:var(--font-sans);font-size:11px;color:var(--text-mute);line-height:1.35;display:block;margin-top:6px}
+
+/* ---------- type specimens ---------- */
+.spec{border-top:1px solid var(--rule);padding:20px 0;display:grid;grid-template-columns:118px 1fr;gap:20px;align-items:baseline}
+.spec .k{font-family:var(--font-mono);font-size:11px;color:var(--text-mute);line-height:1.5}
+.spec .v{min-width:0;overflow-wrap:anywhere}
+.t-display{font-family:var(--font-serif);font-weight:400;font-size:clamp(34px,6vw,68px);line-height:1.1}
+.t-heading{font-family:var(--font-sans);font-weight:700;font-size:clamp(28px,5vw,61px);line-height:1.1;letter-spacing:-.12px}
+.t-sub{font-family:var(--font-sans);font-weight:600;font-size:24px;line-height:1.3;letter-spacing:-.05px}
+.t-body{font-family:var(--font-serif);font-weight:400;font-size:20px;line-height:1.4}
+.t-bodysm{font-family:var(--font-sans);font-weight:400;font-size:16px;letter-spacing:-.08px}
+.t-cap{font-family:var(--font-sans);font-weight:400;font-size:12px;line-height:1.4;letter-spacing:-.24px}
+.t-mono{font-family:var(--font-mono);font-size:16px;line-height:1.4}
+
+/* ---------- surface ladder ---------- */
+.ladder{display:grid;gap:0;border:1px solid var(--rule);border-radius:16px;overflow:hidden;margin-top:16px}
+.rung{padding:16px 18px;display:flex;justify-content:space-between;gap:14px;align-items:center;font-family:var(--font-sans);font-size:13px;flex-wrap:wrap}
+.rung b{font-weight:600}
+.rung code{font-family:var(--font-mono);font-size:12px;opacity:.75}
+
+/* ---------- buttons ---------- */
+.btnrow{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:16px}
+.btn{
+  font-family:var(--font-sans);font-size:15px;font-weight:500;letter-spacing:-.005em;
+  cursor:pointer;border:none;padding:12px 26px;
+  transition:background var(--dur-base) var(--ease-out),color var(--dur-base) var(--ease-out),
+             border-color var(--dur-base) var(--ease-out),transform var(--dur-fast) var(--ease-out);
+}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.btn-ivory{background:var(--card);color:var(--text);border-radius:0 0 8px 8px}
+.btn-ivory:hover{background:var(--deep)}
+.btn-clay{background:var(--accent);color:#fff;border-radius:8px}
+.btn-clay:hover{background:var(--accent-hover)}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--cloud-dark);border-radius:12px;padding:8px 16px;font-size:14px}
+.btn-ghost:hover{border-color:var(--text)}
+.btn-text{background:transparent;color:var(--text);padding:10px 12px;border-radius:0;text-decoration:none}
+.btn-text:hover{text-decoration:underline}
+.btn[disabled]{background:var(--p-primary-disabled);color:var(--text-mute);cursor:not-allowed}
+
+/* ---------- cards ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px}
+.card{
+  background:var(--card);border:1px solid var(--rule);border-radius:24px;padding:24px;
+  transition:background var(--dur-base) var(--ease-out),border-color var(--dur-base) var(--ease-out);
+}
+.card:hover{border-color:var(--cloud-dark)}
+.card h4{font-family:var(--font-sans);font-weight:600;font-size:20px;letter-spacing:-.01em;margin:0 0 8px}
+.card p{margin:0;font-size:17px;color:var(--text-2)}
+.card.feature{background:var(--feature);border-color:transparent}
+
+/* ---------- hover lab ---------- */
+.lab{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-top:16px}
+.lab-cell{
+  border:1px solid var(--rule);border-radius:16px;padding:20px;background:var(--card);
+  font-family:var(--font-sans);font-size:13px;color:var(--text-mute);
+}
+.lab-cell .label{display:block;margin-bottom:14px;font-weight:600;color:var(--text)}
+.demo-link{color:var(--text);text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;font-size:17px;font-family:var(--font-serif)}
+.demo-nav{font-family:var(--font-sans);font-size:14px;color:var(--cloud-medium);cursor:pointer;transition:color var(--dur-base) var(--ease-out)}
+.demo-nav:hover{color:var(--text)}
+.demo-row{
+  display:flex;justify-content:space-between;padding:10px 12px;border-radius:10px;cursor:pointer;
+  font-family:var(--font-sans);font-size:14px;color:var(--text);
+  transition:background var(--dur-base) var(--ease-out);
+}
+.demo-row:hover{background:var(--deep)}
+.demo-tone{
+  height:52px;border-radius:12px;background:var(--card);border:1px solid var(--rule);cursor:pointer;
+  transition:background var(--dur-base) var(--ease-out);
+}
+.demo-tone:hover{background:var(--deep)}
+
+/* ---------- motion demo ---------- */
+.motion-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:16px}
+.track{border:1px solid var(--rule);border-radius:14px;padding:16px;background:var(--card)}
+.track .k{font-family:var(--font-mono);font-size:11px;color:var(--text-mute);display:block;margin-bottom:10px}
+.dot{width:16px;height:16px;border-radius:50%;background:var(--accent)}
+.rail{height:16px;position:relative}
+.rail .dot{position:absolute;left:0}
+.playing .t-fast .dot{animation:slide var(--dur-fast) var(--ease-out) forwards}
+.playing .t-base .dot{animation:slide var(--dur-base) var(--ease-out) forwards}
+.playing .t-slow .dot{animation:slide var(--dur-slow) var(--ease-inout) forwards}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(calc(100% + 140px))}}
+
+.reveal{opacity:0;transform:translateY(10px);animation:rise 520ms var(--ease-out) forwards}
+.reveal:nth-child(2){animation-delay:70ms}
+.reveal:nth-child(3){animation-delay:140ms}
+@keyframes rise{to{opacity:1;transform:none}}
+
+/* ---------- do / don't ---------- */
+.dd{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:16px}
+.dd ul{margin:0;padding-left:18px}
+.dd li{font-size:17px;color:var(--text-2);margin-bottom:9px}
+.dd h4{font-family:var(--font-sans);font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0 0 12px}
+.do h4{color:var(--p-success)}
+.dont h4{color:var(--p-error)}
+
+/* ---------- code ---------- */
+pre{
+  background:var(--p-surface-dark);color:var(--p-on-dark);
+  font-family:var(--font-mono);font-size:12.5px;line-height:1.6;
+  padding:20px;border-radius:16px;overflow-x:auto;margin-top:16px;
+}
+pre .c{color:var(--p-on-dark-soft)}
+
+table{width:100%;border-collapse:collapse;margin-top:16px;font-family:var(--font-sans);font-size:14px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-mute)}
+td code{font-family:var(--font-mono);font-size:12px}
+
+footer{padding:48px 0 72px;font-family:var(--font-sans);font-size:13px;color:var(--text-mute)}
+footer a{color:var(--text-mute)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .reveal{opacity:1;transform:none}
+}
+@media(max-width:560px){
+  .spec{grid-template-columns:1fr;gap:6px}
+  section{padding:44px 0}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <span class="mark">Anthropic · Claude</span>
+    <button class="toggle" id="themeBtn" aria-label="Switch theme">Dark</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="hero">
+    <p class="eyebrow">Design system teardown · every layer</p>
+    <h1 class="reveal">A field journal on warm parchment, with one clay accent reserved for action.</h1>
+    <p class="lede reveal">Ivory and oat neutrals replace the cool grays every other AI product uses. A custom serif carries body copy at 20px — unusual for tech, and the single loudest signal in the system. Elevation comes from surface tone and hairlines, never shadow. There are no gradients.</p>
+    <p class="sans-display reveal">Serif for voice.<br>Sans for chrome.</p>
+  </div>
+
+  <!-- ============ 1. NO GRADIENTS ============ -->
+  <section>
+    <h2>1 · The gradient question, answered first</h2>
+    <p class="note">You asked what colour gradient the platform uses. The honest answer: <strong>none</strong>. No linear-gradient, no radial glow, no colour wash, no mesh, no glassmorphism, no shadow-based elevation anywhere in the core system.</p>
+    <div class="rule-note">What replaces gradient is a <strong>tonal ladder</strong> — four flat ivory values stepped a few percent apart. Depth is read from the tone shift plus a 1px hairline, not from light falloff. If you copy one thing from this system, copy that.</div>
+
+    <h3>The ladder that stands in for elevation</h3>
+    <div class="ladder">
+      <div class="rung" style="background:#f0eee6;color:#141413"><span><b>Level 0 · Canvas</b> — page background</span><code>#f0eee6</code></div>
+      <div class="rung" style="background:#faf9f5;color:#141413"><span><b>Level 1 · Card</b> — standard panel, one step brighter</span><code>#faf9f5</code></div>
+      <div class="rung" style="background:#f5e3c7;color:#141413"><span><b>Level 2 · Feature</b> — manilla, editorial hero card only</span><code>#f5e3c7</code></div>
+      <div class="rung" style="background:#e3dacc;color:#141413"><span><b>Level 3 · Deep warm</b> — grouped panels, hover fills</span><code>#e3dacc</code></div>
+      <div class="rung" style="background:#141413;color:#faf9f5"><span><b>Level 4 · Inversion</b> — footer, consent bar, code windows</span><code>#141413</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 2. COLOUR ============ -->
+  <section>
+    <h2>2 · Colour pack</h2>
+    <p class="note">Two related palettes ship side by side: the marketing surface (anthropic.com) and the product surface (claude.com and the app). They share the ink and the ivory; they differ on the orange.</p>
+
+    <h3>Brand accent — the only chromatic voice</h3>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#d97757"></div><div class="meta"><span class="n">Clay</span><span class="h">#d97757</span><span class="r">Marketing accent. Filled CTA only.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#c6613f"></div><div class="meta"><span class="n">Clay Deep</span><span class="h">#c6613f</span><span class="r">Hover / pressed for Clay.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#cc785c"></div><div class="meta"><span class="n">Primary (product)</span><span class="h">#cc785c</span><span class="r">The app's slightly cooler orange.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#a9583e"></div><div class="meta"><span class="n">Primary Active</span><span class="h">#a9583e</span><span class="r">Pressed state, product.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#e6dfd8"></div><div class="meta"><span class="n">Primary Disabled</span><span class="h">#e6dfd8</span><span class="r">Desaturated to neutral, not to grey.</span></div></div>
+    </div>
+    <div class="rule-note">Note the split: <code>#d97757</code> on the marketing site, <code>#cc785c</code> in product. Same family, different chroma. Pick one per surface and never mix them on the same page.</div>
+
+    <h3>Neutrals — warm, never cool, never pure black or white</h3>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#141413"></div><div class="meta"><span class="n">Slate Dark</span><span class="h">#141413</span><span class="r">Primary text, headings, footer, borders.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#252523"></div><div class="meta"><span class="n">Body Strong</span><span class="h">#252523</span><span class="r">Emphasised body, product.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#3d3d3a"></div><div class="meta"><span class="n">Slate Medium</span><span class="h">#3d3d3a</span><span class="r">Body copy; dark-on-dark borders.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#6c6a64"></div><div class="meta"><span class="n">Muted</span><span class="h">#6c6a64</span><span class="r">Secondary text, product.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#87867f"></div><div class="meta"><span class="n">Cloud Dark</span><span class="h">#87867f</span><span class="r">Outlined button borders, dividers.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#8e8b82"></div><div class="meta"><span class="n">Muted Soft</span><span class="h">#8e8b82</span><span class="r">Tertiary labels.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#b0aea5"></div><div class="meta"><span class="n">Cloud Medium</span><span class="h">#b0aea5</span><span class="r">Helper text, inactive nav.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#cccbc8"></div><div class="meta"><span class="n">Stone</span><span class="h">#cccbc8</span><span class="r">Hairline rules between sections.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#e6dfd8"></div><div class="meta"><span class="n">Hairline</span><span class="h">#e6dfd8</span><span class="r">Product border default.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#ebe6df"></div><div class="meta"><span class="n">Hairline Soft</span><span class="h">#ebe6df</span><span class="r">Faintest divider.</span></div></div>
+    </div>
+
+    <h3>Surfaces — light</h3>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#faf9f5;box-shadow:inset 0 0 0 1px #e6dfd8"></div><div class="meta"><span class="n">Ivory Light</span><span class="h">#faf9f5</span><span class="r">Cards; product canvas.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#f5f0e8"></div><div class="meta"><span class="n">Surface Soft</span><span class="h">#f5f0e8</span><span class="r">Sunken / grouped areas.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#f0eee6"></div><div class="meta"><span class="n">Ivory Medium</span><span class="h">#f0eee6</span><span class="r">Marketing page canvas.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#efe9de"></div><div class="meta"><span class="n">Surface Card</span><span class="h">#efe9de</span><span class="r">Raised card, product.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#e8e0d2"></div><div class="meta"><span class="n">Cream Strong</span><span class="h">#e8e0d2</span><span class="r">Emphasis block.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#e3dacc"></div><div class="meta"><span class="n">Oat Warm</span><span class="h">#e3dacc</span><span class="r">Deep warm panel, hover fill.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#f5e3c7"></div><div class="meta"><span class="n">Manilla</span><span class="h">#f5e3c7</span><span class="r">Featured hero card only.</span></div></div>
+    </div>
+
+    <h3>Surfaces — dark</h3>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#181715"></div><div class="meta"><span class="n">Surface Dark</span><span class="h">#181715</span><span class="r">Dark canvas. Warm, not blue-black.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#1f1e1b"></div><div class="meta"><span class="n">Dark Soft</span><span class="h">#1f1e1b</span><span class="r">Panel on dark.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#252320"></div><div class="meta"><span class="n">Dark Elevated</span><span class="h">#252320</span><span class="r">Raised card on dark.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#faf9f5"></div><div class="meta"><span class="n">On Dark</span><span class="h">#faf9f5</span><span class="r">Text on dark surfaces.</span></div></div>
+      <div class="sw"><div class="chip" style="background:#a09d96"></div><div class="meta"><span class="n">On Dark Soft</span><span class="h">#a09d96</span><span class="r">Muted text on dark.</span></div></div>
+    </div>
+
+    <h3>Semantic + dormant accents</h3>
+    <p class="note">These exist in the token file but stay almost entirely off the main surfaces — reserved for status, charts, and research sub-pages.</p>
+    <div class="swatches">
+      <div class="sw"><div class="chip" style="background:#5db872"></div><div class="meta"><span class="n">Success</span><span class="h">#5db872</span></div></div>
+      <div class="sw"><div class="chip" style="background:#d4a017"></div><div class="meta"><span class="n">Warning</span><span class="h">#d4a017</span></div></div>
+      <div class="sw"><div class="chip" style="background:#c64545"></div><div class="meta"><span class="n">Error</span><span class="h">#c64545</span></div></div>
+      <div class="sw"><div class="chip" style="background:#5db8a6"></div><div class="meta"><span class="n">Accent Teal</span><span class="h">#5db8a6</span></div></div>
+      <div class="sw"><div class="chip" style="background:#e8a55a"></div><div class="meta"><span class="n">Accent Amber</span><span class="h">#e8a55a</span></div></div>
+      <div class="sw"><div class="chip" style="background:#6a9bcc"></div><div class="meta"><span class="n">Sky</span><span class="h">#6a9bcc</span></div></div>
+      <div class="sw"><div class="chip" style="background:#788c5d"></div><div class="meta"><span class="n">Cactus / Green</span><span class="h">#788c5d</span></div></div>
+      <div class="sw"><div class="chip" style="background:#c46686"></div><div class="meta"><span class="n">Fig</span><span class="h">#c46686</span></div></div>
+      <div class="sw"><div class="chip" style="background:#bcd1ca"></div><div class="meta"><span class="n">Cactus Pale</span><span class="h">#bcd1ca</span></div></div>
+    </div>
+  </section>
+
+  <!-- ============ 3. TYPOGRAPHY ============ -->
+  <section>
+    <h2>3 · Typography</h2>
+    <p class="note">Three custom faces, self-hosted and renamed at the CSS layer: <strong>Anthropic Serif</strong>, <strong>Anthropic Sans</strong>, <strong>Anthropic Mono</strong>. Their glyph lineage is Tiempos / Copernicus (Klim) and Styrene B (Commercial Type). The official fallback chains are famously short — Georgia, Arial, Noto Sans.</p>
+
+    <div class="rule-note">The defining move: <strong>body copy is set in the serif at 20px</strong>. Almost no other tech product does this. Sans is demoted to chrome — nav, buttons, labels, badges. Get that split wrong and nothing else will read as Anthropic.</div>
+
+    <h3>The dual display system</h3>
+    <div class="spec"><div class="k">Serif display<br>68 / 1.1 / 400</div><div class="v"><div class="t-display">Editorial reflection</div></div></div>
+    <div class="spec"><div class="k">Sans display<br>61 / 1.1 / 700<br>-0.12px</div><div class="v"><div class="t-heading">Declarative statement</div></div></div>
+    <p class="note">Two display voices sit at nearly the same size on purpose. Serif at weight 400 for reflective, essayistic headlines; sans at weight 700 for blunt product claims. Display weight is never bold on the serif.</p>
+
+    <h3>Full scale — major third (1.25) from 12px</h3>
+    <div class="spec"><div class="k">subheading<br>24 / 1.3 / 600<br>-0.05px · sans</div><div class="v"><div class="t-sub">Section subheading</div></div></div>
+    <div class="spec"><div class="k">body<br>20 / 1.4 / 400<br>serif</div><div class="v"><div class="t-body">The workhorse. All paragraphs, card copy, supporting text.</div></div></div>
+    <div class="spec"><div class="k">body-sm<br>16 / 1.0 / 400<br>-0.08px · sans</div><div class="v"><div class="t-bodysm">UI chrome, button labels, form text</div></div></div>
+    <div class="spec"><div class="k">caption<br>12 / 1.4 / 400<br>-0.24px · sans</div><div class="v"><div class="t-cap">NAV LINKS · FOOTER · BADGES · METADATA</div></div></div>
+    <div class="spec"><div class="k">mono<br>16 / 1.4 / 400</div><div class="v"><div class="t-mono">const model = "claude-opus-5";</div></div></div>
+
+    <h3>Tracking rules</h3>
+    <table>
+      <tr><th>Size</th><th>Letter-spacing</th><th>Why</th></tr>
+      <tr><td><code>12px</code></td><td><code>-0.02em</code></td><td>Tight nav and caption tracking</td></tr>
+      <tr><td><code>15–16px</code></td><td><code>-0.005em</code></td><td>Subtle UI tightening</td></tr>
+      <tr><td><code>24px+</code></td><td><code>-0.002em</code></td><td>Optical correction at display sizes</td></tr>
+      <tr><td>Serif body 20px</td><td><code>normal</code></td><td>Serif is left alone — it's drawn for this</td></tr>
+    </table>
+    <p class="note">Negative tracking on the display faces is not optional. Set at default tracking, the type immediately reads off-brand.</p>
+  </section>
+
+  <!-- ============ 4. HIERARCHY ============ -->
+  <section>
+    <h2>4 · Hierarchy — how importance is signalled</h2>
+    <p class="note">Rank order of the devices this system uses to say "this matters more", strongest first:</p>
+    <table>
+      <tr><th>#</th><th>Device</th><th>Mechanic</th></tr>
+      <tr><td>1</td><td>Type size + face</td><td>68px serif → 24px sans → 20px serif → 12px sans. Size does most of the work.</td></tr>
+      <tr><td>2</td><td>Surface tone step</td><td>canvas → card → feature. A brighter or warmer fill = more important.</td></tr>
+      <tr><td>3</td><td>Whitespace</td><td>80–120px section gaps. Isolation signals rank.</td></tr>
+      <tr><td>4</td><td>Text colour ramp</td><td>#141413 → #3d3d3a → #6c6a64 → #b0aea5. Four steps, no more.</td></tr>
+      <tr><td>5</td><td>Hairline rules</td><td>1px #cccbc8. Groups content; never decorates.</td></tr>
+      <tr><td>6</td><td>The clay accent</td><td>Last resort, one per page. Colour means "act", not "look".</td></tr>
+    </table>
+    <div class="rule-note"><strong>Primary / secondary / tertiary in this system are tonal, not chromatic.</strong> Primary action = filled ivory or clay. Secondary = 1px outlined. Tertiary = bare underlined text. There is no blue, no purple, no second brand colour to reach for.</div>
+
+    <h3>Action tiers, live</h3>
+    <div class="btnrow">
+      <button class="btn btn-clay">Primary — clay filled</button>
+      <button class="btn btn-ivory">Primary — ivory filled</button>
+      <button class="btn btn-ghost">Secondary — outlined</button>
+      <a href="#" class="btn btn-text">Tertiary — text link</a>
+      <button class="btn btn-clay" disabled>Disabled</button>
+    </div>
+    <p class="note" style="margin-top:16px">Look at the ivory button's corners: <strong>bottom-only 8px radius, top corners sharp</strong>. It reads like a tab pulled from a stack rather than a pill. That single asymmetry is the most recognisable component detail in the whole system.</p>
+  </section>
+
+  <!-- ============ 5. MOTION & HOVER ============ -->
+  <section>
+    <h2>5 · Motion, hover, and micro-interaction</h2>
+    <p class="note">Motion is restrained to the point of being nearly invisible. There are no parallax effects, no scroll-jacking, no card lift on hover, no glow, no spring physics, no "after effects" in the compositing sense. Everything is a short colour or opacity transition.</p>
+
+    <h3>Duration &amp; easing</h3>
+    <div class="motion-grid" id="motionLab">
+      <div class="track t-fast"><span class="k">120ms · ease-out<br>colour swap, focus ring</span><div class="rail"><div class="dot"></div></div></div>
+      <div class="track t-base"><span class="k">180ms · ease-out<br>hover fill, border change</span><div class="rail"><div class="dot"></div></div></div>
+      <div class="track t-slow"><span class="k">280ms · ease-in-out<br>theme switch, disclosure</span><div class="rail"><div class="dot"></div></div></div>
+    </div>
+    <div class="btnrow"><button class="btn btn-ghost" id="playBtn">Replay motion</button></div>
+
+    <h3>Hover vocabulary — hover each cell</h3>
+    <div class="lab">
+      <div class="lab-cell"><span class="label">Nav link</span><span class="demo-nav">Research</span><br><br>Muted → ink. Colour only.</div>
+      <div class="lab-cell"><span class="label">Inline link</span><a class="demo-link" href="#">persistent underline</a><br><br>Underline is <em>always</em> on. Print convention, not reveal-on-hover.</div>
+      <div class="lab-cell"><span class="label">List row</span><div class="demo-row"><span>Conversation title</span><span>2h</span></div><br>Transparent → oat fill. No shadow, no scale.</div>
+      <div class="lab-cell"><span class="label">Card / surface</span><div class="demo-tone"></div><br>One tone step warmer, or a border darkening. Never a lift.</div>
+    </div>
+
+    <h3>The full motion inventory</h3>
+    <table>
+      <tr><th>Moment</th><th>Treatment</th></tr>
+      <tr><td>Button hover</td><td>Background darkens one step (<code>#d97757 → #c6613f</code>), ~180ms ease-out</td></tr>
+      <tr><td>Button press</td><td>1px downward nudge, or fill to the active token. No ripple.</td></tr>
+      <tr><td>Nav / muted link</td><td><code>#b0aea5 → #141413</code> colour transition</td></tr>
+      <tr><td>Card hover</td><td>Border <code>#cccbc8 → #87867f</code>, or fill steps to oat. Never <code>translateY</code>, never shadow.</td></tr>
+      <tr><td>Focus</td><td>2px accent outline, 2–3px offset. Always visible for keyboard.</td></tr>
+      <tr><td>Page / section entry</td><td>Short fade + ~10px rise, staggered ~70ms. Used once, near the top.</td></tr>
+      <tr><td>Response streaming</td><td>Token-by-token text reveal + a small pulsing caret. The only continuous animation in the product.</td></tr>
+      <tr><td>Theme switch</td><td>Cross-fade of background and text colour, ~280ms ease-in-out</td></tr>
+      <tr><td>Reduced motion</td><td>All of the above collapse to instant. Honoured throughout.</td></tr>
+    </table>
+    <p class="note" style="margin-top:14px">Durations and curves here are read off observed behaviour, so treat them as close approximations rather than published constants. The colour values above are exact.</p>
+  </section>
+
+  <!-- ============ 6. SHAPE & COMPONENTS ============ -->
+  <section>
+    <h2>6 · Shape, spacing, components</h2>
+    <table>
+      <tr><th>Token</th><th>Value</th></tr>
+      <tr><td>Base unit</td><td><code>4px</code>, compact density</td></tr>
+      <tr><td>Spacing scale</td><td><code>4 · 8 · 12 · 16 · 24 · 32 · 76 · 100</code></td></tr>
+      <tr><td>Page max-width</td><td><code>1280px</code></td></tr>
+      <tr><td>Section gap</td><td><code>80–120px</code></td></tr>
+      <tr><td>Card padding</td><td><code>24–32px</code></td></tr>
+      <tr><td>Card radius</td><td><code>24px</code></td></tr>
+      <tr><td>Button radius</td><td><code>8px bottom-only</code> (filled) · <code>12px</code> (outlined)</td></tr>
+      <tr><td>Nav / badge / link radius</td><td><code>0px</code></td></tr>
+      <tr><td>Elevation</td><td><code>none</code> — tone shift and 1px borders only</td></tr>
+    </table>
+
+    <h3>Card family</h3>
+    <div class="cards">
+      <div class="card"><h4>Standard card</h4><p>Card surface, 24px radius, 1px hairline. Title in sans 600, body in serif.</p></div>
+      <div class="card feature"><h4>Featured card</h4><p>Manilla fill, no border. Reserved for one editorial highlight per page.</p></div>
+      <div class="card"><h4>Release card</h4><p>Three-up grid, bare underlined link at the foot instead of a button.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ 7. RULES ============ -->
+  <section>
+    <h2>7 · The rules that hold it together</h2>
+    <div class="dd">
+      <div class="do">
+        <h4>Do</h4>
+        <ul>
+          <li>Set body copy in the serif at 20px; keep sans at 12–16px for chrome.</li>
+          <li>Use canvas <code>#f0eee6</code> with cards at <code>#faf9f5</code>; reach for manilla only for a true feature.</li>
+          <li>Keep the bottom-only 8px radius on filled buttons — it's the signature.</li>
+          <li>Spend the clay accent on exactly one action per page.</li>
+          <li>Keep inline link underlines permanently visible.</li>
+          <li>Use 24px radius on every card-level surface.</li>
+        </ul>
+      </div>
+      <div class="dont">
+        <h4>Don't</h4>
+        <ul>
+          <li>Don't introduce cool greys, blues, or anything outside the warm earth family.</li>
+          <li>Don't use box-shadow for elevation — step the surface tone instead.</li>
+          <li>Don't add gradients, glows, or colour washes. Flat solid fills only.</li>
+          <li>Don't set body text in sans. Sans is chrome.</li>
+          <li>Don't use pure white <code>#ffffff</code> as a surface — it breaks the paper metaphor.</li>
+          <li>Don't apply the accent to icons, hovers, or decoration.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 8. TOKENS ============ -->
+  <section style="border-bottom:none">
+    <h2>8 · Copy-ready tokens</h2>
+    <p class="note">Drop into <code>:root</code>, or into a Tailwind v4 <code>@theme</code> block as-is.</p>
+<pre><span class="c">/* ---- Anthropic / Claude design tokens ---- */</span>
+:root{
+  <span class="c">/* accent — one per surface, never both */</span>
+  --clay:#d97757;            --clay-deep:#c6613f;
+  --primary:#cc785c;         --primary-active:#a9583e;
+  --primary-disabled:#e6dfd8;
+
+  <span class="c">/* ink ramp */</span>
+  --ink:#141413;             --body-strong:#252523;
+  --body:#3d3d3a;            --muted:#6c6a64;
+  --muted-soft:#8e8b82;      --cloud-dark:#87867f;
+  --cloud-medium:#b0aea5;
+
+  <span class="c">/* rules */</span>
+  --stone:#cccbc8;           --hairline:#e6dfd8;
+  --hairline-soft:#ebe6df;
+
+  <span class="c">/* light surfaces — the elevation ladder */</span>
+  --canvas:#f0eee6;          --surface-card:#faf9f5;
+  --surface-soft:#f5f0e8;    --surface-raised:#efe9de;
+  --cream-strong:#e8e0d2;    --oat-warm:#e3dacc;
+  --manilla:#f5e3c7;
+
+  <span class="c">/* dark surfaces */</span>
+  --surface-dark:#181715;    --surface-dark-soft:#1f1e1b;
+  --surface-dark-elevated:#252320;
+  --on-dark:#faf9f5;         --on-dark-soft:#a09d96;
+
+  <span class="c">/* semantic */</span>
+  --success:#5db872;  --warning:#d4a017;  --error:#c64545;
+  --teal:#5db8a6;     --amber:#e8a55a;    --sky:#6a9bcc;
+
+  <span class="c">/* type */</span>
+  --font-serif:"Anthropic Serif",ui-serif,Georgia,Cambria,serif;
+  --font-sans:"Anthropic Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --font-mono:"Anthropic Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  --text-display:68px;   --leading-display:1.1;
+  --text-heading:61px;   --leading-heading:1.1;   --tracking-heading:-.12px;
+  --text-subheading:24px;--leading-subheading:1.3;--tracking-subheading:-.05px;
+  --text-body:20px;      --leading-body:1.4;
+  --text-body-sm:16px;   --leading-body-sm:1;     --tracking-body-sm:-.08px;
+  --text-caption:12px;   --leading-caption:1.4;   --tracking-caption:-.24px;
+
+  <span class="c">/* shape + rhythm */</span>
+  --unit:4px;  --page-max:1280px;
+  --radius-card:24px;  --radius-btn:0 0 8px 8px;  --radius-outline:12px;
+  --elevation:none;
+
+  <span class="c">/* motion — approximate, read from behaviour */</span>
+  --dur-fast:120ms;  --dur-base:180ms;  --dur-slow:280ms;
+  --ease-out:cubic-bezier(.22,.61,.36,1);
+  --ease-inout:cubic-bezier(.4,0,.2,1);
+}</pre>
+  </section>
+
+  <footer>
+    Colour, type, shape and spacing values sourced from published token teardowns of anthropic.com and claude.com. Motion timings are observed approximations. Font names are Anthropic's own CSS-layer aliases; the underlying licensed faces are Tiempos / Copernicus and Styrene B.
+  </footer>
+
+</div>
+
+<script>
+const html=document.documentElement, btn=document.getElementById('themeBtn');
+btn.addEventListener('click',()=>{
+  const dark = html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme', dark?'light':'dark');
+  btn.textContent = dark?'Dark':'Light';
+});
+const lab=document.getElementById('motionLab'), play=document.getElementById('playBtn');
+function run(){lab.classList.remove('playing');void lab.offsetWidth;lab.classList.add('playing');}
+play.addEventListener('click',run);
+run();
+</script>
+</body>
+</html>

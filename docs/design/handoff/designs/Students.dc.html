@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ui:'Geist',-apple-system,'Segoe UI',sans-serif; --mono:'JetBrains Mono',ui-monospace,monospace;
+    --bg:#0f0f0f; --surface:#161616; --muted:#1e1e1e; --raised:#282828;
+    --border:rgba(255,255,255,.08); --divider:rgba(255,255,255,.07); --border-lift:rgba(255,255,255,.12);
+    --input-border:#52443a;
+    --page:#0f0f0f; --card:#141414; --elev:#1c1c1c; --hov:#262626; --bd:#2a2a2a; --bd2:#333333;
+    --ac:#a78bfa; --ac-soft:rgba(139,92,246,.14); --ac-bd:rgba(139,92,246,.32); --ac-cta:#7c3aed;
+    --warn:#fbbf24; --warn-soft:rgba(251,191,36,.12); --warn-bd:rgba(251,191,36,.3);
+    --bad-soft:rgba(255,180,171,.12); --bad-bd:rgba(255,180,171,.3);
+    --t1:#e5e2e1; --t2:#d7c3b5; --t3:#a08d81;
+    --accent:#8b5cf6; --accent-lift:#a78bfa; --accent-dim:rgba(167,139,250,.10);
+    --ok:#45dfa4; --ok-dim:rgba(69,223,164,.10);
+    --warn:#fbbf24; --warn-dim:rgba(251,191,36,.12);
+    --bad:#ffb4ab; --bad-dim:rgba(255,180,171,.12);
+    --info:#44e2cd; --info-dim:rgba(68,226,205,.10);
+    --r-md:8px; --r-lg:12px; --r-xl:14px;
+    --sh:0 1px 2px rgba(0,0,0,.4); --sh-lg:0 16px 48px rgba(0,0,0,.55),0 2px 8px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  a{color:var(--accent-lift);text-decoration:none}
+  a:hover{color:var(--accent)}
+  .num{font-family:var(--mono);font-feature-settings:'tnum' 1;letter-spacing:-.01em}
+  input,select,textarea{font-family:var(--ui)}
+  input::placeholder,textarea::placeholder{color:var(--t3);opacity:.6}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent-lift)!important;box-shadow:0 0 0 3px rgba(56,189,248,.12);background:var(--raised)!important}
+  .sc::-webkit-scrollbar{width:11px;height:11px}
+  .sc::-webkit-scrollbar-thumb{background:#333;border-radius:8px;border:3px solid transparent;background-clip:content-box}
+  .sc::-webkit-scrollbar-thumb:hover{background:#454545;border:3px solid transparent;background-clip:content-box}
+  .sc::-webkit-scrollbar-track{background:transparent}
+  tbody tr:hover td{background:rgba(167,139,250,.04)}
+  tbody tr:hover .ac{opacity:1}
+  @keyframes ov{from{opacity:0}to{opacity:1}}
+  @keyframes md{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--page);color:var(--t1);font-family:var(--ui)">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside style="width:203px;flex:none;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--bd)">
+    <div style="display:flex;align-items:center;gap:10px;padding:15px 14px 13px;flex:none">
+      <img src="./assets/logo.png" alt="Hostyllo" style="width:30px;height:30px;flex:none;border-radius:8px;display:block"/>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:.03em;line-height:1.15">HOSTYLLO</div>
+        <div style="font-size:10.5px;color:var(--t3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Daman Hostel For Boys</div>
+      </div>
+    </div>
+
+    <nav class="sc" style="flex:1;overflow-y:auto;padding:2px 8px 60px">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <div style="margin-bottom:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:9px 8px 6px">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+            <a onClick="{{ it.go }}" style="display:flex;align-items:center;gap:10px;height:33px;padding:0 9px;border-radius:6px;font-size:12.5px;cursor:pointer;margin-bottom:1px;{{ it.style }}">
+              <span style="flex:none;display:flex;width:16px;height:16px">{{ it.icon }}</span>
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+              <sc-if value="{{ it.hasBadge }}" hint-placeholder-val="{{ false }}">
+                <span class="num" style="flex:none;font-size:10px;font-weight:600;min-width:17px;height:17px;padding:0 5px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;{{ it.badgeStyle }}">{{ it.badge }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 13px;border-top:1px solid var(--bd);background:var(--card)">
+      <div style="width:27px;height:27px;flex:none;border-radius:50%;background:var(--ac-soft);border:1px solid var(--ac-bd);display:flex;align-items:center;justify-content:center;color:var(--ac);font-size:11px;font-weight:600">K</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;line-height:1.2">Khan</div>
+        <div style="font-size:10px;color:var(--t3);line-height:1.3">Administrator</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+  </aside>
+
+  <!-- ════════════ MAIN ════════════ -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden">
+
+  <!-- ══ APP HEADER ══ -->
+  <header style="height:60px;flex:none;display:flex;align-items:center;gap:16px;padding:0 28px;background:var(--bg);border-bottom:1px solid var(--border)">
+    <h1 style="font-size:18px;font-weight:600;letter-spacing:-.02em;margin:0;flex:none">Students</h1>
+
+    <div style="flex:1;max-width:280px;min-width:120px;margin-left:8px">
+      <div style="display:flex;align-items:center;gap:9px;height:36px;padding:0 12px;border-radius:8px;background:var(--muted);border:1px solid var(--border);color:var(--t3);font-size:13px;cursor:text">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Search students, rooms, payments…</span>
+        <span class="num" style="flex:none;font-size:11px;padding:2px 6px;border-radius:5px;background:var(--surface);border:1px solid var(--border);color:var(--t3)">⌘K</span>
+      </div>
+    </div>
+
+    <div style="flex:1"></div>
+
+    <button style="display:flex;align-items:center;gap:7px;height:36px;padding:0 12px;flex:none;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--t1);font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap" style-hover="border-color:var(--border-lift)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+      <span class="num">Jul 2026</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+
+    <button title="Notifications" style="width:36px;height:36px;flex:none;position:relative;display:flex;align-items:center;justify-content:center;border-radius:8px;background:transparent;border:1px solid var(--border-lift);color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+      <span style="position:absolute;top:6px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--bad);border:1.5px solid var(--bg)"></span>
+    </button>
+
+    <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width:36px;height:36px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:transparent;border:1px solid var(--border-lift);color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"></path></svg>
+    </button>
+
+    <button onClick="{{ openPayment }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 15px;flex:none;border-radius:8px;background:transparent;color:var(--t1);border:1px solid var(--border-lift);font:500 13px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--muted)">Add Payment</button>
+
+    <button onClick="{{ openAdd }}" style="display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 15px;flex:none;border-radius:8px;background:linear-gradient(135deg,#6366f1,#a855f7,#06b6d4);color:#fff;border:1px solid rgba(139,92,246,.4);font:600 13px/1 var(--ui);cursor:pointer;white-space:nowrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add Student</button>
+  </header>
+
+  <!-- ══ BODY ══ -->
+  <div style="flex:1;display:flex;flex-direction:column;min-height:0;padding:16px 18px 0">
+
+    <!-- toolbar -->
+    <div style="flex:none;display:flex;flex-direction:column;gap:11px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:9px;height:38px;padding:0 13px;flex:1;min-width:260px;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--t3);font-size:13px;cursor:text" style-hover="border-color:var(--border-lift)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+          <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Name, father, ID, CNIC, phone, email, room, floor, course…</span>
+        </div>
+
+        <div style="display:flex;flex:none;height:38px;padding:3px;border-radius:12px;background:var(--surface);border:1px solid var(--border);gap:2px">
+          <sc-for list="{{ tabs }}" as="tb" hint-placeholder-count="4">
+            <button onClick="{{ tb.go }}" style="display:flex;align-items:center;gap:6px;padding:0 14px;border:none;border-radius:8px;font:12.5px/1 var(--ui);cursor:pointer;{{ tb.style }}">
+              {{ tb.label }}<span class="num" style="font-size:10.5px;padding:1px 5px;border-radius:4px;{{ tb.countStyle }}">{{ tb.count }}</span>
+            </button>
+          </sc-for>
+        </div>
+
+        <!-- prominent export group -->
+        <div style="display:flex;flex:none;height:38px;border-radius:12px;overflow:hidden;border:1px solid rgba(139,92,246,.32);background:var(--accent-dim)">
+          <button onClick="{{ exportCsv }}" style="display:flex;align-items:center;gap:7px;padding:0 14px;border:none;background:transparent;color:var(--accent-lift);font:600 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:rgba(139,92,246,.2)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>Export CSV</button>
+          <div style="width:1px;background:rgba(139,92,246,.3);flex:none"></div>
+          <button onClick="{{ exportPdf }}" style="display:flex;align-items:center;gap:7px;padding:0 14px;border:none;background:transparent;color:var(--accent-lift);font:600 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:rgba(139,92,246,.2)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 16H8"></path><path d="M14 8H8"></path><path d="M16 12H8"></path><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"></path></svg>Export PDF</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="num" style="font-size:12px;color:var(--t2)">{{ resultLabel }}</span>
+        <div style="width:1px;height:14px;background:var(--border)"></div>
+        <span style="font-size:12px;color:var(--t3)">Sorted by <b style="color:var(--t2);font-weight:500">Room ascending</b></span>
+        <div style="flex:1"></div>
+        <sc-if value="{{ exported }}" hint-placeholder-val="{{ false }}">
+          <span style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ok);background:var(--ok-dim);border:1px solid rgba(52,211,153,.25);padding:5px 10px;border-radius:8px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>{{ exported }}
+          </span>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- table -->
+    <div class="sc" style="flex:1;min-height:0;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+      <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;min-width:1540px">
+        <thead>
+          <tr>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">ID</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;min-width:200px">Student</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">Room</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">Phone / Emergency</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">CNIC</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">Nationality</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">Address</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">Course</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:right;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">Rent + Mess / Mo</th>
+            <th style="position:sticky;top:0;z-index:2;text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap">Status</th>
+            <th style="position:sticky;top:0;right:0;z-index:3;text-align:right;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--muted);border-bottom:1px solid var(--border);border-left:1px solid var(--border);white-space:nowrap">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="12">
+            <tr>
+              <td class="num" style="padding:12px 16px;border-bottom:1px solid var(--divider);color:var(--t3);font-size:11.5px;white-space:nowrap">{{ r.id }}</td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider)">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="width:28px;height:28px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;{{ r.avatar }}">{{ r.initials }}</div>
+                  <div style="min-width:0">
+                    <div style="font-weight:500;color:var(--t1);line-height:1.25;white-space:nowrap">{{ r.name }}</div>
+                    <div style="font-size:11px;color:var(--t3);line-height:1.3;white-space:nowrap">{{ r.father }}</div>
+                  </div>
+                </div>
+              </td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);white-space:nowrap">
+                <span class="num" style="display:inline-block;font-size:11.5px;font-weight:600;padding:2px 7px;border-radius:8px;background:var(--raised);border:1px solid var(--border);color:var(--t1)">{{ r.room }}</span>
+                <div style="font-size:10.5px;color:var(--t3);margin-top:3px">{{ r.roomMeta }}</div>
+              </td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);white-space:nowrap">
+                <div class="num" style="font-size:11.5px;color:var(--t2)">{{ r.phone }}</div>
+                <div class="num" style="font-size:10.5px;color:var(--t3);margin-top:3px">{{ r.emergency }}</div>
+              </td>
+              <td class="num" style="padding:12px 16px;border-bottom:1px solid var(--divider);font-size:11px;color:var(--t2);white-space:nowrap">{{ r.cnic }}</td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);white-space:nowrap">
+                <span style="display:inline-block;font-size:11px;font-weight:500;padding:2.5px 8px;border-radius:9999px;{{ r.natPill }}">{{ r.nationality }}</span>
+              </td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);color:var(--t2);white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">{{ r.address }}</td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);color:var(--t2);white-space:nowrap">{{ r.course }}</td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);text-align:right;white-space:nowrap">
+                <div class="num"><span style="color:var(--t3);font-size:11px">PKR </span><b style="font-weight:600;color:var(--t1)">{{ r.rentTotal }}</b></div>
+                <sc-if value="{{ r.messIncluded }}" hint-placeholder-val="{{ true }}">
+                  <div class="num" style="font-size:11px;color:var(--t3);margin-top:3px">{{ r.rentOnly }} rent + {{ r.messFee }} mess</div>
+                </sc-if>
+                <sc-if value="{{ r.messExcluded }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:11px;color:var(--t3);margin-top:3px">Mess not included</div>
+                </sc-if>
+              </td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);white-space:nowrap">
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:9999px;{{ r.statusPill }}"><span style="width:5px;height:5px;border-radius:50%;background:currentColor"></span>{{ r.status }}</span>
+              </td>
+              <td style="padding:12px 16px;border-bottom:1px solid var(--divider);border-left:1px solid var(--border);position:sticky;right:0;background:var(--surface);white-space:nowrap">
+                <div class="ac" style="display:flex;gap:5px;justify-content:flex-end;opacity:.62;transition:opacity .12s">
+                  <button onClick="{{ r.view }}" title="View full record" style="width:27px;height:27px;border-radius:8px;background:var(--raised);border:1px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="border-color:var(--border-lift);color:var(--t1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+                  <button onClick="{{ r.edit }}" title="Edit student" style="width:27px;height:27px;border-radius:8px;background:var(--accent-dim);border:1px solid rgba(139,92,246,.3);color:var(--accent-lift);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(139,92,246,.22)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path></svg></button>
+                  <button onClick="{{ r.shift }}" title="Shift room" style="width:27px;height:27px;border-radius:8px;background:var(--info-dim);border:1px solid rgba(96,165,250,.3);color:var(--info);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(96,165,250,.22)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg></button>
+                  <button title="Delete student" style="width:27px;height:27px;border-radius:8px;background:var(--bad-dim);border:1px solid rgba(248,113,113,.3);color:var(--bad);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(248,113,113,.22)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                </div>
+              </td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- pagination -->
+    <div style="flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 2px 14px">
+      <span style="font-size:12px;color:var(--t3)">{{ pageLabel }}</span>
+      <div style="display:flex;align-items:center;gap:5px">
+        <button style="height:30px;padding:0 11px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--t3);font:12px/1 var(--ui);cursor:not-allowed">Previous</button>
+        <button style="height:30px;min-width:30px;border-radius:8px;background:var(--accent-dim);border:1px solid rgba(139,92,246,.35);color:var(--accent-lift);font:600 12px/1 var(--ui);cursor:pointer">1</button>
+        <button style="height:30px;min-width:30px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--t2);font:12px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">2</button>
+        <button style="height:30px;min-width:30px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--t2);font:12px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">3</button>
+        <button style="height:30px;padding:0 11px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--t1);font:500 12px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ADD / EDIT STUDENT ══════════ -->
+  <sc-if value="{{ isForm }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;z-index:60;animation:ov .14s ease">
+    <div onClick="{{ stop }}" style="width:940px;max-width:100%;max-height:calc(100vh - 80px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border-lift);border-radius:14px;box-shadow:var(--sh-lg);animation:md .22s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+
+      <div style="flex:none;display:flex;align-items:center;gap:12px;padding:17px 22px;border-bottom:1px solid var(--border);background:var(--muted)">
+        <div style="width:30px;height:30px;flex:none;border-radius:8px;background:var(--accent-dim);border:1px solid rgba(139,92,246,.3);display:flex;align-items:center;justify-content:center;color:var(--accent-lift)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.01em">{{ formTitle }}</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:1px">{{ formSub }}</div>
+        </div>
+        <button onClick="{{ close }}" style="width:30px;height:30px;flex:none;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="border-color:var(--border-lift);color:var(--t1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </div>
+
+      <div class="sc" style="flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+
+        <!-- photo -->
+        <div style="display:flex;align-items:center;gap:15px;padding:14px 16px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+          <div style="width:60px;height:60px;flex:none;border-radius:12px;background:var(--raised);border:1px dashed var(--border-lift);display:flex;align-items:center;justify-content:center;color:var(--t3)">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500">Student photo <span style="color:var(--t3);font-weight:400">· optional</span></div>
+            <div style="font-size:11.5px;color:var(--t3);margin-top:3px">JPG or PNG, square crop works best</div>
+          </div>
+          <div style="display:flex;gap:8px;flex:none">
+            <button style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;background:var(--raised);border:1px solid var(--border);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"></path><path d="m17 8-5-5-5 5"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg>Upload</button>
+            <button style="display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:8px;background:var(--raised);border:1px solid var(--border);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><circle cx="12" cy="12.5" r="3.2"></circle></svg>Camera</button>
+          </div>
+        </div>
+
+        <!-- identity -->
+        <div style="padding:15px 16px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;font:600 10.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-lift);margin-bottom:13px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg>Student identity
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:13px 15px">
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Full name <span style="color:var(--bad)">*</span></label>
+              <input value="{{ f.name }}" placeholder="Muhammad Ali" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Father name <span style="color:var(--bad)">*</span></label>
+              <input value="{{ f.father }}" placeholder="Muhammad Khan" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">CNIC / B-Form</label>
+              <input value="{{ f.cnic }}" placeholder="XXXXX-XXXXXXX-X" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Nationality <span style="color:var(--bad)">*</span></label>
+              <div style="position:relative">
+                <select style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 34px 0 14px;color:var(--t1);font-size:13.5px;appearance:none;cursor:pointer">
+                  <option>Pakistani</option><option>Afghan</option><option>Bangladeshi</option><option>Iranian</option><option>Other</option>
+                </select>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:11px;top:13px;pointer-events:none"><path d="M6 9l6 6 6-6"></path></svg>
+              </div>
+            </div>
+            <div style="grid-column:span 2">
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Course / study field</label>
+              <input value="{{ f.course }}" placeholder="e.g. BS Computer Science, MBBS, BBA…" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+          </div>
+        </div>
+
+        <!-- contact -->
+        <div style="padding:15px 16px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;font:600 10.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--info);margin-bottom:13px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>Contact information
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:13px 15px">
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Phone number <span style="color:var(--bad)">*</span></label>
+              <input value="{{ f.phone }}" placeholder="03XX-XXXXXXX" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Emergency contact/Guardian contact</label>
+              <input value="{{ f.emergency }}" placeholder="03XX-XXXXXXX (guardian)" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Email address</label>
+              <div style="display:flex;align-items:center;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;overflow:hidden">
+                <input value="{{ f.email }}" placeholder="username" style="flex:1;min-width:0;height:100%;background:transparent;border:none;padding:0 11px;color:var(--t1);font-size:13px">
+                <span class="num" style="flex:none;padding:0 10px;height:100%;display:flex;align-items:center;font-size:11.5px;color:var(--t3);background:var(--raised);border-left:1px solid var(--border)">@gmail.com</span>
+              </div>
+            </div>
+            <div style="grid-column:span 3">
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Home address</label>
+              <input value="{{ f.address }}" placeholder="e.g. House #12, Street 4, Peshawar" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+          </div>
+        </div>
+
+        <!-- room + money -->
+        <div style="padding:15px 16px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px;font:600 10.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ok);margin-bottom:13px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path><path d="M6 8v9"></path></svg>Room &amp; charges
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:13px 15px">
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Assign room <span style="color:var(--bad)">*</span></label>
+              <div style="position:relative">
+                <select style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 34px 0 14px;color:var(--t1);font-size:13.5px;appearance:none;cursor:pointer">
+                  <option>Search by room number, type, floor…</option>
+                  <option>#1 · 3-Seater · Ground Floor — 1 bed free</option>
+                  <option>#12 · 4-Seater · Ground Floor — 2 beds free</option>
+                  <option>#14 · 4-Seater · Ground Floor — 1 bed free</option>
+                </select>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:11px;top:13px;pointer-events:none"><path d="M6 9l6 6 6-6"></path></svg>
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Monthly rent (PKR)</label>
+              <input value="{{ f.rent }}" placeholder="14,500" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Mess fee (PKR / mo)</label>
+              <input value="{{ f.messFee }}" placeholder="4,500 — leave blank if not included" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+              <div style="font-size:11px;color:var(--t3);margin-top:6px">Blank means mess is not included in rent</div>
+            </div>
+            <div>
+              <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Join date</label>
+              <input value="{{ f.joinDate }}" placeholder="2026-07-29" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            </div>
+          </div>
+        </div>
+
+        <!-- notes -->
+        <div style="padding:13px 16px;border-radius:12px;background:var(--muted);border:1px solid var(--border);display:flex;align-items:center;gap:10px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M13 16H8"></path><path d="M14 8H8"></path><path d="M16 12H8"></path><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"></path></svg>
+          <span style="flex:1;font-size:12.5px;font-weight:500;color:var(--t2)">Notes</span>
+          <button style="display:flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift);color:var(--t1)">Show<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"></path></svg></button>
+        </div>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--border);background:var(--muted)">
+        <span style="flex:1;font-size:11.5px;color:var(--t3)"><span style="color:var(--bad)">*</span> Required fields</span>
+        <button onClick="{{ close }}" style="height:36px;padding:0 15px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">Cancel</button>
+        <button onClick="{{ close }}" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 15px;border-radius:8px;background:var(--raised);border:1px solid var(--border-lift);color:var(--t1);font:600 12.5px/1 var(--ui);cursor:pointer" style-hover="background:#2a2a2a">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><path d="M8 3v6h8"></path></svg>{{ saveLabel }}</button>
+        <button onClick="{{ openPayment }}" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 16px;border-radius:8px;background:var(--accent);border:1px solid var(--accent);color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;box-shadow:0 1px 3px rgba(139,92,246,.35)" style-hover="background:var(--accent-lift);border-color:var(--accent-lift)">
+          Save &amp; proceed to payment<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"></path></svg></button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══════════ VIEW RECORD ══════════ -->
+  <sc-if value="{{ isView }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:36px 20px;z-index:60;animation:ov .14s ease">
+    <div onClick="{{ stop }}" style="width:1000px;max-width:100%;max-height:calc(100vh - 72px);display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border-lift);border-radius:14px;box-shadow:var(--sh-lg);animation:md .22s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+
+      <div style="flex:none;display:flex;align-items:center;gap:10px;padding:13px 20px;border-bottom:1px solid var(--border);background:var(--muted)">
+        <span style="font:600 10.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);flex:1">Student full record</span>
+        <button onClick="{{ close }}" style="width:28px;height:28px;flex:none;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="border-color:var(--border-lift);color:var(--t1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </div>
+
+      <div class="sc" style="flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:13px">
+
+        <!-- hero -->
+        <div style="display:flex;align-items:center;gap:16px;padding:17px 19px;border-radius:12px;background:linear-gradient(135deg,rgba(139,92,246,.1),transparent 60%),var(--muted);border:1px solid var(--border)">
+          <div style="width:56px;height:56px;flex:none;border-radius:14px;background:var(--accent-dim);border:1px solid rgba(139,92,246,.3);display:flex;align-items:center;justify-content:center;color:var(--accent-lift);font-size:21px;font-weight:600">{{ v.initials }}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:baseline;gap:9px;flex-wrap:wrap">
+              <span style="font-size:21px;font-weight:600;letter-spacing:-.02em">{{ v.name }}</span>
+              <span class="num" style="font-size:12px;color:var(--t3)">{{ v.id }}</span>
+            </div>
+            <div style="display:flex;gap:7px;margin-top:8px;flex-wrap:wrap">
+              <span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:9999px;{{ v.statusPill }}"><span style="width:5px;height:5px;border-radius:50%;background:currentColor"></span>{{ v.status }}</span>
+              <span class="num" style="font-size:11px;font-weight:500;padding:3px 9px;border-radius:9999px;background:var(--raised);border:1px solid var(--border);color:var(--t2)">Room {{ v.room }} · {{ v.roomType }}</span>
+              <span style="font-size:11px;font-weight:500;padding:3px 9px;border-radius:9999px;background:var(--raised);border:1px solid var(--border);color:var(--t2)">{{ v.nationality }}</span>
+              <span style="font-size:11px;font-weight:500;padding:3px 9px;border-radius:9999px;background:var(--raised);border:1px solid var(--border);color:var(--t2)">Cash</span>
+            </div>
+          </div>
+          <div style="flex:none;text-align:right">
+            <div style="font:600 10px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Monthly rent</div>
+            <div class="num" style="font-size:25px;font-weight:600;color:var(--ok);margin-top:6px;letter-spacing:-.02em">PKR {{ v.rentTotal }}</div>
+            <sc-if value="{{ v.messIncluded }}" hint-placeholder-val="{{ true }}">
+              <div class="num" style="font-size:11px;color:var(--t3);margin-top:4px">{{ v.rentOnly }} rent + {{ v.messFee }} mess</div>
+            </sc-if>
+            <sc-if value="{{ v.messExcluded }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:11px;color:var(--t3);margin-top:4px">Mess not included</div>
+            </sc-if>
+          </div>
+        </div>
+
+        <!-- stat tiles -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:11px">
+          <div style="padding:13px 15px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+            <div style="font:600 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Total paid</div>
+            <div class="num" style="font-size:19px;font-weight:600;color:var(--ok);margin-top:8px">PKR 10,000</div>
+          </div>
+          <div style="padding:13px 15px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+            <div style="font:600 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Outstanding</div>
+            <div class="num" style="font-size:19px;font-weight:600;color:var(--t1);margin-top:8px">PKR 0</div>
+          </div>
+          <div style="padding:13px 15px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+            <div style="font:600 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Join date</div>
+            <div class="num" style="font-size:19px;font-weight:600;margin-top:8px">02 Jul 2026</div>
+          </div>
+          <div style="padding:13px 15px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+            <div style="font:600 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3)">Payments made</div>
+            <div class="num" style="font-size:19px;font-weight:600;color:var(--accent-lift);margin-top:8px">1</div>
+          </div>
+        </div>
+
+        <!-- two panels -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:11px">
+          <div style="border-radius:12px;background:var(--muted);border:1px solid var(--border);overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--border);font:600 10.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--accent-lift)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"></path><path d="M22 10v6"></path><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"></path></svg>Personal information
+            </div>
+            <div style="padding:4px 15px 10px">
+              <sc-for list="{{ personal }}" as="p" hint-placeholder-count="7">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--divider)">
+                  <span style="font-size:12px;color:var(--t3);flex:none">{{ p.k }}</span>
+                  <span style="font-size:12.5px;font-weight:500;text-align:right;{{ p.cls }}">{{ p.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="border-radius:12px;background:var(--muted);border:1px solid var(--border);overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;padding:11px 15px;border-bottom:1px solid var(--border);font:600 10.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ok)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path><path d="M6 8v9"></path></svg>Room &amp; accommodation
+            </div>
+            <div style="padding:4px 15px 10px">
+              <sc-for list="{{ roomInfo }}" as="p" hint-placeholder-count="6">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--divider)">
+                  <span style="font-size:12px;color:var(--t3);flex:none">{{ p.k }}</span>
+                  <span style="font-size:12.5px;font-weight:500;text-align:right;{{ p.cls }}">{{ p.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <!-- payment history -->
+        <div style="border-radius:12px;background:var(--muted);border:1px solid var(--border);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:11px 15px;border-bottom:1px solid var(--border)">
+            <span style="display:flex;align-items:center;gap:8px;flex:1;font:600 10.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--warn)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"></rect><line x1="2" x2="22" y1="10" y2="10"></line></svg>Full payment history <span style="color:var(--t3);font-weight:500">· 1 record</span>
+            </span>
+            <span class="num" style="font-size:11.5px;color:var(--ok);font-weight:600">Paid: PKR 10,000</span>
+          </div>
+          <div class="sc" style="overflow-x:auto">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px;min-width:840px">
+              <thead><tr>
+                <th style="text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Month</th>
+                <th style="text-align:right;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Monthly rent</th>
+                <th style="text-align:right;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Concession</th>
+                <th style="text-align:right;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Paid (+extras)</th>
+                <th style="text-align:right;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Unpaid</th>
+                <th style="text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Method</th>
+                <th style="text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Status</th>
+                <th style="text-align:left;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Date</th>
+                <th style="text-align:right;font:600 11px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:12px 16px;background:var(--raised);border-bottom:1px solid var(--border);white-space:nowrap">Actions</th>
+              </tr></thead>
+              <tbody>
+                <tr>
+                  <td style="padding:12px 16px;border-bottom:1px solid var(--divider);font-weight:500;white-space:nowrap">July 2026</td>
+                  <td class="num" style="padding:12px 16px;border-bottom:1px solid var(--divider);text-align:right;white-space:nowrap">14,500</td>
+                  <td class="num" style="padding:12px 16px;border-bottom:1px solid var(--divider);text-align:right;color:var(--warn);white-space:nowrap">−6,500</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid var(--divider);text-align:right;white-space:nowrap">
+                    <div class="num" style="font-weight:600;color:var(--ok)">10,000</div>
+                    <div class="num" style="font-size:10px;color:var(--t3);margin-top:2px">+2,000 cooler fee</div>
+                  </td>
+                  <td class="num" style="padding:12px 16px;border-bottom:1px solid var(--divider);text-align:right;color:var(--t3);white-space:nowrap">—</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid var(--divider);white-space:nowrap"><span style="font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:9999px;background:var(--info-dim);color:var(--info)">Cash</span></td>
+                  <td style="padding:12px 16px;border-bottom:1px solid var(--divider);white-space:nowrap"><span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:9999px;background:var(--ok-dim);color:var(--ok)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Paid</span></td>
+                  <td class="num" style="padding:12px 16px;border-bottom:1px solid var(--divider);color:var(--t2);white-space:nowrap">02 Jul 2026</td>
+                  <td style="padding:12px 16px;border-bottom:1px solid var(--divider);white-space:nowrap">
+                    <div style="display:flex;gap:5px;justify-content:flex-end">
+                      <button title="Receipt" style="width:25px;height:25px;border-radius:8px;background:var(--raised);border:1px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="color:var(--t1);border-color:var(--border-lift)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17V7"></path><path d="M16 8h-6a2 2 0 0 0 0 4h4a2 2 0 0 1 0 4H8"></path><path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"></path></svg></button>
+                      <button title="Edit" style="width:25px;height:25px;border-radius:8px;background:var(--accent-dim);border:1px solid rgba(139,92,246,.3);color:var(--accent-lift);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(139,92,246,.22)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path></svg></button>
+                      <button title="Delete" style="width:25px;height:25px;border-radius:8px;background:var(--bad-dim);border:1px solid rgba(248,113,113,.3);color:var(--bad);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:rgba(248,113,113,.22)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:13px 20px;border-top:1px solid var(--border);background:var(--muted)">
+        <div style="flex:1"></div>
+        <button style="display:flex;align-items:center;gap:7px;height:35px;padding:0 14px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"></path><rect x="6" y="14" width="12" height="8" rx="1"></rect></svg>Print</button>
+        <button onClick="{{ openShift }}" style="display:flex;align-items:center;gap:7px;height:35px;padding:0 14px;border-radius:8px;background:var(--info-dim);border:1px solid rgba(96,165,250,.3);color:var(--info);font:600 12.5px/1 var(--ui);cursor:pointer" style-hover="background:rgba(96,165,250,.2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg>Shift room</button>
+        <button onClick="{{ openEditFromView }}" style="display:flex;align-items:center;gap:7px;height:35px;padding:0 15px;border-radius:8px;background:var(--accent);border:1px solid var(--accent);color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;box-shadow:0 1px 3px rgba(139,92,246,.35)" style-hover="background:var(--accent-lift);border-color:var(--accent-lift)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"></path></svg>Edit record</button>
+        <button onClick="{{ close }}" style="height:35px;padding:0 15px;border-radius:8px;background:var(--raised);border:1px solid var(--border-lift);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:#2a2a2a">Close</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══════════ SHIFT ROOM ══════════ -->
+  <sc-if value="{{ isShift }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;background:rgba(0,0,0,.66);backdrop-filter:blur(3px);display:flex;align-items:flex-start;justify-content:center;padding:56px 20px;z-index:61;animation:ov .14s ease">
+    <div onClick="{{ stop }}" style="width:600px;max-width:100%;background:var(--surface);border:1px solid var(--border-lift);border-radius:14px;box-shadow:var(--sh-lg);animation:md .22s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+
+      <div style="display:flex;align-items:center;gap:12px;padding:17px 22px;border-bottom:1px solid var(--border);background:var(--muted)">
+        <div style="width:30px;height:30px;flex:none;border-radius:8px;background:var(--info-dim);border:1px solid rgba(96,165,250,.3);display:flex;align-items:center;justify-content:center;color:var(--info)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.01em">Shift student to another room</div>
+          <div style="font-size:12px;color:var(--t3);margin-top:1px">Reassigns the bed and future rent</div>
+        </div>
+        <button onClick="{{ close }}" style="width:30px;height:30px;flex:none;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="border-color:var(--border-lift);color:var(--t1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </div>
+
+      <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px">
+
+        <div style="display:flex;align-items:center;gap:13px;padding:13px 15px;border-radius:12px;background:var(--muted);border:1px solid var(--border)">
+          <div style="width:38px;height:38px;flex:none;border-radius:10px;background:var(--accent-dim);border:1px solid rgba(139,92,246,.3);display:flex;align-items:center;justify-content:center;color:var(--accent-lift);font-size:14px;font-weight:600">{{ v.initials }}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:600">{{ v.name }}</div>
+            <div style="font-size:11.5px;color:var(--t3);margin-top:2px">Currently in <b class="num" style="color:var(--t1);font-weight:600">Room {{ v.room }}</b> · <span class="num" style="color:var(--ok)">PKR {{ v.rent }}/mo</span></div>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">New room <span style="color:var(--bad)">*</span></label>
+          <div style="position:relative">
+            <select style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 34px 0 14px;color:var(--t1);font-size:13.5px;appearance:none;cursor:pointer">
+              <option>— Select room —</option>
+              <option>#12 · 4-Seater · Ground Floor — 2 beds free</option>
+              <option>#14 · 4-Seater · Ground Floor — 1 bed free</option>
+              <option>#21 · 2-Seater · First Floor — 1 bed free</option>
+            </select>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:12px;top:13px;pointer-events:none"><path d="M6 9l6 6 6-6"></path></svg>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px">
+          <div>
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">New monthly rent (PKR)</label>
+            <input value="14500" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+            <div style="font-size:11px;color:var(--t3);margin-top:6px">Leave as-is or adjust for the new room</div>
+          </div>
+          <div>
+            <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Shift date</label>
+            <input value="2026-07-29" class="num" style="width:100%;height:40px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:0 14px;color:var(--t1);font-size:13.5px">
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font:500 11px/1 var(--ui);color:var(--t2);margin-bottom:6px">Reason / notes</label>
+          <textarea placeholder="e.g. Student requested single room, maintenance issue…" style="width:100%;height:76px;background:var(--muted);border:1px solid var(--input-border);border-radius:8px;padding:10px 14px;color:var(--t1);font-size:13.5px;resize:vertical;line-height:1.5"></textarea>
+        </div>
+
+        <div style="display:flex;gap:11px;padding:12px 14px;border-radius:10px;background:var(--warn-dim);border:1px solid rgba(251,191,36,.25)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;margin-top:1px"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>
+          <span style="font-size:12px;color:var(--warn);line-height:1.55">Shifting updates the student's room assignment and adjusts all future payment records. Past payments stay unchanged.</span>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;padding:14px 22px;border-top:1px solid var(--border);background:var(--muted)">
+        <div style="flex:1"></div>
+        <button onClick="{{ close }}" style="height:36px;padding:0 15px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="border-color:var(--border-lift)">Cancel</button>
+        <button onClick="{{ close }}" style="display:flex;align-items:center;gap:7px;height:36px;padding:0 16px;border-radius:8px;background:var(--accent);border:1px solid var(--accent);color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;box-shadow:0 1px 3px rgba(139,92,246,.35)" style-hover="background:var(--accent-lift);border-color:var(--accent-lift)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"></path><path d="M4 7h16"></path><path d="m16 21 4-4-4-4"></path><path d="M20 17H4"></path></svg>Confirm shift</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:860}}">
+class Component extends DCLogic {
+  state = { modal:null, tab:'All', sel:0, exported:'' };
+
+  ic(d, w){
+    return React.createElement('svg', {
+      width:w, height:w, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor',
+      strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round',
+      style:{ display:'block' }, dangerouslySetInnerHTML:{ __html:d },
+    });
+  }
+
+  navGroups(){
+    const NAV = [
+      ['Main', [
+        ['Dashboard','<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',0],
+        ['Students','<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',0],
+        ['Rooms','<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',0],
+        ['Cancellations','<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',3],
+        ['Complaints','<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',4],
+      ]],
+      ['Finance', [
+        ['Payments','<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',5],
+        ['Expenses','<path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>',0],
+        ['Reports','<path d="M4 20h16"/><rect width="3.4" height="7" x="5" y="11" rx="1"/><rect width="3.4" height="12" x="10.3" y="6" rx="1"/><rect width="3.4" height="5" x="15.6" y="13" rx="1"/>',0],
+        ['Funds Transfers','<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',0],
+      ]],
+      ['Inventory', [
+        ['Stock Inventory','<path d="M12 22V12"/><path d="M3.29 7 12 12l8.71-5"/><path d="M20 8.5v7L12 20l-8-4.5v-7L12 4z"/>',0],
+      ]],
+      ['System', [
+        ['Staff','<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',0],
+        ['Users','<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',0],
+        ['Maintenance','<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-1.4-1.4z"/>',2],
+        ['Settings','<circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>',0],
+        ['Activity Log','<path d="M3 12h4l3 8 4-16 3 8h4"/>',0],
+        ['Help & Support','<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',0],
+      ]],
+    ];
+    return NAV.map(g => ({
+      label:g[0],
+      items: g[1].map(it => ({
+        label:it[0], icon:this.ic(it[1], 16),
+        hasBadge: it[2] > 0, badge: it[2],
+        badgeStyle: it[0] === 'Complaints'
+          ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+          : it[0] === 'Cancellations'
+            ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+            : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+        go: () => { const R = {Dashboard:'Dashboard.dc.html',Students:'Students.dc.html',Rooms:'Rooms.dc.html',Cancellations:'Cancellations.dc.html',Complaints:'Complaints.dc.html',Payments:'Payments.dc.html',Expenses:'Expenses.dc.html',Reports:'Reports.dc.html',Settings:'Settings.dc.html'}[it[0]]; if (R) window.location.href = R; },
+        style: it[0] === 'Students'
+          ? 'background:var(--ac-soft);color:var(--ac);font-weight:600'
+          : 'color:var(--t2);font-weight:500',
+      })),
+    }));
+  }
+
+  statusPill(s){
+    if(s==='Active') return 'background:var(--ok-dim);color:var(--ok)';
+    if(s==='Cancelling') return 'background:var(--warn-dim);color:var(--warn)';
+    if(s==='Blacklisted') return 'background:var(--bad-dim);color:var(--bad)';
+    return 'background:var(--raised);color:var(--t2)';
+  }
+  natPill(n){
+    if(n==='Afghan') return 'background:var(--warn-dim);color:var(--warn)';
+    return 'background:var(--raised);border:1px solid var(--border);color:var(--t2)';
+  }
+  avatar(i){
+    const set = [
+      'background:var(--accent-dim);border:1px solid rgba(139,92,246,.3);color:var(--accent-lift)',
+      'background:var(--info-dim);border:1px solid rgba(96,165,250,.3);color:var(--info)',
+      'background:var(--ok-dim);border:1px solid rgba(52,211,153,.3);color:var(--ok)',
+      'background:var(--warn-dim);border:1px solid rgba(251,191,36,.3);color:var(--warn)',
+    ];
+    return set[i % set.length];
+  }
+
+  renderVals(){
+    const st = this.state;
+
+    const data = [
+      ['#002','Umar Farooq','Noor Zadain','#1','3-Seater · Ground Fl','0335-5265138','+971509829837','—','Pakistani','North Waziristan','FSc Pre-Medical','14,500','Cancelling'],
+      ['#003','Gauhar Rehman','Sabir Hussain','#2','3-Seater · Ground Fl','0302-8963715','03319328938','—','Pakistani','Kurram','MDCAT Preparation','14,500','Active'],
+      ['#004','Adnan Khan','Muhammad Tariq','#2','3-Seater · Ground Fl','0331-8876129','03078424441','—','Afghan','South Waziristan','MDCAT Preparation','14,500','Active'],
+      ['#005','Kauser Rehman','Sabir Hussain','#2','3-Seater · Ground Fl','0302-8963715','03319328938','—','Pakistani','Kurram','MDCAT Preparation','14,500','Active'],
+      ['#006','Danyal','Sameen Ullah','#14','4-Seater · Ground Fl','0314-0887838','03315765951','—','Pakistani','Lakki Marwat','FSc Pre-Medical','14,500','Active'],
+      ['#007','Abdullah Shah','Sher Muhammad','#14','4-Seater · Ground Fl','0335-9791038','03028474477','—','Pakistani','North Waziristan','BS Civil Engineering','14,500','Active'],
+      ['#008','Ahmad Noor','Fazal Zaman','#13','4-Seater · Ground Fl','0334-9712494','03320626554','—','Afghan','North Waziristan','BS Law','14,500','Active'],
+      ['#009','Hamid Noor','Fazal Zaman','#13','4-Seater · Ground Fl','0334-9712494','03320626554','—','Afghan','North Waziristan','BS Nursing','14,500','Active'],
+      ['#012','Azeem Ullah','Abdul Majid','#12','4-Seater · Ground Fl','0329-9926362','03333390393','—','Pakistani','Lakki Marwat','FSc Pre-Medical','14,500','Active'],
+      ['#013','Sifat Ullah','Naqeeb Ullah','#12','4-Seater · Ground Fl','0348-8139149','03439151968','—','Pakistani','Lakki Marwat','BS Health Sciences','14,500','Active'],
+      ['#014','Zabit Khan','Gul Rehman','#11','2-Seater · First Fl','0311-4456701','03004458812','35202-1948576-3','Pakistani','Bannu','BS Computer Science','16,000','Left'],
+      ['#015','Naveed Anjum','Rahim Shah','#11','2-Seater · First Fl','0345-7781204','03219087654','35201-9087654-7','Pakistani','Peshawar','BBA','16,000','Blacklisted'],
+    ];
+
+    const roomNo = v => { const m = String(v||'').match(/(\d+)/); return m ? parseInt(m[1],10) : 1e9; };
+    data.sort((a,b) => roomNo(a[3]) - roomNo(b[3]) || a[0].localeCompare(b[0]));
+
+    const messFor = { '#002':0, '#003':4500, '#004':4500, '#005':4500, '#006':0, '#007':4500,
+                       '#008':4500, '#009':0, '#012':4500, '#013':4500, '#014':0, '#015':4500 };
+    const toNum = v => parseInt(String(v).replace(/,/g,''),10) || 0;
+    const fmtN  = n => n.toLocaleString('en-US');
+
+    const rows = data.map((d, i) => ({
+      id:d[0], name:d[1], father:d[2], room:d[3], roomMeta:d[4],
+      messFee: fmtN(messFor[d[0]] || 0),
+      messIncluded: (messFor[d[0]] || 0) > 0,
+      messExcluded: !(messFor[d[0]] || 0),
+      rentOnly: d[11],
+      rentTotal: fmtN(toNum(d[11]) + (messFor[d[0]] || 0)),
+      phone:d[5], emergency:d[6], cnic:d[7], nationality:d[8],
+      address:d[9], course:d[10], rent:d[11], status:d[12],
+      initials:d[1].split(' ').map(w=>w[0]).slice(0,2).join(''),
+      avatar:this.avatar(i),
+      natPill:this.natPill(d[8]),
+      statusPill:this.statusPill(d[12]),
+      view: () => this.setState({ modal:'view', sel:i }),
+      edit: () => this.setState({ modal:'edit', sel:i }),
+      shift: () => this.setState({ modal:'shift', sel:i }),
+    }));
+
+    const counts = {
+      All: 47,
+      Active: data.filter(d => d[12]==='Active').length + 35,
+      Left: data.filter(d => d[12]==='Left').length + 6,
+      Blacklisted: data.filter(d => d[12]==='Blacklisted').length + 1,
+    };
+    const tabs = ['All','Active','Left','Blacklisted'].map(k => ({
+      label:k, count:counts[k],
+      go: () => this.setState({ tab:k }),
+      style: st.tab===k
+        ? 'background:var(--raised);color:var(--t1);font-weight:600;box-shadow:var(--sh)'
+        : 'background:transparent;color:var(--t2);font-weight:500',
+      countStyle: st.tab===k
+        ? 'background:var(--accent-dim);color:var(--accent-lift)'
+        : 'background:var(--muted);color:var(--t3)',
+    }));
+
+    const cur = rows[st.sel] || rows[0];
+    const dash = 'color:var(--t3)';
+    const personal = [
+      { k:'Father / guardian', v:cur.father, cls:'' },
+      { k:'Occupation / course', v:cur.course, cls:'' },
+      { k:'CNIC / ID', v:cur.cnic, cls:cur.cnic==='—' ? dash : 'font-family:var(--mono)' },
+      { k:'Nationality', v:cur.nationality, cls:'' },
+      { k:'Phone number', v:cur.phone, cls:'font-family:var(--mono)' },
+      { k:'Email address', v:'—', cls:dash },
+      { k:'Emergency contact', v:cur.emergency, cls:'font-family:var(--mono)' },
+    ];
+    const roomInfo = [
+      { k:'Room number', v:cur.room, cls:'font-family:var(--mono)' },
+      { k:'Room type', v:cur.roomMeta.split(' · ')[0], cls:'' },
+      { k:'Floor', v:'Ground', cls:'' },
+      { k:'Capacity', v:'3 beds', cls:'' },
+      { k:'Amenities', v:'Fan, Bed, Wardrobe', cls:'' },
+      { k:'Mess', v:cur.messIncluded ? 'Included · PKR ' + cur.messFee + '/mo' : 'Not included', cls:cur.messIncluded ? 'color:var(--ok)' : dash },
+      { k:'Room notes', v:'None', cls:dash },
+    ];
+
+    const isEdit = st.modal==='edit';
+    const f = isEdit
+      ? { name:cur.name, father:cur.father, cnic:cur.cnic==='—' ? '' : cur.cnic, course:cur.course, phone:cur.phone, emergency:cur.emergency, email:'', address:cur.address, rent:cur.rentOnly, joinDate:'2026-07-02', messFee:cur.messIncluded ? cur.messFee : '' }
+      : { name:'', father:'', cnic:'', course:'', phone:'', emergency:'', email:'', address:'', rent:'', joinDate:'', messFee:'' };
+
+    const flash = (msg) => {
+      this.setState({ exported:msg });
+      clearTimeout(this._t);
+      this._t = setTimeout(() => this.setState({ exported:'' }), 2600);
+    };
+
+    return {
+      navGroups: this.navGroups(),
+      rows, tabs, personal, roomInfo, f,
+      v: cur,
+      resultLabel: counts[st.tab] + ' ' + (st.tab==='All' ? 'students' : st.tab.toLowerCase() + ' students') + ' · showing 12',
+      pageLabel: 'Showing 1–12 of ' + counts[st.tab],
+      isForm: st.modal==='add' || st.modal==='edit',
+      isView: st.modal==='view',
+      isShift: st.modal==='shift',
+      formTitle: isEdit ? 'Edit student' : 'Add new student',
+      formSub: isEdit ? cur.name + ' · ' + cur.id : 'Register a new resident and assign a bed',
+      saveLabel: isEdit ? 'Save changes' : 'Save',
+      exported: st.exported,
+      openAdd: () => this.setState({ modal:'add' }),
+      openShift: () => this.setState({ modal:'shift' }),
+      openEditFromView: () => this.setState({ modal:'edit' }),
+      openPayment: () => this.setState({ modal:null }),
+      exportCsv: () => flash('CSV exported — 47 students'),
+      exportPdf: () => flash('PDF exported — 47 students'),
+      close: () => this.setState({ modal:null }),
+      stop: (e) => { if(e && e.stopPropagation) e.stopPropagation(); },
+      toggleTheme: () => {},
+    };
+  }
+}
+</script>
+</body>
+</html>
