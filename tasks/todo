@@ -23,14 +23,37 @@
       CI run `31050766599` green — **94 tests passed, 13 files, 0 skipped**, against real PG+Redis;
       the RLS gate passed. This is the first run that covers `queues.test.ts`.
 
+### The first real tick — and the bug it caught (2026-08-06)
+- [x] **`WORKERS_ENABLED=true` set on Railway `staging`** (environment verified by
+      `RAILWAY_ENVIRONMENT_NAME`/`SENTRY_ENVIRONMENT` before writing — the CLI was linked to
+      **production** by default, which is one typo away from starting rent generation on live data).
+      Boot markers confirmed: `workers ENABLED (4 workers + dispatch)` + `schedulers registered`.
+- [x] **Fired a tick by hand rather than waiting for the cron.** Next natural tick was ~21 hours
+      out (00:30 Asia/Karachi). Enqueued the same job the scheduler writes, via the Redis public
+      proxy URL.
+- [x] **It failed — and the failure was real code, not the harness.** `Custom Id cannot contain :`.
+      BullMQ accepts a custom job ID with ':' only when it splits into exactly three parts, so
+      `rent:<hostelId>:<month>` passed by luck and `auto-cancel:<day>` threw. **The nightly sweep
+      would have failed at 00:30 tonight and every night after** — no beds freed, which is the
+      exact defect the producer work exists to close. Fixed in `3fb5a6e`: `lib/job-ids.ts` owns ID
+      construction, `-` separator, throws on ':' and on all-integer IDs.
+- [x] **DLQ proven end to end on staging** — the failed tick landed in `dlq_jobs` with its error
+      message. First time that path has run outside CI.
+- [ ] **Re-fire the tick after `3fb5a6e` deploys** and confirm the fan-out reaches `auto-cancel`.
+- [ ] **Then fire `rent-monthly` once on staging.** It is the money path and the only fan-out that
+      writes payment rows; it has still never run. Staging has 1 hostel / 3 students.
+- [ ] ⚠️ **`WORKERS_ENABLED` is still OFF in production, and must stay off** until both of the
+      above are green on staging.
+
 ### Open after this session
 - [ ] ⚠️ **PRODUCTION IS STILL ON 012.** Both 013 and 014 are unapplied there, and 013's code is
       live — so `notes` is silently dropped in production right now, which is the exact defect the
       migration exists to close. Prod has real data; walk it statement by statement.
-- [ ] ⚠️ **`hostyllo_app` has no LOGIN/password on staging** (migration 010 creates it NOLOGIN by
-      design; the credential is set out of band). Until it has one and staging's `DATABASE_URL_APP`
-      points at it, **staging runs as the privileged role and does not exercise RLS the way
-      production does** — so a tenant-isolation bug can pass staging and fail in prod.
+- [x] **`hostyllo_app` IS live on staging** — verified 2026-08-06: `rolcanlogin = true`,
+      `rolbypassrls = false`, and Railway's staging `DATABASE_URL_APP` is set. Staging exercises
+      FORCE RLS the same way production does. (An earlier note in this file claimed the opposite,
+      reasoning from migration 010 creating the role NOLOGIN without checking the live role — the
+      founder had set the credential out of band, exactly as 010 instructs. Corrected.)
 - [ ] **`012` has drifted from both ledgers** — the file was edited after being stamped
       (`cebe3aa`). Comment-only; the DDL is one `DROP COLUMN IF EXISTS`, so no schema difference.
       `migrate.mjs` will warn on every run until someone re-stamps it. Decide: re-stamp or leave.
