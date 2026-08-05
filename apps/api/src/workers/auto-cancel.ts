@@ -16,9 +16,9 @@ import { moveToDLQ } from './dlq.js';
  * role, cross-tenant background work runs as the owner. Every statement below is still explicitly
  * scoped by `hostel_id`, so a bug here cannot silently touch the wrong tenant.
  *
- * ⚠️ Nothing enqueues to this worker yet — `apps/api` has no BullMQ producer at all. See
- * `tasks/todo`; the scheduling decision is still open. This is fixed ahead of that so the code is
- * correct whenever it is finally wired up.
+ * Fed by `workers/dispatch.ts`, which enqueues one global `sweep` job nightly at 00:30 Asia/Karachi
+ * (job ID `auto-cancel:YYYY-MM-DD`, so replicas ticking together still produce one sweep). It takes
+ * no payload: the sweep claims its candidates by UPDATE across every tenant in one pass.
  */
 
 interface AutoCancelResult {
