@@ -49,12 +49,24 @@
       count unchanged and August still has exactly 3 rows — the deterministic job ID
       (`rent-<hostelId>-2026-08`) was refused by BullMQ as a duplicate. This is the guard that lets
       every replica run the dispatcher without billing a hostel N times.
-- [ ] ⚠️ **`rent-generate` does NOT bill `mess_fee`.** Migration 014 says the column is "billed
-      together with monthly_fee", and the redesigned Students screen shows rent+mess as the monthly
-      figure — but the worker inserts `rent = monthly_fee` only. It went unnoticed on staging
-      because all 3 students have `mess_fee = NULL`. The first student with a mess fee will be
-      under-billed every month. Decide: bill it in `rent-generate`, or correct what 014 and the UI
-      claim.
+- [x] **`rent-generate` now bills `mess_fee` — FIXED `3b432c1`, CI green (run 31053240161).**
+      It inserted `rent = monthly_fee` and ignored the column, while migration 014 calls it "billed
+      together with monthly_fee". Unnoticed on staging because all 3 students have `mess_fee NULL`;
+      the first student with a mess fee would have been under-billed every month.
+      **Billed as a `payment_extra_charges` row, not folded into `rent`** — the canonical formula is
+      `rent + admission_fee + Σ(extras) - concession` and `PATCH /payments/:id` recalculates from
+      the real extras rows, so a total carrying mess with no row behind it would be silently
+      reduced by the first owner edit. NULL still gets no line; 0.00 gets a zero line (014's
+      "included, zero-rated"). Payment + mess line share one transaction via the new `lib/tx.ts`
+      (extracted from billing-sync, now used by both). Money arithmetic moved into Postgres —
+      `8000.00 + 0.10` is not 8000.10 in a double (INVARIANT-4).
+      4 DB-backed tests; the load-bearing one recomputes the canonical formula from what is on disk
+      so the generator and the PATCH recalc cannot drift.
+- [ ] **Not yet proven against a real mess student on staging.** All 3 staging students have
+      `mess_fee NULL`, so the fix is proven by CI against a seeded DB, not by a live tick. To close
+      it: set a `mess_fee` on one staging student, fire `rent-monthly` for a fresh month, confirm
+      the extra-charge row. The 3 existing August rows were written by the old code and need no
+      backfill — those students genuinely have no mess.
 - [ ] ⚠️ **`WORKERS_ENABLED` is still OFF in production, and must stay off** until both of the
       above are green on staging.
 
