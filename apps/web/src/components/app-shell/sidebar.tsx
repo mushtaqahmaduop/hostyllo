@@ -2,185 +2,147 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui-kit/tooltip';
 import { cn } from '@/lib/utils';
-import { NAV_GROUPS, isActive, type NavItem } from './nav-items';
+import { NAV_GROUPS, badgeTone, isActive, type BadgeTone, type NavItem } from './nav-items';
+import { UserMenu } from './user-menu';
 
-const STORAGE_KEY = 'hs:sidebar-collapsed';
+const BADGE_STYLE: Record<BadgeTone, string> = {
+  danger: 'bg-negative-tint text-negative',
+  warning: 'bg-attention-tint text-attention',
+  neutral: 'bg-surface-hover text-fg-secondary',
+};
 
 /**
- * Desktop sidebar — docs/15_UI_SPEC_v1.md §7.8, 264px collapsing to a 72px icon rail.
+ * Desktop sidebar — 203px, `--card` surface, 1px hairline on the trailing edge.
  *
- * The background is `surface-sunken`, not a dark slab. Every reference dashboard in §1 reaches for
- * a dark navigation rail in light mode; it looks decisive in a screenshot and then fights the real
- * dark theme, where the rail has to become *lighter* than the canvas to stay legible. A recessed
- * neutral works in both.
+ * Three regions, per `docs/design/handoff/README.md`: brand block, scrolling
+ * grouped nav, user footer.
  *
- * The active item is marked by the Threshold Rule — an indigo bar on the leading edge — plus
- * weight and a tint. Never a full indigo fill: indigo means "you can act on this", and a solid
- * block of it on the thing you are already looking at spends the colour on nothing.
+ * The active item is an accent-*tinted* row with accent text at weight 600 — not
+ * a filled violet block. The filled violet is the one primary action per screen,
+ * and spending it on the page you are already looking at spends it on nothing.
+ * That is the Claude system's accent discipline and the bundle's own spec
+ * agreeing with each other, so it is not a close call.
  */
-export function Sidebar({ asOf }: { asOf: string }) {
+export function Sidebar({
+  tenantName,
+  userName,
+  userRole,
+  badges,
+}: {
+  tenantName: string;
+  userName: string | null;
+  userRole: string | null;
+  /** Counts keyed by nav href — only rendered where there is something to count. */
+  badges: Record<string, number>;
+}) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [ready, setReady] = useState(false);
-
-  // Read after mount rather than during render: localStorage does not exist on the server, and
-  // seeding state from it would make the first client render disagree with the server's HTML.
-  useEffect(() => {
-    setCollapsed(window.localStorage.getItem(STORAGE_KEY) === '1');
-    setReady(true);
-  }, []);
-
-  function toggle() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      window.localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
-      return next;
-    });
-  }
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <aside
-        data-collapsed={collapsed || undefined}
-        style={{ width: collapsed ? 'var(--hs-sidebar-w-collapsed)' : 'var(--hs-sidebar-w)' }}
-        className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-hairline bg-surface-sunken lg:flex',
-          // The first paint is not animated: a remembered collapsed state would otherwise visibly
-          // slide shut on every page load, which reads as the app changing its mind.
-          ready && 'transition-[width] duration-base ease-standard',
-        )}
-      >
-        <div className="flex h-[var(--hs-topbar-h)] shrink-0 items-center overflow-hidden px-4">
-          <Link href="/dashboard" className="flex items-center gap-3 text-fg hover:text-fg">
-            <BrandMark />
-            {!collapsed && (
-              <span className="truncate font-display text-h2 tracking-snug">Hostyllo</span>
-            )}
-          </Link>
-        </div>
+    <aside className="hidden w-[var(--hs-sidebar-w)] shrink-0 flex-col border-e border-hairline bg-surface lg:flex">
+      <div className="flex shrink-0 items-center gap-[10px] px-[13px] py-[13px]">
+        <BrandMark />
+        <span className="min-w-0">
+          <span className="block text-[12.5px] font-bold leading-[1.2] tracking-wide">HOSTYLLO</span>
+          <span className="block truncate text-meta leading-[1.35] text-fg-tertiary">
+            {tenantName}
+          </span>
+        </span>
+      </div>
 
-        <nav className="flex flex-1 flex-col gap-6 overflow-y-auto overflow-x-hidden px-3 py-4" aria-label="Main">
-          {NAV_GROUPS.map((group) => (
-            <div key={group.label}>
-              {/* §7.8: groups carry eyebrow headers. Hidden in the rail, where there is no room
-                  for them and the tooltips carry the labels instead. */}
-              {!collapsed && <p className="hs-eyebrow mb-2 px-3">{group.label}</p>}
-              <ul className="grid list-none gap-1 p-0">
-                {group.items.map((item) => (
-                  <li key={item.href}>
-                    <NavLink
-                      item={item}
-                      active={isActive(pathname, item.href)}
-                      collapsed={collapsed}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </nav>
-
-        {/*
-         * "Data as of / Last refresh", pinned bottom — adopted from the Lead Tracker reference and
-         * made mandatory by §1: multi-tenant SaaS over patchy connectivity must state its data
-         * freshness. Without it, a stale page and a fresh one are indistinguishable, and the
-         * operator reconciles cash against a number from twenty minutes ago.
-         */}
-        <div className="shrink-0 border-t border-hairline px-3 py-3">
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <p className="px-3 text-center text-caption text-fg-tertiary">·</p>
-              </TooltipTrigger>
-              <TooltipContent side="right">Data as of {asOf}</TooltipContent>
-            </Tooltip>
-          ) : (
-            <p className="px-3 text-caption text-fg-tertiary">
-              Data as of <span className="tabular-nums">{asOf}</span>
+      <nav className="hs-scroll flex-1 overflow-y-auto px-[10px] pb-[10px]" aria-label="Main">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label} className="mb-1">
+            <p className="px-[6px] pb-[6px] pt-[13px] text-eyebrow font-semibold uppercase tracking-wider text-fg-tertiary">
+              {group.label}
             </p>
-          )}
-        </div>
+            <ul className="grid list-none gap-[2px] p-0">
+              {group.items.map((item) => (
+                <li key={item.href}>
+                  <NavLink
+                    item={item}
+                    active={isActive(pathname, item.href)}
+                    badge={badges[item.href] ?? 0}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
 
-        <button
-          type="button"
-          onClick={toggle}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className="m-3 mt-0 flex h-[var(--hs-control-h)] items-center gap-3 rounded-md px-3 text-fg-tertiary transition-colors duration-instant ease-standard hover:bg-surface-hover hover:text-fg"
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="size-4 shrink-0" aria-hidden />
-          ) : (
-            <PanelLeftClose className="size-4 shrink-0" aria-hidden />
-          )}
-          {!collapsed && <span className="truncate text-body-sm">Collapse</span>}
-        </button>
-      </aside>
-    </TooltipProvider>
+      {/* Footer: avatar, name, role, chevron — and the only sign-out in the app. */}
+      <div className="shrink-0 border-t border-hairline">
+        <UserMenu name={userName} role={userRole} />
+      </div>
+    </aside>
   );
 }
 
-function NavLink({
-  item,
-  active,
-  collapsed,
-}: {
-  item: NavItem;
-  active: boolean;
-  collapsed: boolean;
-}) {
-  const link = (
+function NavLink({ item, active, badge }: { item: NavItem; active: boolean; badge: number }) {
+  const content = (
+    <>
+      <item.icon className="size-4 shrink-0" aria-hidden />
+      <span className="flex-1 truncate">{item.label}</span>
+      {badge > 0 && (
+        <span
+          className={cn(
+            'hs-num inline-flex h-[17px] min-w-[17px] shrink-0 items-center justify-center rounded-sm px-[5px] text-[10px] font-semibold',
+            BADGE_STYLE[badgeTone(item.href)],
+          )}
+        >
+          {badge}
+        </span>
+      )}
+    </>
+  );
+
+  const shape =
+    'flex h-[var(--hs-nav-item-h)] items-center gap-[10px] rounded-md px-[10px] text-[12.5px]';
+
+  /*
+   * Unbuilt screens render as a `<span>`, not a disabled `<a>`. A link with
+   * `aria-disabled` is still in the tab order and still announces as a link,
+   * which promises a destination that does not exist; a span simply reads as
+   * the label it is.
+   */
+  if (!item.ready) {
+    return (
+      <span className={cn(shape, 'cursor-default text-fg-disabled')} title={`${item.label} — not built yet`}>
+        {content}
+      </span>
+    );
+  }
+
+  return (
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'relative flex h-11 items-center gap-3 rounded-md ps-4 pe-3',
-        'text-body transition-colors duration-fast ease-standard',
-        // The reserved 2px leading bar. Transparent when inactive, so activating an item changes a
-        // colour and never a position — §9 forbids anything moving that does not need to.
-        // §9: "Nav item activate — threshold bar, 200ms ease-emphasis." The one overshoot easing
-        // in the system, reserved for the threshold bar and the hero figure.
-        'before:absolute before:inset-y-2 before:start-0 before:w-[var(--hs-threshold-w)] before:rounded-full before:bg-transparent before:transition-colors before:duration-base before:ease-emphasis',
+        shape,
+        'transition-colors duration-fast ease-standard',
         active
-          ? 'bg-surface-active font-semibold text-fg before:bg-brand'
-          : 'text-fg-secondary hover:bg-surface-hover hover:text-fg',
+          ? 'bg-brand-tint font-semibold text-brand-text hover:text-brand-text'
+          : 'font-medium text-fg-secondary hover:bg-surface-hover hover:text-fg',
       )}
     >
-      <item.icon className="size-4 shrink-0" aria-hidden />
-      {!collapsed && <span className="truncate">{item.label}</span>}
+      {content}
     </Link>
-  );
-
-  // Collapsed to icons, the label has to come from somewhere (§7.8: "icon + tooltip").
-  return collapsed ? (
-    <Tooltip>
-      <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{item.label}</TooltipContent>
-    </Tooltip>
-  ) : (
-    link
   );
 }
 
-/**
- * The Aperture-O mark in miniature: an indigo ring with an amber threshold at its leading edge —
- * the same device the whole interface is built on (§2), at 28px.
- */
+/** The 30px Hostyllo mark, 8px radius, per the bundle's brand block. */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <span
       aria-hidden
       className={cn(
-        'relative grid size-7 shrink-0 place-items-center rounded-full border-2 border-brand',
+        'grid size-[30px] shrink-0 place-items-center rounded-lg bg-brand text-[15px] font-bold text-fg-on-brand',
         className,
       )}
     >
-      <span className="absolute inset-y-1 start-[-2px] w-[var(--hs-threshold-w)] rounded-full bg-attention" />
+      H
     </span>
   );
 }
