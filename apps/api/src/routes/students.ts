@@ -20,7 +20,28 @@ interface PreviewRow {
 // uuid column, so `/students/not-a-uuid` produced a Postgres "invalid input syntax for type uuid"
 // — a 500 for what is plainly a client error. `status` mirrors the CHECK constraint in migration
 // 002 so an invalid value is a 400 here rather than a constraint violation (500) at the DB.
-const STUDENT_STATUSES = ['active', 'vacating', 'vacated'] as const;
+const STUDENT_STATUSES = ['active', 'vacating', 'vacated', 'blacklisted'] as const;
+
+/**
+ * Sortable columns, as a whitelist mapping the client's key to a SQL expression.
+ *
+ * A whitelist rather than interpolating the client's string: ORDER BY cannot be
+ * parameterised, so a raw `sort` reaching the query is an injection point. This
+ * is the only safe shape.
+ *
+ * `room` sorts on the room *number*, numerically — the redesigned screen states
+ * "Sorted by Room ascending" and a hostel manager means #2 before #14, not
+ * lexical order where #14 wins. NULLS LAST on every key so students without a
+ * room or a fee sink to the bottom in both directions rather than flooding the
+ * first page of an ascending sort.
+ */
+const SORTABLE: Record<string, string> = {
+  name: 's.name',
+  room: 'r.number',
+  rent: '(s.monthly_fee + COALESCE(s.mess_fee, 0))',
+  status: 's.status',
+  join_date: 's.join_date',
+};
 
 const idParam = {
   type: 'object',
@@ -41,8 +62,12 @@ export async function studentRoutes(app: FastifyInstance) {
         type: 'object',
         properties: {
           q:       { type: 'string' },
-          status:  { type: 'string', enum: [...STUDENT_STATUSES], default: 'active' },
+          // 'all' is the roster's default tab and had no representation here: the
+          // only way to see every student was four requests, one per status.
+          status:  { type: 'string', enum: [...STUDENT_STATUSES, 'all'], default: 'active' },
           room_id: { type: 'string', format: 'uuid' },
+          sort:    { type: 'string', enum: ['name', 'room', 'rent', 'status', 'join_date'], default: 'room' },
+          dir:     { type: 'string', enum: ['asc', 'desc'], default: 'asc' },
           limit:   { type: 'integer', minimum: 1, default: 25 },
           offset:  { type: 'integer', minimum: 0, default: 0 },
         },
@@ -50,15 +75,24 @@ export async function studentRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { q, status = 'active', room_id, limit = 25, offset = 0 } = request.query as Record<string, string | undefined>;
+    const { q, status = 'active', room_id, sort = 'room', dir = 'asc', limit = 25, offset = 0 } =
+      request.query as Record<string, string | undefined>;
 
     const result = await withTenant(request.hostelId, async (db) => {
       let query = `
-        SELECT s.id as student_id, s.name as full_name, s.phone, s.status,
-               s.room_id, r.number as room_number, b.label as bed_label,
-               s.monthly_fee as rent_pkr, s.join_date,
+        SELECT s.id as student_id, s.name as full_name, s.father_name, s.phone,
+               s.emergency_contact, s.address, s.status,
+               s.room_id, r.number as room_number, r.floor as room_floor,
+               r.capacity as room_capacity, b.label as bed_label,
+               s.monthly_fee as rent_pkr, s.mess_fee as mess_fee_pkr,
+               s.nationality, s.course, s.join_date,
                COALESCE(unpaid.amount, 0) as unpaid_pkr,
-               'XXXXX-XXXXXXX-X' as masked_cnic
+               -- NULL when there is genuinely no CNIC on record, rather than a mask for
+               -- everyone. The constant meant a roster could not tell "held, hidden" from
+               -- "never collected" — and chasing a missing CNIC is the actual task the
+               -- column exists to support. The value itself still never leaves the server
+               -- except through the audited /students/:id/reveal-cnic endpoint.
+               CASE WHEN s.cnic_encrypted IS NULL THEN NULL ELSE 'XXXXX-XXXXXXX-X' END as masked_cnic
         FROM public.students s
         LEFT JOIN public.rooms r ON r.id = s.room_id
         LEFT JOIN public.beds b ON b.id = s.bed_id
@@ -68,13 +102,25 @@ export async function studentRoutes(app: FastifyInstance) {
           WHERE status != 'void'
           GROUP BY student_id
         ) unpaid ON unpaid.student_id = s.id
-        WHERE s.deleted_at IS NULL AND s.status = $1
+        WHERE s.deleted_at IS NULL
       `;
-      const params: unknown[] = [status];
-      let paramIndex = 2;
+      const params: unknown[] = [];
+      let paramIndex = 1;
 
+      /*
+       * Search spans the fields an operator actually types into a roster search:
+       * a name, a father's name, a phone, a room number, a course. Deliberately
+       * not CNIC — it is encrypted with a random IV per call, so the ciphertext
+       * is non-deterministic and ILIKE against it can never match. (A working
+       * CNIC search needs a separate HMAC search-hash column; that is a known
+       * open item, not something to fake here.)
+       */
       if (q) {
-        query += ` AND (s.name ILIKE $${paramIndex} OR s.phone ILIKE $${paramIndex})`;
+        query += ` AND (
+          s.name ILIKE $${paramIndex} OR s.father_name ILIKE $${paramIndex}
+          OR s.phone ILIKE $${paramIndex} OR s.course ILIKE $${paramIndex}
+          OR r.number::text ILIKE $${paramIndex}
+        )`;
         params.push(`%${q}%`);
         paramIndex++;
       }
@@ -85,14 +131,55 @@ export async function studentRoutes(app: FastifyInstance) {
         paramIndex++;
       }
 
+      /*
+       * The tab counts.
+       *
+       * Taken from the query as built *so far* — every filter except status —
+       * so the four tabs and the table agree on which students are in scope
+       * while still each showing their own total. Running it before the status
+       * predicate is appended is what makes that true, and is why the predicate
+       * is added below rather than with the others: an earlier draft appended it
+       * with the rest and then tried to strip it back out with a regex, which
+       * silently misnumbered every `$n` after it.
+       *
+       * One pass, not five requests — five would drift the moment a student is
+       * admitted between them.
+       */
+      const counts = await db.query(
+        `SELECT status, COUNT(*)::int AS n FROM (${query}) t GROUP BY status`,
+        params,
+      );
+
+      // 'all' is a tab, not a status: it drops the predicate rather than matching
+      // a value no row holds.
+      if (status !== 'all') {
+        query += ` AND s.status = $${paramIndex}`;
+        params.push(status);
+        paramIndex++;
+      }
+
       const countResult = await db.query(`SELECT COUNT(*) FROM (${query}) t`, params);
       const total = parseInt(countResult.rows[0].count);
 
-      query += ` ORDER BY s.name LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      // ORDER BY cannot be parameterised, so the column comes from the SORTABLE
+      // whitelist and the direction from the schema's two-value enum. Neither is
+      // client text by the time it reaches here.
+      const column = SORTABLE[sort] ?? SORTABLE.room;
+      const direction = dir === 'desc' ? 'DESC' : 'ASC';
+      query += ` ORDER BY ${column} ${direction} NULLS LAST, s.name ASC
+                 LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(Math.min(Number(limit), 100), Number(offset));
 
       const rows = await db.query(query, params);
-      return { students: rows.rows, total };
+
+      const byStatus: Record<string, number> = { active: 0, vacating: 0, vacated: 0, blacklisted: 0 };
+      for (const row of counts.rows) byStatus[row.status] = row.n;
+
+      return {
+        students: rows.rows,
+        total,
+        counts: { ...byStatus, all: Object.values(byStatus).reduce((a, b) => a + b, 0) },
+      };
     });
 
     return reply.send({ success: true, data: { ...result, limit: Number(limit), offset: Number(offset) } });
@@ -191,6 +278,12 @@ export async function studentRoutes(app: FastifyInstance) {
           room_id:           { type: 'string', format: 'uuid' },
           bed_id:            { type: 'string', format: 'uuid' },
           monthly_fee:       { type: 'number', minimum: 0 },
+          // Nullable on purpose (migration 014): null means mess is not included,
+          // 0 means included and zero-rated. `type: ['number','null']` rather than
+          // omitting the key, so a client can clear it explicitly.
+          mess_fee:          { type: ['number', 'null'], minimum: 0 },
+          nationality:       { type: 'string', maxLength: 100 },
+          course:            { type: 'string', maxLength: 200 },
           admission_fee:     { type: 'number', minimum: 0, default: 0 },
           join_date:         { type: 'string' },
         },
@@ -198,10 +291,11 @@ export async function studentRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { name, father_name, cnic, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee = 0, join_date } = request.body as {
+    const { name, father_name, cnic, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, mess_fee = null, nationality, course, admission_fee = 0, join_date } = request.body as {
       name?: string; father_name?: string; cnic?: string; phone?: string;
       emergency_contact?: string; email?: string; address?: string;
-      room_id?: string; bed_id?: string; monthly_fee?: number; admission_fee?: number; join_date?: string;
+      room_id?: string; bed_id?: string; monthly_fee?: number; mess_fee?: number | null;
+      nationality?: string; course?: string; admission_fee?: number; join_date?: string;
     };
 
     const result = await withTenant(request.hostelId, async (db) => {
@@ -213,11 +307,13 @@ export async function studentRoutes(app: FastifyInstance) {
 
       const row = await db.query(`
         INSERT INTO public.students
-          (hostel_id, name, father_name, cnic_encrypted, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee, join_date, status, created_at, updated_at)
+          (hostel_id, name, father_name, cnic_encrypted, phone, emergency_contact, email, address,
+           room_id, bed_id, monthly_fee, mess_fee, nationality, course, admission_fee, join_date,
+           status, created_at, updated_at)
         VALUES
-          (current_setting('app.hostel_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'active', NOW(), NOW())
+          (current_setting('app.hostel_id')::uuid, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'active', NOW(), NOW())
         RETURNING id
-      `, [name, father_name, cnic ? encryptField(cnic) : null, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, admission_fee, join_date]);
+      `, [name, father_name, cnic ? encryptField(cnic) : null, phone, emergency_contact, email, address, room_id, bed_id, monthly_fee, mess_fee, nationality, course, admission_fee, join_date]);
 
       // Keep beds.status in step with the assignment. Without this the column is only ever written
       // by /rooms/shift and cancellation-restore, so a student added through the normal flow left
@@ -257,6 +353,9 @@ export async function studentRoutes(app: FastifyInstance) {
           email:             { type: 'string', format: 'email', maxLength: 200 },
           address:           { type: 'string', maxLength: 500 },
           monthly_fee:       { type: 'number', minimum: 0 },
+          mess_fee:          { type: ['number', 'null'], minimum: 0 },
+          nationality:       { type: 'string', maxLength: 100 },
+          course:            { type: 'string', maxLength: 200 },
           status:            { type: 'string', enum: [...STUDENT_STATUSES] },
         },
         additionalProperties: false,
@@ -266,7 +365,19 @@ export async function studentRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const body = request.body as Record<string, unknown>;
 
-    const allowed = ['name', 'father_name', 'phone', 'emergency_contact', 'email', 'address', 'monthly_fee', 'status'];
+    /*
+     * A second whitelist behind the JSON Schema, because this list is what gets
+     * interpolated into the SET clause. The schema already rejects unknown keys;
+     * this is the layer that would still hold if `additionalProperties` were ever
+     * relaxed, and it is one line to keep.
+     *
+     * Note `room_id` is deliberately absent. Moving a student between rooms goes
+     * through /rooms/shift, which also reassigns the bed and rewrites their
+     * pending payments — the legacy Electron app let Edit change the room and
+     * silently left the rent at the old room's rate, which is a bug worth not
+     * reproducing.
+     */
+    const allowed = ['name', 'father_name', 'phone', 'emergency_contact', 'email', 'address', 'monthly_fee', 'mess_fee', 'nationality', 'course', 'status'];
     const updates = Object.keys(body).filter(k => allowed.includes(k));
 
     if (updates.length === 0) {
