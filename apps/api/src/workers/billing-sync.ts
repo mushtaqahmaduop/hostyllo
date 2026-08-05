@@ -1,7 +1,7 @@
 import { Worker, Job } from 'bullmq';
-import type { PoolClient } from 'pg';
 import { bullmqRedis } from '../lib/bullmq-redis.js';
 import { pool } from '../lib/db.js';
+import { withTransaction } from '../lib/tx.js';
 import { moveToDLQ } from './dlq.js';
 
 // ─── Job Types ────────────────────────────────────────────────────────────────
@@ -20,35 +20,6 @@ export interface BillingSyncJob {
   billingPeriodDays?: number;   // default 30
   triggeredBy?: string;         // super_admin userId (manual flows)
   paymobWebhookId?: string;     // Phase 4: idempotency key from Paymob
-}
-
-// ─── Transaction helper ──────────────────────────────────────────────────────
-
-/*
- * Every handler below used to call `pool.query('BEGIN')`, run its statements with `pool.query`,
- * then `pool.query('COMMIT')`. A pool hands out a different connection per call, so those
- * statements were not in one transaction — BEGIN could open on connection A, the UPDATEs run and
- * autocommit on B and C, and COMMIT fire against a connection with no open transaction. A failure
- * halfway through left the tenant in a torn state and the ROLLBACK had nothing to undo.
- *
- * Borrowing one client for the whole unit is what makes these transactions real.
- */
-async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const result = await fn(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {
-      // The connection may already be unusable; the rollback failing is not the error worth
-      // reporting, and swallowing it keeps the original cause intact.
-    });
-    throw err;
-  } finally {
-    client.release();
-  }
 }
 
 // ─── Handlers ────────────────────────────────────────────────────────────────
