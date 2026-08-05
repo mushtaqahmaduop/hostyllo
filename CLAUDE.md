@@ -37,8 +37,14 @@ Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
   **4 workers** (auto-cancel, billing-sync, email-send, rent-generate) plus the `dlq.ts` helper.
   The "7 queues" in `docs/06_CLAUDE_MD_v15.md` counts two WhatsApp queues that are not built — a
   Phase-2 feature, not missing Phase-1 work.
-  ⚠️ **No BullMQ *producer* exists anywhere in `apps/api`** — only `Worker` is ever constructed, so
-  none of the four receives a job. Under investigation; see `tasks/todo`.
+  The producer side landed 2026-08-06 (`lib/queues.ts` + `workers/dispatch.ts`): a tick on the
+  `dispatch` queue fans out to one job per due tenant, on deterministic job IDs so replicas cannot
+  double-fire. Schedules are Asia/Karachi. **Workers are opt-in per environment via
+  `WORKERS_ENABLED`, default OFF** — turning it on generates rent, frees beds and expires trials,
+  so it must be proven on staging before prod. `billing-sync`'s `pii_purge` is deliberately not
+  scheduled (it clears CNIC only; the lifecycle spec requires the rest of the PII too), and
+  `email-send` has no caller yet — its jobs are request-triggered, so the producers belong in the
+  routes. Producer/worker parity is pinned by `apps/api/src/__tests__/queues.test.ts`.
   `pdf-receipts` was deleted 2026-07-28: receipts are rendered on demand by
   `GET /payments/:id/receipt`. See `docs/05_API_SPECIFICATION.md` Module 4 for why.
 - `packages/config/eslint-plugin-hostyllo` (withTenant + no-hostel-id-from-request rules).

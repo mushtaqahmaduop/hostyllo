@@ -4,6 +4,40 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
+## ★ SESSION 16 — THE WORKERS FINALLY HAVE A PRODUCER (2026-08-06)
+> Closes the P0 from `docs/_audit-2026-07-30`: `apps/api` had four `Worker`s and zero `Queue`s,
+> so rent was never generated, pending cancellations were never confirmed (beds stayed occupied)
+> and trials never expired. Committed `d205b8f` (billing-sync) + `726b77d` (producers).
+- [x] **`lib/queues.ts`** — four queues, shared retry/retention, deterministic job IDs.
+- [x] **`workers/dispatch.ts`** — tick + fan-out scheduler. Rent 00:00 on the 1st, auto-cancel
+      00:30 daily, trial sweep 02:00 daily, all Asia/Karachi. A tick re-reads the tenant list every
+      run, so it cannot drift when a hostel signs up or churns.
+- [x] **`WORKERS_ENABLED` flag (default OFF)** in `server.ts` + `.env.example`. Dynamic imports —
+      the worker modules construct their `Worker` at module scope, so a static import would start
+      them regardless of the flag.
+- [x] **`billing-sync` was unrunnable** — fake transactions (`pool.query('BEGIN')` across pooled
+      connections), `hostels` addressed by a non-existent `hostel_id`, three status values no CHECK
+      constraint permits ('expired', 'archived', 'trialing'), and a write to a non-existent
+      `subscriptions.suspended_at`. All fixed; trial expiry now lands on 'suspended'.
+- [x] **`queues.test.ts`** — producer/worker parity + "every `.add()` passes a jobId" + "pii_purge
+      is not scheduled", as static source assertions so they run without Redis on every push. 4/4.
+- [x] `tsc --noEmit` clean · `eslint src` clean.
+
+### Next on this, in order
+- [ ] ⚠️ **Enable `WORKERS_ENABLED=true` on STAGING only, and watch one dispatch tick.** Nothing
+      about this code path has ever executed against a real Redis or a real DB. The 90 DB-backed
+      API tests skip locally (no Postgres); CI's integration job is the gate, and it does not cover
+      billing-sync at all.
+- [ ] Only after a clean staging tick: enable on production. It generates rent — a wrong tick is
+      visible to every customer.
+- [ ] **Finish `purgePii` before scheduling it** — it clears `cnic_encrypted` only; the lifecycle
+      spec also requires name, phone, email, emergency contact and photo. A test currently pins it
+      as unscheduled; that test must be updated deliberately, not deleted.
+- [ ] **`email-send` has no producer.** Its job types (password_reset, trial_warning,
+      plan_activated, suspension_warning, account_suspended, data_export_ready) are all
+      request- or state-change-triggered, so the `.add()` calls belong in the routes and inside
+      `billing-sync`. No email is sent by this system today.
+
 ## ★ SESSIONS 13–15 — FRONTEND REBUILT ON THE OWNER'S HANDOFF BUNDLE (2026-08-05)
 > Design authority changed. `docs/15_UI_SPEC_v1.md` is **retired** as a visual authority; the
 > chain is now `docs/design/README.md` → `docs/design/handoff/DESIGN_RULES.md` → the teardown →
