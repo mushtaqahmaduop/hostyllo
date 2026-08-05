@@ -47,6 +47,12 @@ const MONTH_DATE = '2031-03-01';
 const MONTHLY_FEE = 8000;
 const MESS_FEE = 1500;
 
+/*
+ * Per-test cleanup. Deliberately does NOT touch `rooms`: the room is created once in beforeAll and
+ * every student references it, so deleting it here (as the first version of this file did) removed
+ * the room between tests and every seedStudent then failed `students_room_id_fkey`. The room is
+ * dropped once, in afterAll.
+ */
 async function cleanup() {
   // payment_extra_charges is ON DELETE CASCADE from payments (migration 003:48).
   await pool.query(
@@ -54,7 +60,6 @@ async function cleanup() {
     [ALL_STUDENTS]
   );
   await pool.query('DELETE FROM public.students WHERE id = ANY($1::uuid[])', [ALL_STUDENTS]);
-  await pool.query('DELETE FROM public.rooms WHERE id = $1', [ROOM]);
 }
 
 /** `mess_fee` is the variable under test; NULL and 0 are deliberately different inputs. */
