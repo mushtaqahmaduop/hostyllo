@@ -8,6 +8,7 @@ import {
   billingSyncQueue,
   monthLabel,
   dayLabel,
+  jobId,
 } from '../lib/queues.js';
 
 /*
@@ -64,7 +65,7 @@ async function dispatchRent(): Promise<number> {
       'generate',
       { hostelId, monthLabel: month },
       // One rent run per hostel per month, no matter how many replicas tick.
-      { jobId: `rent:${hostelId}:${month}` }
+      { jobId: jobId('rent', hostelId, month) }
     );
   }
   console.log(`[dispatch] rent-monthly ${month}: enqueued ${ids.length} hostels`);
@@ -74,7 +75,7 @@ async function dispatchRent(): Promise<number> {
 async function dispatchAutoCancel(): Promise<number> {
   // The auto-cancel sweep is global (it claims candidates by UPDATE), so it takes no payload.
   const day = dayLabel();
-  await autoCancelQueue.add('sweep', {}, { jobId: `auto-cancel:${day}` });
+  await autoCancelQueue.add('sweep', {}, { jobId: jobId('auto-cancel', day) });
   console.log(`[dispatch] auto-cancel-nightly ${day}: enqueued global sweep`);
   return 1;
 }
@@ -95,7 +96,7 @@ async function dispatchTrialSweep(): Promise<number> {
     await billingSyncQueue.add(
       'trial_expired',
       { hostelId: id, type: 'trial_expired' },
-      { jobId: `trial-expired:${id}:${day}` }
+      { jobId: jobId('trial-expired', id, day) }
     );
   }
   console.log(`[dispatch] trial-sweep ${day}: enqueued ${rows.length} expiries`);

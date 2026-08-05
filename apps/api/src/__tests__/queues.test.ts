@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { jobId, monthLabel, dayLabel } from '../lib/job-ids.js';
 
 /*
  * Producer/worker parity.
@@ -75,6 +76,40 @@ describe('BullMQ producer/worker parity', () => {
 
     expect(addCalls).toBeGreaterThan(0);
     expect(jobIds, 'every .add() in dispatch.ts must pass an explicit jobId').toBe(addCalls);
+  });
+
+  it('builds job IDs BullMQ will actually accept', () => {
+    /*
+     * Regression: the first real tick on staging (2026-08-06) failed with "Custom Id cannot
+     * contain :". BullMQ rejects a custom ID containing ':' unless it splits into exactly three
+     * parts, so `rent:<hostelId>:<month>` passed and `auto-cancel:<day>` threw — the nightly sweep
+     * was broken while rent looked fine. The static test below could not catch it: every .add()
+     * did pass a jobId, and the jobId was simply invalid.
+     */
+    expect(jobId('auto-cancel', '2026-08-06')).toBe('auto-cancel-2026-08-06');
+    expect(jobId('rent', 'a1b2', '2026-08')).toBe('rent-a1b2-2026-08');
+
+    for (const id of [
+      jobId('auto-cancel', dayLabel(new Date('2026-08-06T00:00:00Z'))),
+      jobId('rent', 'a1b2-c3d4', monthLabel(new Date('2026-08-06T00:00:00Z'))),
+      jobId('trial-expired', 'a1b2-c3d4', dayLabel(new Date('2026-08-06T00:00:00Z'))),
+    ]) {
+      expect(id, `"${id}" contains ':' — BullMQ will reject it at runtime`).not.toContain(':');
+    }
+
+    // The two shapes BullMQ refuses. Throwing here beats discovering it on a live queue.
+    expect(() => jobId('rent:a1b2', '2026-08')).toThrow(/must not contain/);
+    expect(() => jobId('12345')).toThrow(/must not be an integer/);
+  });
+
+  it('no .add() in dispatch.ts builds its jobId from a raw template', () => {
+    // The helper is the only thing that knows BullMQ's rule; a template literal bypasses it.
+    const src = readFileSync(join(WORKERS_DIR, 'dispatch.ts'), 'utf8');
+    const rawTemplateIds = [...src.matchAll(/jobId:\s*`[^`]*`/g)].map((m) => m[0]);
+    expect(
+      rawTemplateIds,
+      `build these with jobId(...) instead: ${rawTemplateIds.join(', ')}`
+    ).toEqual([]);
   });
 
   it('does not schedule the PII purge while it is incomplete', () => {

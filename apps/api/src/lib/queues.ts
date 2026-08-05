@@ -52,15 +52,12 @@ export const allQueues = [
 
 export const QUEUE_NAMES = allQueues.map((q) => q.name);
 
-/** `YYYY-MM` for the month a rent run belongs to. Used in the job ID, so it must be stable. */
-export function monthLabel(date = new Date()): string {
-  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-/** `YYYY-MM-DD`, for once-per-day job IDs. */
-export function dayLabel(date = new Date()): string {
-  return date.toISOString().slice(0, 10);
-}
+/*
+ * Job ID helpers live in `lib/job-ids.ts` — pure, so the unit test can import them without
+ * constructing a Queue (and therefore without a Redis connection). Re-exported here so call sites
+ * that already import the queues get them from one place.
+ */
+export { jobId, monthLabel, dayLabel } from './job-ids.js';
 
 export async function closeQueues(): Promise<void> {
   await Promise.all(allQueues.map((q) => q.close()));
