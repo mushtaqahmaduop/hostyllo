@@ -62,11 +62,20 @@
       `8000.00 + 0.10` is not 8000.10 in a double (INVARIANT-4).
       4 DB-backed tests; the load-bearing one recomputes the canonical formula from what is on disk
       so the generator and the PATCH recalc cannot drift.
-- [ ] **Not yet proven against a real mess student on staging.** All 3 staging students have
-      `mess_fee NULL`, so the fix is proven by CI against a seeded DB, not by a live tick. To close
-      it: set a `mess_fee` on one staging student, fire `rent-monthly` for a fresh month, confirm
-      the extra-charge row. The 3 existing August rows were written by the old code and need no
-      backfill — those students genuinely have no mess.
+- [x] **PROVEN LIVE ON STAGING 2026-08-06** (deployment `b7e710d`). All three cases in one run,
+      billed for 2026-09 (`3 created, 0 skipped`):
+      | student | mess_fee | rent | total_due | extras row |
+      |---|---|---|---|---|
+      | Ahmed Raza | 1500.00 | 8000.00 | 9500.00 | `Mess=1500.00` |
+      | Bilal Khan | 0.00 | 8000.00 | 8000.00 | `Mess=0.00` |
+      | Usman Tariq | NULL | 9500.00 | 9500.00 | none |
+      `rent` is untouched in every row, mess rides as an extra charge, NULL and 0 stay
+      distinguishable. Enqueued straight to `rent-generate` with `monthLabel=2026-09` rather than
+      via a dispatch tick, because `dispatchRent()` always bills the CURRENT month and August was
+      already billed — a tick would have skipped all three and proven nothing.
+      **Staging now carries this test data on purpose**: 2 students with mess fees and a September
+      billing run. Left in place so the next mess-related change has something to run against.
+      The August rows predate the fix and need no backfill — those students genuinely had no mess.
 - [ ] ⚠️ **`WORKERS_ENABLED` is still OFF in production, and must stay off** until both of the
       above are green on staging.
 
