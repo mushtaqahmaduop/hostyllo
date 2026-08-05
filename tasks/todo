@@ -4,6 +4,37 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
+## ★ SESSION 17 — STAGING BROUGHT UP TO THE REPO SCHEMA (2026-08-06)
+- [x] **Staging was auto-paused.** Restored `hostyllo-staging` (`ljnuwmfnpofzlmioskfc`) before
+      anything else could touch it.
+      ⚠️ **Read the database only AFTER the project reports `ACTIVE_HEALTHY`.** Queried during
+      `COMING_UP`, `information_schema` returns *zero rows* — the connection succeeds and the
+      schema looks empty. That false reading cost a round trip this session and nearly produced a
+      "staging has no schema" conclusion. It has 29 tables, 1 hostel and 3 students.
+- [x] **Migration 013 applied to staging** — `payments.notes`. This was a live gap, not just a
+      pending file: `63b4257` teaches the API to persist `notes` and was already deployed there,
+      so every note written to staging was being dropped on the floor.
+- [x] **Migration 014 applied to staging** — three columns + the widened status CHECK + the
+      nationality index. Verified after the fact: columns present, CHECK carries all four values,
+      `idx_students_nationality` exists, 3 student rows intact, FORCE RLS still on.
+- [x] **Both stamped into `public.schema_migrations`** with the repo's own sha256 checksums, so
+      `migrate.mjs` sees them applied rather than pending. Staging ledger is now 001–014.
+- [x] **Pushed `63b4257..757e3e6`** (9 commits: sessions 13–15 frontend + session 16 queues).
+      CI run `31050766599` green — **94 tests passed, 13 files, 0 skipped**, against real PG+Redis;
+      the RLS gate passed. This is the first run that covers `queues.test.ts`.
+
+### Open after this session
+- [ ] ⚠️ **PRODUCTION IS STILL ON 012.** Both 013 and 014 are unapplied there, and 013's code is
+      live — so `notes` is silently dropped in production right now, which is the exact defect the
+      migration exists to close. Prod has real data; walk it statement by statement.
+- [ ] ⚠️ **`hostyllo_app` has no LOGIN/password on staging** (migration 010 creates it NOLOGIN by
+      design; the credential is set out of band). Until it has one and staging's `DATABASE_URL_APP`
+      points at it, **staging runs as the privileged role and does not exercise RLS the way
+      production does** — so a tenant-isolation bug can pass staging and fail in prod.
+- [ ] **`012` has drifted from both ledgers** — the file was edited after being stamped
+      (`cebe3aa`). Comment-only; the DDL is one `DROP COLUMN IF EXISTS`, so no schema difference.
+      `migrate.mjs` will warn on every run until someone re-stamps it. Decide: re-stamp or leave.
+
 ## ★ SESSION 16 — THE WORKERS FINALLY HAVE A PRODUCER (2026-08-06)
 > Closes the P0 from `docs/_audit-2026-07-30`: `apps/api` had four `Worker`s and zero `Queue`s,
 > so rent was never generated, pending cancellations were never confirmed (beds stayed occupied)
@@ -48,7 +79,7 @@
 ### SESSION 15 — STUDENTS: API SLICE + THE ROSTER SCREEN (uncommitted at time of writing)
 - [x] **Migration 014** — `mess_fee` (nullable: NULL is "no mess", 0 is "included, zero-rated"),
       `nationality`, `course`, and `blacklisted` added to the status CHECK. Written last session.
-      ⚠️ **Not applied to staging or production yet.**
+      **APPLIED TO STAGING 2026-08-06** (see session 17 below). ⚠️ **Still NOT applied to production.**
 - [x] **`GET /students` rebuilt for the roster** — `status=all` tab, per-status `counts` computed
       before the status predicate (so tabs and table agree from one request), whitelisted `sort`
       (`name|room|rent|status|join_date`, room sorts numerically) + `dir`, search widened to
