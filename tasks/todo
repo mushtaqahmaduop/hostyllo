@@ -4,6 +4,75 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
+## ★ SESSIONS 13–15 — FRONTEND REBUILT ON THE OWNER'S HANDOFF BUNDLE (2026-08-05)
+> Design authority changed. `docs/15_UI_SPEC_v1.md` is **retired** as a visual authority; the
+> chain is now `docs/design/README.md` → `docs/design/handoff/DESIGN_RULES.md` → the teardown →
+> the per-screen `.dc.html`. 15_UI_SPEC's §5 layout, §9 motion and §12 a11y still stand.
+> Committed in sessions 13–14: tokens v3 (warm ivory ladder, violet accent, no shadows,
+> radius ≤12), the app shell, and the dashboard (`62b5026`, `de8677a`, `9df8888`).
+
+### SESSION 15 — STUDENTS: API SLICE + THE ROSTER SCREEN (uncommitted at time of writing)
+- [x] **Migration 014** — `mess_fee` (nullable: NULL is "no mess", 0 is "included, zero-rated"),
+      `nationality`, `course`, and `blacklisted` added to the status CHECK. Written last session.
+      ⚠️ **Not applied to staging or production yet.**
+- [x] **`GET /students` rebuilt for the roster** — `status=all` tab, per-status `counts` computed
+      before the status predicate (so tabs and table agree from one request), whitelisted `sort`
+      (`name|room|rent|status|join_date`, room sorts numerically) + `dir`, search widened to
+      father's name / course / room number, and the new columns returned. POST/PATCH accept
+      `mess_fee`/`nationality`/`course`.
+- [x] **`masked_cnic` no longer lies.** It was the constant `'XXXXX-XXXXXXX-X'` for every row,
+      including students with no CNIC at all, so the roster could not distinguish "held, hidden"
+      from "never collected" — which is the actual question that column answers. Now NULL when
+      `cnic_encrypted IS NULL`.
+- [x] **Roster screen rebuilt** on `Students.dc.html`: `lib/students/{contract,presenter}.ts`
+      (the presenter owns every derived figure — initials, room meta, rent+mess, tab counts,
+      result line), `components/students/{status-tabs,roster-toolbar,roster-table}.tsx`, the page
+      and a geometry-matched `loading.tsx`. The shared
+      `apps/web/src/components/patterns/pagination.tsx` was upgraded to the redesign's numbered
+      shape (windowed to ≤7 slots) — every list screen inherits it.
+- [x] **CSV export is real** — a route handler under `apps/web/src/app` pages the API 100 at a time
+      (its `limit` clamp would otherwise truncate an export silently at 100 students), honours the
+      current tab/search/sort, neutralises spreadsheet formula injection on the way out, and ships
+      a UTF-8 BOM so Excel does not mangle Pakistani names. PDF export is **not** built.
+
+#### Deliberate deviations from the sketch — each one is a rule from authority #1 or a data fact
+- **No ID column.** The sketch's first column is `#002`; `students` has no per-hostel sequential
+  number and inventing one is a schema decision (a per-tenant sequence + backfill), not a UI one.
+- **One row action (View), not four.** Edit, Shift room and Delete have no destination on the web
+  app yet — 25 rows × 3 dead buttons is 75 controls that do nothing.
+- **Active pills are grey.** `DESIGN_RULES.md`: pills are grey unless the state is actionable.
+  Cancelling is amber and Blacklisted is red because both demand an action; Active is nine rows
+  in ten and colouring it drowns the two that matter.
+- **Nationality pills are all grey** (the sketch tints Afghan amber). Not an actionable state.
+- **One neutral avatar**, not the sketch's four-colour rotation — the rotation is keyed to row
+  index, so it changes when a student moves page, and "no rainbow" is an explicit rule.
+- **Actions in the toolbar, not the app header.** The header is a shared client component;
+  threading a server-rendered button into it needs a post-hydration portal, which would leave the
+  screen's primary action missing from first paint and absent without JavaScript.
+- **Search placeholder names only what is searched.** The sketch offers ID, CNIC, email and floor;
+  CNIC is AES-GCM with a random IV, so its ciphertext can never be ILIKE-matched — a box that
+  lists a field it ignores makes the operator conclude the student is not there.
+- **No Unpaid column** (the old screen had one) — the redesign drops it; dues live on
+  `/payments/defaulters`. Flagged in case that was not intended.
+
+#### Verified / not verified
+- [x] `tsc --noEmit` clean (web + api) · `eslint src` clean · `next build` green, 14 routes.
+- [x] **Generated CSS audited** (the session-11 lesson): all 18 new utilities emit real rules,
+      including `duration-fast` → `--tw-duration` + `transition-duration`.
+- [x] Production server started; `/students` and `/students/export` both 307 to `/login`
+      unauthenticated — the routes run server-side without crashing.
+- [ ] ⚠️ **Not rendered against real data, and cannot be yet.** `.env.local` points at the staging
+      API, which is running the *old* code: it would 400 on `sort`/`dir` (`additionalProperties:
+      false`) and reject `status=all`. **Deploy order matters — migration 014 and the API slice
+      must land before the web app**, or the Students screen 400s in production.
+- [ ] Not verified: contrast in both themes, keyboard-only pass, 1366×768 and 375px screenshots.
+
+#### Next on this screen, in order
+- [ ] Student record view (`VIEW RECORD` in the .dc.html) and the Add/Edit form — Edit is what
+      unlocks the second row action and makes `mess_fee`/`nationality`/`course` editable at all.
+- [ ] Shift-room flow (`POST /rooms/shift` exists; no UI) and a delete confirmation.
+- [ ] Decide the per-hostel student number (`#002`) — schema change, then the ID column.
+
 ## ★ SESSION 5 — DEPLOYED LIVE (2026-07-23)  ·  see `docs/14_DEPLOYMENT_RUNBOOK.md`
 - [x] **Production API deployed & healthy on Railway** (`Develop` branch) — `db:ok, redis:ok`.
       Fixed the deploy chain: `@hostyllo/db` build + `buildCommand=pnpm build`; PORT/domain 8080;
