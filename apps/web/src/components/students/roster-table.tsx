@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowDown, ArrowUp, Eye } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, Pencil } from 'lucide-react';
 
 import { formatAmount } from '@/lib/format';
 import {
@@ -25,6 +25,11 @@ import { cn } from '@/lib/utils';
  */
 
 const CELL = 'px-[var(--hs-cell-pad-x)] py-[var(--hs-cell-pad-y)]';
+
+/** Shared by the row's icon actions, so the two cannot drift a pixel apart. */
+const ROW_ACTION =
+  'inline-grid size-[27px] place-items-center rounded-lg border border-hairline bg-surface-hover ' +
+  'text-fg-secondary transition-colors duration-fast ease-standard hover:border-hairline-strong hover:text-fg';
 
 const HEAD = cn(
   CELL,
@@ -235,14 +240,30 @@ function Row({ row }: { row: RosterRow }) {
       <td
         className={cn(cell, 'sticky end-0 border-s border-hairline bg-surface text-end')}
       >
-        <Link
-          href={`/students/${row.id}`}
-          title={`Open ${row.name}'s record`}
-          className="inline-grid size-[27px] place-items-center rounded-lg border border-hairline bg-surface-hover text-fg-secondary transition-colors duration-fast ease-standard hover:border-hairline-strong hover:text-fg"
-        >
-          <Eye className="size-[14px]" aria-hidden />
-          <span className="sr-only">Open {row.name}&rsquo;s record</span>
-        </Link>
+        {/*
+          Two actions now, not one. Edit was left off in session 15 because it had
+          nowhere to go; `/students/[id]/edit` exists, so the button is real. Shift
+          room and Delete still have no destination and are still absent — a control
+          that does nothing teaches the operator the screen is broken.
+        */}
+        <div className="inline-flex gap-1.5">
+          <Link
+            href={`/students/${row.id}`}
+            title={`Open ${row.name}'s record`}
+            className={ROW_ACTION}
+          >
+            <Eye className="size-[14px]" aria-hidden />
+            <span className="sr-only">Open {row.name}&rsquo;s record</span>
+          </Link>
+          <Link
+            href={`/students/${row.id}/edit`}
+            title={`Edit ${row.name}`}
+            className={ROW_ACTION}
+          >
+            <Pencil className="size-[14px]" aria-hidden />
+            <span className="sr-only">Edit {row.name}</span>
+          </Link>
+        </div>
       </td>
     </tr>
   );

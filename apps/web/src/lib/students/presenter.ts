@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { api } from '@/lib/api';
+import { blankToNull, initials, isStatus, num, roomMeta } from './derive';
 import {
   STATUS_LABEL,
   TAB_LABEL,
@@ -10,7 +11,6 @@ import {
   type RosterView,
   type SortDir,
   type SortKey,
-  type StatusKey,
   type TabKey,
 } from './contract';
 
@@ -132,37 +132,6 @@ function toRow(s: ApiStudent): RosterRow {
   };
 }
 
-/**
- * `AK` from "Adnan Khan". First and last word rather than the first two, so
- * "Muhammad Adnan Khan" reads as MK and not MA — the shared first name is the
- * half that carries no information in a Pakistani roster.
- */
-function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return '?';
-  const first = words[0][0] ?? '';
-  const last = words.length > 1 ? (words[words.length - 1][0] ?? '') : '';
-  return (first + last).toUpperCase();
-}
-
-/**
- * `4-Seater · Ground`. Both halves are optional and the separator only appears
- * between two present values, so a room with a capacity and no recorded floor
- * reads "4-Seater" rather than "4-Seater · ".
- *
- * The floor is printed exactly as stored. `rooms.floor` is free text, so a
- * hostel that typed "Ground Floor" gets "Ground Floor" — appending an "Fl" of
- * our own would produce "Ground Floor Fl" for that hostel and be wrong for any
- * hostel numbering its floors.
- */
-function roomMeta(capacity: number | null, floor: string | null): string | null {
-  const parts: string[] = [];
-  if (capacity && capacity > 0) parts.push(`${capacity}-Seater`);
-  const f = blankToNull(floor);
-  if (f) parts.push(f);
-  return parts.length > 0 ? parts.join(' · ') : null;
-}
-
 function buildTabs(
   counts: Record<TabKey, number> | undefined,
   current: { tab: TabKey; q: string; sort: SortKey; dir: SortDir },
@@ -198,17 +167,6 @@ function resultLabel(shown: number, matched: number, everyone: number): string {
   return matched === everyone ? base : `${base} · ${everyone} in this hostel`;
 }
 
-function num(value: number | string | null | undefined): number | null {
-  if (value === null || value === undefined || value === '') return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function blankToNull(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
-}
-
 function isTab(value: string | undefined): value is TabKey {
   return value !== undefined && (TAB_ORDER as string[]).includes(value);
 }
@@ -217,6 +175,3 @@ function isSort(value: string | undefined): value is SortKey {
   return value !== undefined && (SORT_KEYS as string[]).includes(value);
 }
 
-function isStatus(value: string): value is StatusKey {
-  return value in STATUS_LABEL;
-}

@@ -4,6 +4,74 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
+## ★ SESSION 18 — THE DASHBOARD STOPPED INVENTING, AND THE RELEASE SHIPPED (2026-08-06)
+
+### The dashboard rebuild (`f493f78`, `f8f5ef6`, `7e96164`)
+Written in response to the owner's screenshot and the mandate it produced
+(`docs/00_RECONSTRUCTION_MANDATE_v2.md`). Recorded here after the fact — the work was committed
+before this file was updated, which is the same drift this tracker exists to prevent.
+- [x] **Six of eleven dashboard widgets drew figures no endpoint produced.** A hardcoded room-type
+      table reading "2 Seater: 40 rooms" against a database holding two; a synthesised 101–408 seat
+      map rendering 32 tiles for two real rooms; seven fabricated "Today at a Glance" counters; and
+      "Upcoming Reminders" invented wholesale against a domain that has no reminders concept.
+      All deleted. `sample` removed from the `Provenance` union — from the type, not merely unused,
+      because a union member that exists will eventually be constructed.
+- [x] **Ported from `HOSTIX-APP/renderer/src/modules/dashboard.js` instead** — six new endpoints <!-- link-check-ignore -->
+      where there were two: `/dashboard/{seat-map,room-types,trend,today,payment-methods}` plus a
+      reworked `/stats` and `/alerts`. `netProfitPkr` nets transfers out (dashboard.js:125); the
+      previous implementation omitted them entirely, overstating profit by every rupee withdrawn.
+- [x] **`--hs-content-min: 1180px` removed**, not merely unused. With the 216px sidebar it
+      overflowed any viewport under ~1420px — a 1366px laptop clipped the first KPI card and
+      scrolled the page sideways as one block.
+- [x] **Light is now the default in both the web bootstrap and the API fallback.** The API fell
+      back to `'dark'`, so a first-time user on a dark-mode device got dark having expressed no
+      preference at all.
+- [x] **A bug only real data could expose:** both charts hardcoded `step = 2_000_000`, invisible
+      against sample figures in the millions. Against a hostel collecting PKR 11,000/month every
+      line renders flat along the bottom. `niceAxis()` now derives the step from the peak.
+
+### The release — PR #39, `Develop` → `main` (`168919b`, merged 11:17Z)
+- [x] **CI was red and had to be fixed first.** `numeric-types.test.ts` still asserted `netFundPkr`,
+      `totalBeds` and `occupiedBeds` — fields `f493f78` legitimately replaced. 99 of 100 tests
+      passed and this was the one. Fixed in `7c17daf` by asserting every member of `Stats` in
+      `apps/web/src/lib/dashboard/presenter.ts`, so the guard is the frontend's own contract rather
+      than a four-field sample of it. **Lesson: renaming a response field is a contract change, and
+      the tests that name those fields are part of the contract.**
+- [x] **CI green — run `31096298610`: 100 passed, 14 files, 0 skipped** against real PG+Redis,
+      RLS gate passed. Merged as a merge commit, not a squash: 31 commits of history, and a squash
+      would leave `main` unable to fast-forward from `Develop` on the next release.
+- [x] **Both production deploys verified live, not assumed.** Railway: the five new dashboard
+      routes returned 404 for ~45s after the merge (old build still serving), then 401.
+      **The calibration matters — on this API an existing route answers 401 unauthenticated and a
+      nonexistent one 404, so 404→401 is the deploy discriminator.** `/health` = `db:ok, redis:ok`.
+      Vercel: `dpl_9XfNarAvgsyrQQKPDSCsWZnpLj9W`, target production, state READY, sha `168919b`.
+      ⚠️ Vercel could **not** be probed by URL — the middleware 307s every unauthenticated path to
+      `/login` before routing, so a route that exists and one that does not are indistinguishable
+      from outside. The deployment API is the only honest check.
+- [x] **`WORKERS_ENABLED` confirmed absent in Railway `production`** (read-only `railway variables`),
+      and `server.ts:18` reads `=== 'true'`, so unset is off. The producers are deployed and inert.
+      ⚠️ **That flag is now the only thing between a deploy and live rent generation on real
+      tenants.** Do not flip it in the same sitting as a release.
+
+### Open after this session
+- [ ] **The dashboard has still not been seen against real production data by a human.** Every
+      claim above is type-level, test-level or endpoint-level. `hostyllo.vercel.app` now serves it
+      — an owner login is what closes this.
+- [ ] **Untracked work sitting in the tree since 2026-07-30**, in no commit and no release:
+      `apps/web/src/components/charts/` (donut, sparkline, trend-chart, waterfall, geometry,
+      palette), plus `kpi-card.tsx` and `reports-toolbar.tsx` under
+      `apps/web/src/components/patterns/` and a `reports.ts` under `apps/web/src/lib/` — an
+      unfinished Reports screen — plus `docs/_audit-2026-07-30/`, the five agent audit reports.
+      Decide: commit, finish, or delete. Leaving them untracked loses them to any clean checkout.
+      ⚠️ **Committing the audit folder as-is turns CI red.** `node scripts/check-doc-links.mjs`
+      walks the filesystem, so locally it already reports 97 broken references — 94 of them from
+      inside that folder (`CUR/`, `FIN/`, `ENT/`, `V16/` prefixes that were never real paths).
+      CI is green only because the folder is untracked and never checked out. Run the checker
+      before committing it.
+- [ ] **Next screen work** (unchanged, from Session 15): the Student record view and the Add/Edit
+      form — Edit is what unlocks the second row action and makes `mess_fee`/`nationality`/`course`
+      editable at all.
+
 ## ★ SESSION 17 — STAGING BROUGHT UP TO THE REPO SCHEMA (2026-08-06)
 - [x] **Staging was auto-paused.** Restored `hostyllo-staging` (`ljnuwmfnpofzlmioskfc`) before
       anything else could touch it.
@@ -135,21 +203,20 @@
 | Vercel `hostyllo.web` | branch `main` → `hostyllo.vercel.app`, built 2026-07-28 | every `Develop` push → a preview URL (behind Vercel SSO) |
 | Railway | env `production`, branch `main` | env `staging`, branch `Develop` |
 
-Consequences worth holding in your head:
-- **`hostyllo.vercel.app` does not show the rebuilt UI.** Tokens v3, the app shell, the dashboard
-  and the students roster are all post-2026-08-05 and live only on `Develop`. Reviewing the new
-  design on the production alias will show nine-day-old screens.
-- **Railway production runs 25-commit-old API code**, so it has no `notes` persistence, no
-  `mess_fee` billing, and no queue producers — the last of which is fine, `WORKERS_ENABLED` is
-  off there on purpose.
-- The DB migrations are now *ahead* of the production code rather than behind it. That is the
-  safe direction (additive columns nothing writes to yet), but it means schema state alone is a
-  misleading measure of whether a defect is closed.
-- [ ] **Decide when `main` gets the 25 commits.** That single merge closes the `notes` defect in
-      production, ships the rebuilt UI to `hostyllo.vercel.app`, and puts the mess-fee billing fix
-      on the production API. It also deploys the queue producers — harmless while
-      `WORKERS_ENABLED` stays off, but that flag becomes the only thing standing between a deploy
-      and live rent generation, so flip nothing on the same day.
+⚠️ **SUPERSEDED BY SESSION 18 — the split is closed.** PR #39 merged 2026-08-06 11:17Z and
+`main` and `Develop` are now identical (`git rev-list --count origin/main..origin/Develop` = 0).
+The three consequences below described the *pre-merge* world and every one of them is now false:
+the rebuilt UI **is** on `hostyllo.vercel.app`, production **does** run current API code, and the
+migrations are no longer ahead of it. The table above still describes which branch feeds which
+surface, which remains true — it is only the 25-commit gap that is gone. Kept because the topology
+is worth knowing and because a future release recreates exactly this state.
+
+- ~~**`hostyllo.vercel.app` does not show the rebuilt UI.**~~ It does, since 2026-08-06.
+- ~~**Railway production runs 25-commit-old API code.**~~ It runs `168919b`.
+- ~~The DB migrations are *ahead* of the production code.~~ Code and schema are level at 014.
+  The general lesson survives the specific fact: schema state alone is a misleading measure of
+  whether a defect is closed, because a column can exist with no code writing to it.
+- [x] ✅ **`main` GOT THE 31 COMMITS (2026-08-06) — see Session 18.**
 
 ## ★ SESSION 16 — THE WORKERS FINALLY HAVE A PRODUCER (2026-08-06)
 > Closes the P0 from `docs/_audit-2026-07-30`: `apps/api` had four `Worker`s and zero `Queue`s,
