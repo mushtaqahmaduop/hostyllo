@@ -93,6 +93,19 @@
       `deleted_at IS NULL` predicate; FORCE RLS still on for students and payments; row counts
       unchanged at 1 hostel / 1 student / 2 payments / 3 users / 1 room; the one student row
       intact (`active`, 8000.00, mess NULL).
+      ⚠️ **CORRECTION — the schema was only half the fix, and this file said otherwise.** The
+      earlier note here claimed "013's code is live [in production]". It is not. `63b4257`
+      ("persist payments.notes") is on `Develop` only; Railway's `production` environment deploys
+      `main`, which last moved 2026-07-28 (PR #38) and is **25 commits behind**. So:
+      • production's `POST /payments` and `PATCH /payments/:id` still declare `notes` in their JSON
+        Schema (lines 117 / 517 of `main`'s `payments.ts`) and still never write it. A note sent to
+        production today is accepted with a 201 and discarded — the column now exists but no code
+        writes to it.
+      • **The defect is not closed in production until `main` gets `63b4257`.** Applying 013 was
+        necessary and correct (the column must exist before the code that writes it deploys), but
+        it is not sufficient on its own.
+      • The `notes` at `main:payments.ts:648` is a different, working path — it goes into the
+        `audit_log` JSON on void-confirm, not into `payments.notes`.
       **Prod and staging now return the same `public` schema fingerprint** —
       `2cae6320cbc431572594423285adcf37`, 308 columns each. They were never identical before.
       Rollback, if it is ever needed: `ALTER TABLE public.payments DROP COLUMN notes;`
@@ -113,6 +126,30 @@
       live DB has no `users.totp_secret`, so the DDL had taken effect. Prod's ledger row now
       carries the current repo checksum (`acf65cf6…`) and `migrate.mjs` no longer warns.
       Staging was re-stamped in the same pass — **both ledgers are now clean on all 14 files**.
+
+### DEPLOY TOPOLOGY — write this down, it explains a lot (verified 2026-08-06)
+`main` and `Develop` are 25 commits apart, and **four** things key off that split:
+
+| Surface | Production | Preview / staging |
+|---|---|---|
+| Vercel `hostyllo.web` | branch `main` → `hostyllo.vercel.app`, built 2026-07-28 | every `Develop` push → a preview URL (behind Vercel SSO) |
+| Railway | env `production`, branch `main` | env `staging`, branch `Develop` |
+
+Consequences worth holding in your head:
+- **`hostyllo.vercel.app` does not show the rebuilt UI.** Tokens v3, the app shell, the dashboard
+  and the students roster are all post-2026-08-05 and live only on `Develop`. Reviewing the new
+  design on the production alias will show nine-day-old screens.
+- **Railway production runs 25-commit-old API code**, so it has no `notes` persistence, no
+  `mess_fee` billing, and no queue producers — the last of which is fine, `WORKERS_ENABLED` is
+  off there on purpose.
+- The DB migrations are now *ahead* of the production code rather than behind it. That is the
+  safe direction (additive columns nothing writes to yet), but it means schema state alone is a
+  misleading measure of whether a defect is closed.
+- [ ] **Decide when `main` gets the 25 commits.** That single merge closes the `notes` defect in
+      production, ships the rebuilt UI to `hostyllo.vercel.app`, and puts the mess-fee billing fix
+      on the production API. It also deploys the queue producers — harmless while
+      `WORKERS_ENABLED` stays off, but that flag becomes the only thing standing between a deploy
+      and live rent generation, so flip nothing on the same day.
 
 ## ★ SESSION 16 — THE WORKERS FINALLY HAVE A PRODUCER (2026-08-06)
 > Closes the P0 from `docs/_audit-2026-07-30`: `apps/api` had four `Worker`s and zero `Queue`s,
