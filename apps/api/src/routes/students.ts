@@ -222,6 +222,24 @@ export async function studentRoutes(app: FastifyInstance) {
   });
 
   // GET /api/v1/students/:id
+  /*
+   * GET /api/v1/students/:id — the full student record.
+   *
+   * Two things this endpoint used to get wrong, both fixed here:
+   *
+   * 1. `SELECT s.*` returned `cnic_encrypted` — the stored ciphertext — to every caller.
+   *    The comment on /:id/reveal-cnic below says the value "never leaves the server except
+   *    through the audited endpoint", and that was simply not true of this route. Not
+   *    catastrophic (it is AES-GCM, useless without the key) but it is the encrypted column
+   *    leaving the building on an unaudited call, and `s.*` would have shipped whatever
+   *    sensitive column migration 015 adds next. Columns are now listed explicitly, which is
+   *    the only shape that stays correct as the table grows.
+   *
+   * 2. `masked_cnic` was the constant 'XXXXX-XXXXXXX-X' for every student including those
+   *    with no CNIC at all — the same defect session 15 fixed on the roster, left behind here.
+   *    A record showing a mask over an empty column tells the operator the number is held
+   *    when it never was, and chasing a missing CNIC is the actual task this field supports.
+   */
   app.get('/:id', {
     preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: { params: idParam },
@@ -230,8 +248,15 @@ export async function studentRoutes(app: FastifyInstance) {
 
     const result = await withTenant(request.hostelId, async (db) => {
       const student = await db.query(`
-        SELECT s.*, s.name as full_name, r.number as room_number, b.label as bed_label,
-               'XXXXX-XXXXXXX-X' as masked_cnic
+        SELECT s.id, s.name AS full_name, s.father_name, s.phone, s.emergency_contact,
+               s.email, s.address, s.status, s.join_date, s.vacate_date,
+               s.monthly_fee, s.mess_fee, s.admission_fee, s.nationality, s.course,
+               s.created_at, s.updated_at,
+               r.id AS room_id, r.number AS room_number, r.floor AS room_floor,
+               r.type AS room_type, r.capacity AS room_capacity,
+               r.monthly_fee AS room_default_fee,
+               b.id AS bed_id, b.label AS bed_label,
+               CASE WHEN s.cnic_encrypted IS NULL THEN NULL ELSE 'XXXXX-XXXXXXX-X' END AS masked_cnic
         FROM public.students s
         LEFT JOIN public.rooms r ON r.id = s.room_id
         LEFT JOIN public.beds b ON b.id = s.bed_id
@@ -240,14 +265,61 @@ export async function studentRoutes(app: FastifyInstance) {
 
       if (!student.rows[0]) return null;
 
+      /*
+       * The full ledger, not the six most recent.
+       *
+       * The record screen states "Full payment history · N records" and totals it; a capped
+       * list makes that sentence a lie and the totals unverifiable against the rows printed
+       * beneath them. Void rows stay excluded — a voided payment is money that was never
+       * collected, and including it would overstate both the count and the total.
+       *
+       * Extras are aggregated per payment rather than joined row-wise, because a payment with
+       * three extra charges would otherwise appear three times in the history and be counted
+       * three times in any total taken over these rows.
+       */
       const payments = await db.query(`
-        SELECT id as payment_id, month as payment_month, status, paid as amount_paid_pkr, receipt_number as receipt_id
-        FROM public.payments
-        WHERE student_id = $1 AND status != 'void'
-        ORDER BY month DESC LIMIT 6
+        SELECT p.id AS payment_id, p.month AS payment_month, p.status,
+               p.rent AS rent_pkr, p.concession AS concession_pkr,
+               p.admission_fee AS admission_fee_pkr,
+               p.total_due AS total_due_pkr, p.paid AS amount_paid_pkr,
+               p.unpaid AS unpaid_pkr,
+               p.payment_method, p.payment_date, p.receipt_number AS receipt_id,
+               COALESCE(x.extras, '[]'::json) AS extras
+        FROM public.payments p
+        LEFT JOIN (
+          SELECT payment_id, json_agg(json_build_object('label', label, 'amount', amount)
+                                      ORDER BY created_at) AS extras
+          FROM public.payment_extra_charges
+          GROUP BY payment_id
+        ) x ON x.payment_id = p.id
+        WHERE p.student_id = $1 AND p.status <> 'void' AND p.deleted_at IS NULL
+        ORDER BY p.month DESC
       `, [id]);
 
-      return { ...student.rows[0], recent_payments: payments.rows };
+      /*
+       * The four figures on the record's stat tiles, derived in one place.
+       *
+       * Ported from HOSTIX showViewStudentModal (students.js:365-370), with its two-part
+       * "total paid" collapsed into one sum. The desktop app adds paid records to the
+       * partially-collected amounts on pending ones, because there `amount` means "collected
+       * so far"; here `paid` already carries that for every status, so SUM(paid) over
+       * non-void rows is the same number without the special case.
+       *
+       * `payments_made` counts fully-paid records only, which is the desktop app's definition
+       * and the honest one: a pending row with a part payment against it is not a payment made.
+       * Summed in SQL so the figure cannot drift from the rows the screen prints, and so the
+       * arithmetic happens in NUMERIC rather than a double (INVARIANT-4).
+       */
+      const totals = await db.query(`
+        SELECT COALESCE(SUM(paid), 0)                             AS total_paid_pkr,
+               COALESCE(SUM(unpaid), 0)                           AS outstanding_pkr,
+               COUNT(*) FILTER (WHERE status = 'paid')::int       AS payments_made,
+               COUNT(*)::int                                      AS payments_total
+        FROM public.payments
+        WHERE student_id = $1 AND status <> 'void' AND deleted_at IS NULL
+      `, [id]);
+
+      return { ...student.rows[0], ...totals.rows[0], payments: payments.rows };
     });
 
     if (!result) {
