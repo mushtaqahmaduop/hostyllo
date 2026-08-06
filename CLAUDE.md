@@ -36,10 +36,15 @@ HOSTYLLO — a multi-tenant SaaS hostel-management platform for Pakistan (global
 The tracker (`docs/09_BUILD_STATE_v15.md`) has drifted more than once — always verify.
 
 Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
-- 11 DB migrations (`packages/db/migrations/001–011`) — the 28-table schema + FORCE-RLS/app-role
-  + function hardening. ⚠️ Live **production has no `schema_migrations` ledger** (hand-migrated,
-  never baselined) and carries a legacy `users.totp_secret` column that a migrated-from-scratch DB
-  does not have — staging and prod schemas are NOT identical. See `docs/AUDIT_2026-07-27.md`.
+- 14 DB migrations (`packages/db/migrations/001–014`) — the 28-table schema + FORCE-RLS/app-role
+  + function hardening + `payments.notes` + the students mess/nationality/course columns.
+  ✅ **Staging and production are both on 014 and now hold identical `public` schemas**
+  (fingerprint `2cae6320cbc431572594423285adcf37`, 308 columns) — verified 2026-08-06.
+  Both ledgers carry all 14 files with checksums matching the repo.
+  ⚠️ `docs/AUDIT_2026-07-27.md` is stale on two points and should be read with this note beside it:
+  it says prod has no `schema_migrations` ledger and carries a legacy `users.totp_secret`. Both
+  were fixed *later that same day* — prod was baselined 2026-07-27 10:45 UTC and 012 dropped the
+  column. The audit was never revised. Verify against the live DB, not that file.
 - `packages/db`: canonical `withTenant.ts` (single pool layer), `paymentService.ts`, `formatters.ts` + tests.
 - `apps/api`: full Fastify server, **16 route modules** (auth, students, rooms, payments, expenses,
   dashboard, cancellations, maintenance, complaints, checkin, notices, transfers, fines, users,

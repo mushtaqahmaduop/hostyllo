@@ -80,17 +80,39 @@
       above are green on staging.
 
 ### Open after this session
-- [ ] ⚠️ **PRODUCTION IS STILL ON 012.** Both 013 and 014 are unapplied there, and 013's code is
-      live — so `notes` is silently dropped in production right now, which is the exact defect the
-      migration exists to close. Prod has real data; walk it statement by statement.
+- [x] ✅ **PRODUCTION BROUGHT TO 014 (2026-08-06).** Both 013 and 014 applied to
+      `hostyllo` (`eprrhckgtrerknenngdy`) and stamped into `public.schema_migrations` with the
+      repo's own sha256s. Ledger is now 001–014, every checksum matching the repo.
+      **Two ground-truth claims in CLAUDE.md were wrong and are now corrected there.** Prod was
+      *not* un-baselined and did *not* carry `users.totp_secret` — it has had a proper ledger
+      since 2026-07-27 (`baseline_schema_migrations_ledger`) and 012 had already dropped the
+      column. The audit note those claims came from (`docs/AUDIT_2026-07-27.md`) described the
+      state *before* that day's baseline and was never revised.
+      Verified after the fact: `payments.notes` text; `mess_fee` numeric(10,2); `nationality`,
+      `course` text; CHECK carries all four statuses; `idx_students_nationality` present with the
+      `deleted_at IS NULL` predicate; FORCE RLS still on for students and payments; row counts
+      unchanged at 1 hostel / 1 student / 2 payments / 3 users / 1 room; the one student row
+      intact (`active`, 8000.00, mess NULL).
+      **Prod and staging now return the same `public` schema fingerprint** —
+      `2cae6320cbc431572594423285adcf37`, 308 columns each. They were never identical before.
+      Rollback, if it is ever needed: `ALTER TABLE public.payments DROP COLUMN notes;`
+      `ALTER TABLE public.students DROP COLUMN mess_fee, DROP COLUMN nationality, DROP COLUMN course;`
+      `DROP INDEX public.idx_students_nationality;` then recreate the 3-value
+      `students_status_check` and delete the two ledger rows.
+      ⚠️ **PITR was NOT verified before this write.** `scripts/verify-pitr.sh` needs a Supabase PAT
+      that is not in the environment. The risk was judged acceptable — additive, idempotent DDL
+      over a single student row — but INVARIANT-6 remains formally unproven on prod and someone
+      should run that script.
 - [x] **`hostyllo_app` IS live on staging** — verified 2026-08-06: `rolcanlogin = true`,
       `rolbypassrls = false`, and Railway's staging `DATABASE_URL_APP` is set. Staging exercises
       FORCE RLS the same way production does. (An earlier note in this file claimed the opposite,
       reasoning from migration 010 creating the role NOLOGIN without checking the live role — the
       founder had set the credential out of band, exactly as 010 instructs. Corrected.)
-- [ ] **`012` has drifted from both ledgers** — the file was edited after being stamped
-      (`cebe3aa`). Comment-only; the DDL is one `DROP COLUMN IF EXISTS`, so no schema difference.
-      `migrate.mjs` will warn on every run until someone re-stamps it. Decide: re-stamp or leave.
+- [x] **`012` drift resolved — re-stamped on production 2026-08-06.** Confirmed harmless first:
+      `git diff cebe3aa..HEAD -- packages/db/migrations/012_*` has zero non-comment lines, and the
+      live DB has no `users.totp_secret`, so the DDL had taken effect. Prod's ledger row now
+      carries the current repo checksum (`acf65cf6…`) and `migrate.mjs` no longer warns.
+      Staging was re-stamped in the same pass — **both ledgers are now clean on all 14 files**.
 
 ## ★ SESSION 16 — THE WORKERS FINALLY HAVE A PRODUCER (2026-08-06)
 > Closes the P0 from `docs/_audit-2026-07-30`: `apps/api` had four `Worker`s and zero `Queue`s,
