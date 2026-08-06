@@ -3,10 +3,20 @@
 > Auto-loaded by Claude Code every session. This is the behavioral contract for the
 > HOSTYLLO engineering team (architect, backend, frontend, database, security, devops, qa).
 > **PRD authority:** `docs/01_MASTER_PRD_v15.md`. If anything here conflicts with the PRD, the PRD wins.
-> **UI authority:** `docs/15_UI_SPEC_v1.md` — appearance only; behaviour still follows the PRD.
-> It supersedes `docs/04_UX_DESIGN_SYSTEM.md`'s palette, tokens and type (the gold/teal dark-first
-> system is dead). Tokens live in `apps/web/src/styles/tokens.css`; a hardcoded hex, px font-size or
-> ms duration in a component is a build failure. Read §16 (hard NO list) before generating any screen.
+> **UI authority:** `docs/design/README.md` — appearance only; behaviour still follows the PRD.
+> It ranks three sources and decides where they disagree: (1) `docs/design/handoff/DESIGN_RULES.md`
+> + `docs/design/handoff/README.md` for density, type scale, radius, spacing, composition and IA;
+> (2) the Claude design-system teardown for colour philosophy, elevation method and motion; (3) the
+> per-screen `docs/design/handoff/designs/<Screen>.dc.html` for exact per-element values.
+> Read it before generating any screen.
+> `docs/15_UI_SPEC_v1.md` is **retired** as a visual authority (settled with the owner 2026-08-05) —
+> only its §5 layout, §9 motion and §12 a11y survive; everything it says about colour, type and shape
+> is dead, as is `docs/04_UX_DESIGN_SYSTEM.md`'s gold/teal dark-first system.
+> Tokens live in `apps/web/src/styles/tokens.css` (v3: warm ivory ladder, violet `#7c3aed` accent,
+> no shadows outside a modal over its overlay, radius ≤12, light default). A hardcoded hex, px
+> font-size or ms duration in a component is a **review rejection, not a build failure** — nothing
+> lints for it today (`apps/web/eslint.config.js` carries only the two TS rules), so it is on the
+> author and the reviewer to catch.
 > **Deep reference:** `docs/06_CLAUDE_MD_v15.md` (full stack/queue/redis/env tables).
 
 ---
