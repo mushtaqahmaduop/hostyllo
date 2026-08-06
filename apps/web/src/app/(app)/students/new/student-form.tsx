@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import { Field, FieldGrid, FieldSet, FormError, Select, SubmitButton } from '@/components/form';
+import { ContactFields, IdentityFields, MoneyFields } from '@/components/students/student-fields';
 import { createStudent, type FormState } from './actions';
 
 export type BedOption = { bedId: string; label: string };
@@ -46,17 +47,8 @@ export function StudentForm({ rooms, today }: { rooms: RoomOption[]; today: stri
     <form action={formAction}>
       <FormError message={state.error} />
 
-      <FieldSet legend="Student">
-        <FieldGrid>
-          <Field label="Full name" name="name" required autoFocus />
-          <Field label="Phone" name="phone" type="tel" inputMode="tel" required placeholder="03001234567" />
-          <Field label="Father's name" name="father_name" />
-          <Field label="CNIC" name="cnic" hint="Stored encrypted. Visible only on request." />
-          <Field label="Emergency contact" name="emergency_contact" type="tel" inputMode="tel" />
-          <Field label="Email" name="email" type="email" inputMode="email" />
-        </FieldGrid>
-        <Field label="Address" name="address" />
-      </FieldSet>
+      <IdentityFields withCnic />
+      <ContactFields />
 
       <FieldSet legend="Bed">
         <FieldGrid>
@@ -96,23 +88,11 @@ export function StudentForm({ rooms, today }: { rooms: RoomOption[]; today: stri
       </FieldSet>
 
       <FieldSet legend="Money">
+        {/* `rentKey` remounts the rent input when the room changes, so the prefilled rate actually
+            updates. A plain defaultValue is read once; keying it is the cheapest correct way to
+            keep the field editable while still letting the room selection seed it. */}
+        <MoneyFields rentKey={`rent-${roomId}`} rentDefault={rent} />
         <FieldGrid>
-          <Field
-            label="Monthly rent"
-            name="monthly_fee"
-            type="number"
-            inputMode="numeric"
-            min={0}
-            step="1"
-            required
-            numeric
-            defaultValue={rent}
-            // Remounts the input when the room changes, so the prefilled rent actually updates.
-            // A plain defaultValue is read once; keying it is the cheapest correct way to keep the
-            // field editable while still letting the room selection seed it.
-            key={`rent-${roomId}`}
-            hint="Zero is allowed — use it for a free or scholarship bed."
-          />
           <Field
             label="Admission fee"
             name="admission_fee"

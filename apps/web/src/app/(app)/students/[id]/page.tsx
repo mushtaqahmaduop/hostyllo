@@ -1,72 +1,48 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
+import { ArrowLeft, Pencil } from 'lucide-react';
 
-import { api, ApiError } from '@/lib/api';
-import { formatDate } from '@/lib/format';
+import { ApiError } from '@/lib/api';
+import { getStudentDetail } from '@/lib/students/detail-presenter';
 import { canOperate, canRevealCnic } from '@/lib/session';
 import { PageHeader } from '@/components/patterns/page-header';
-import { StatStrip, StatItem } from '@/components/patterns/stat-strip';
-import { Money } from '@/components/patterns/money';
 import { EmptyState, ErrorState } from '@/components/patterns/states';
+import { DetailPanel, DetailRowShell } from '@/components/students/record-panels';
+import { PaymentHistory } from '@/components/students/payment-history';
+import { RecordHero } from '@/components/students/record-hero';
 import { Alert, AlertDescription } from '@/components/ui-kit/alert';
 import { Button } from '@/components/ui-kit/button';
-import { StatusBadge } from '@/components/ui-kit/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui-kit/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui-kit/table';
 import { RevealCnic } from './reveal-cnic';
 
-/** GET /students/:id returns `s.*` plus these joins — see API spec Module 2. */
-type RecentPayment = {
-  payment_id: string;
-  payment_month: string;
-  status: string;
-  amount_paid_pkr: number | string;
-  receipt_id: string | null;
-};
-
-type Student = {
-  id: string;
-  full_name: string;
-  father_name: string | null;
-  phone: string | null;
-  emergency_contact: string | null;
-  email: string | null;
-  address: string | null;
-  masked_cnic: string | null;
-  room_number: string | null;
-  bed_label: string | null;
-  monthly_fee: number | string;
-  admission_fee: number | string;
-  join_date: string | null;
-  vacate_date: string | null;
-  status: string;
-  recent_payments: RecentPayment[] | null;
-};
+/**
+ * The student record — `Students.dc.html`, the VIEW RECORD modal.
+ *
+ * Built as a route rather than the modal the design draws. `DESIGN_RULES.md` is
+ * authority on IA and says to lift the proven IA from the desktop app; the modal
+ * in the `.dc.html` is a property of the prototype's single-file runtime, not a
+ * decision. A route is deep-linkable (a warden can send a colleague a student),
+ * survives a reload, renders without JavaScript, and is what the roster's View
+ * action already points at. A 1000px overlay carrying a full payment ledger is a
+ * page wearing a modal's clothes.
+ */
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const student = await api<Student>(`/students/${id}`);
-    return { title: student.full_name };
+    const student = await getStudentDetail(id);
+    return { title: student.name };
   } catch {
     // The page itself reports the failure properly; a title is not worth a second error path.
     return { title: 'Student' };
   }
 }
 
-export default async function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function StudentRecordPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  let student: Student;
+  let student;
   try {
-    student = await api<Student>(`/students/${id}`);
+    student = await getStudentDetail(id);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/login');
     // A cross-tenant id is a 404 by design (RLS returns no row), so this is also the "not yours"
@@ -99,174 +75,98 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
   }
 
   const [mayWrite, mayReveal] = await Promise.all([canOperate(), canRevealCnic()]);
-  const payments = student.recent_payments ?? [];
-  const active = student.status === 'active';
+
+  /*
+   * The CNIC row is assembled here rather than in the presenter because its value
+   * is a component, not a string: revealing is an audited server action and the
+   * control that triggers it has to live in the tree. Everything else in the
+   * panel is text the presenter already owns.
+   */
+  const personal = student.personal;
 
   return (
     <>
+      <Link
+        href="/students"
+        className="mb-4 inline-flex items-center gap-1.5 text-body-sm text-fg-secondary hover:text-fg"
+      >
+        <ArrowLeft className="size-3.5" aria-hidden />
+        Students
+      </Link>
+
       <PageHeader
-        eyebrow={student.room_number ? `Room ${student.room_number}` : 'Unassigned'}
-        title={student.full_name}
-        // A vacated student is not an error, but it is a state the operator must notice before
-        // they take money from someone who has already moved out.
-        attention={Boolean(student.vacate_date)}
+        eyebrow={student.statusLabel}
+        title={student.name}
+        attention={Boolean(student.vacateDate)}
         actions={
-          mayWrite && active ? (
-            <Button asChild variant="primary">
-              <Link href={`/payments/new?studentId=${student.id}`}>Take payment</Link>
-            </Button>
+          mayWrite ? (
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="secondary">
+                <Link href={`/students/${student.id}/edit`}>
+                  <Pencil className="size-4" aria-hidden />
+                  Edit
+                </Link>
+              </Button>
+              {student.active && (
+                <Button asChild variant="primary">
+                  <Link href={`/payments/new?studentId=${student.id}`}>Take payment</Link>
+                </Button>
+              )}
+            </div>
           ) : undefined
         }
       />
 
-      <div className="mb-6 flex flex-wrap items-center gap-4">
-        <StatusBadge status={student.status} />
-        <Link href="/students" className="text-body-sm text-fg-secondary hover:text-fg">
-          Back to students
-        </Link>
+      {/* A student who has already left is not an error, but it is a state the operator must
+          notice before they take money from someone who has moved out. */}
+      {student.vacateDate && (
+        <Alert tone="attention" className="mb-5">
+          <AlertDescription>
+            This student left on {student.vacateDate}. The record is kept for the ledger.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <RecordHero student={student} />
+
+      <div className="mt-4 grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
+        <DetailPanel title="Personal information" rows={personal}>
+          <DetailRowShell label="CNIC / ID">
+            {/* Null means no CNIC was ever collected — a different fact from one held and
+                hidden, and the one an operator has to act on. The API stopped masking both
+                the same way; this renders the distinction. */}
+            {!student.hasCnic || !student.maskedCnic ? (
+              <span className="text-body-sm text-fg-tertiary">Not on record</span>
+            ) : mayReveal ? (
+              <RevealCnic studentId={student.id} masked={student.maskedCnic} />
+            ) : (
+              <span className="font-mono text-mono text-fg-secondary">{student.maskedCnic}</span>
+            )}
+          </DetailRowShell>
+        </DetailPanel>
+
+        <DetailPanel
+          title="Room & accommodation"
+          rows={student.room}
+          empty="No room assigned yet."
+        />
       </div>
 
-      <div className="mb-8 rounded-lg border border-hairline bg-surface p-6">
-        <StatStrip>
-          <StatItem
-            label="Bed"
-            hint={student.bed_label ?? undefined}
-          >
-            <span className="font-mono text-mono">
-              {student.room_number ? `Room ${student.room_number}` : '—'}
-            </span>
-          </StatItem>
-          <StatItem label="Monthly rent">
-            <Money value={student.monthly_fee} />
-          </StatItem>
-          <StatItem label="Joined">
-            <span className="text-h3">{formatDate(student.join_date)}</span>
-          </StatItem>
-          <StatItem label="Vacated" attention={Boolean(student.vacate_date)}>
-            <span className="text-h3">
-              {student.vacate_date ? formatDate(student.vacate_date) : '—'}
-            </span>
-          </StatItem>
-        </StatStrip>
-      </div>
-
-      <div className="mb-8 grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-h3">Contact</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-4">
-              <Detail label="Phone" value={student.phone} numeric />
-              <Detail label="Emergency contact" value={student.emergency_contact} numeric />
-              <Detail label="Email" value={student.email} />
-              <Detail label="Father's name" value={student.father_name} />
-              <Detail label="Address" value={student.address} />
-            </dl>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-h3">Identity</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-4">
-              <div>
-                <dt className="text-body-sm text-fg-secondary">CNIC</dt>
-                <dd className="mt-1">
-                  {/* The API never returns the real number from a detail call — only this mask.
-                      The reveal is its own audited endpoint, offered to owners and chain managers
-                      only. */}
-                  {mayReveal && student.masked_cnic ? (
-                    <RevealCnic studentId={student.id} masked={student.masked_cnic} />
-                  ) : (
-                    <span className="font-mono text-mono text-fg-secondary">
-                      {student.masked_cnic ?? '—'}
-                    </span>
-                  )}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-body-sm text-fg-secondary">Admission fee</dt>
-                <dd className="mt-1">
-                  <Money value={student.admission_fee} tier="ledger" className="text-start" />
-                </dd>
-              </div>
-            </dl>
-          </CardContent>
-        </Card>
-      </div>
-
-      <section aria-label="Recent payments">
-        <h2 className="hs-eyebrow mb-3">Recent payments</h2>
-
-        {payments.length === 0 ? (
+      <div className="mt-4">
+        {student.payments.length === 0 ? (
           <EmptyState
             title="No payments yet"
-            body="Payments recorded for this student will appear here, most recent first."
+            body="Every payment recorded for this student will appear here, most recent month first."
             action={
-              mayWrite && active
+              mayWrite && student.active
                 ? { label: 'Take payment', href: `/payments/new?studentId=${student.id}` }
                 : undefined
             }
           />
         ) : (
-          <>
-            <Table minWidth={560}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Month</TableHead>
-                  <TableHead>Receipt</TableHead>
-                  <TableHead numeric>Paid</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((p) => (
-                  <TableRow key={p.payment_id}>
-                    {/* The API returns `month` as a DATE (the 1st); only the month is meaningful. */}
-                    <TableCell>{formatMonth(p.payment_month)}</TableCell>
-                    <TableCell className="font-mono text-mono text-fg-secondary">
-                      {p.receipt_id ?? '—'}
-                    </TableCell>
-                    <TableCell numeric>
-                      <Money value={p.amount_paid_pkr} tier="ledger" />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={p.status} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            <p className="mt-3 text-body-sm text-fg-tertiary">
-              Showing the six most recent. <Link href="/payments">See all payments</Link>
-            </p>
-          </>
+          <PaymentHistory student={student} />
         )}
-      </section>
+      </div>
     </>
   );
-}
-
-function Detail({ label, value, numeric }: { label: string; value: string | null; numeric?: boolean }) {
-  return (
-    <div>
-      <dt className="text-body-sm text-fg-secondary">{label}</dt>
-      <dd className={cnDetail(numeric)}>{value || '—'}</dd>
-    </div>
-  );
-}
-
-function cnDetail(numeric?: boolean) {
-  return numeric ? 'mt-1 break-words font-mono text-mono' : 'mt-1 break-words text-body';
-}
-
-function formatMonth(value: string | null): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
 }

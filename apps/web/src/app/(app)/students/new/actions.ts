@@ -56,6 +56,21 @@ export async function createStudent(_prev: FormState, form: FormData): Promise<F
     return { error: 'Admission fee must be a number, zero or more.' };
   }
 
+  /*
+   * Mess fee — blank, 0 and a figure are three different admissions.
+   *
+   * Blank means no mess arrangement and is sent as null; 0 means included and
+   * zero-rated (migration 014). `money()` cannot tell blank from "not a number",
+   * so the raw box is re-read: without that a typo would be admitted as "no mess"
+   * and the student under-billed every month until somebody noticed.
+   */
+  const messRaw = form.get('mess_fee');
+  const messBlank = typeof messRaw !== 'string' || messRaw.trim() === '';
+  const messFee = messBlank ? null : money(form, 'mess_fee');
+  if (!messBlank && messFee === null) {
+    return { error: 'Mess fee must be a number, zero or more — or blank if mess is not included.' };
+  }
+
   let studentId: string;
   try {
     const created = await api<{ student_id: string }>('/students', {
@@ -68,11 +83,14 @@ export async function createStudent(_prev: FormState, form: FormData): Promise<F
         monthly_fee: monthlyFee,
         join_date: joinDate,
         ...(admissionFee === null ? {} : { admission_fee: admissionFee }),
+        mess_fee: messFee,
         father_name: optional(form, 'father_name'),
         cnic: optional(form, 'cnic'),
         emergency_contact: optional(form, 'emergency_contact'),
         email: optional(form, 'email'),
         address: optional(form, 'address'),
+        nationality: optional(form, 'nationality'),
+        course: optional(form, 'course'),
       },
     });
     studentId = created.student_id;
