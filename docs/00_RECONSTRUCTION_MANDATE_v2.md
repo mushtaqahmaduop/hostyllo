@@ -7,9 +7,10 @@
 > **It was issued in response to a concrete failure.** The rebuilt dashboard shipped with a
 > hardcoded room-type split, an invented 101–408 seat map, hardcoded zeros behind the alert
 > counters, a 1180px fixed content floor that clipped on a 1366px screen, and a banner admitting
-> "some figures are illustrative" — while `HOSTIX-APP/renderer/src/modules/dashboard.js` had
+> "some figures are illustrative" — while `HOSTIX-APP/renderer/src/modules/dashboard.js` had <!-- link-check-ignore -->
 > already computed every one of those numbers for years. Read §THE TWO AXES before building any
-> screen.
+> screen. (That path is in the separate HOSTIX-APP repository, not this one — which is why the
+> link checker is told to skip it.)
 
 ---
 
