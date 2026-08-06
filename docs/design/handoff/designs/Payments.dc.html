@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ui:'Geist',-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --page:#0f0f0f; --card:#141414; --elev:#1c1c1c; --hov:#262626;
+    --bd:#2a2a2a; --bd2:#363636;
+    --t1:#e5e5e5; --t2:#a3a3a3; --t3:#737373;
+    --ac:#8b5cf6; --ac-cta:#7c3aed; --ac-soft:rgba(139,92,246,.12); --ac-bd:rgba(139,92,246,.28);
+    --grad:linear-gradient(100deg,#7c3aed 0%,#a855f7 52%,#22d3ee 100%);
+    --warn:#fbbf24; --warn-soft:rgba(251,191,36,.10); --warn-bd:rgba(251,191,36,.22);
+    --bad:#f87171; --bad-soft:rgba(248,113,113,.10); --bad-bd:rgba(248,113,113,.22);
+    --info:#60a5fa; --info-soft:rgba(96,165,250,.10); --info-bd:rgba(96,165,250,.22);
+    --sh:0 1px 2px rgba(0,0,0,.4);
+    --sh-lg:0 8px 28px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.45);
+  }
+  [data-theme="light"]{
+    --page:#fafafa; --card:#ffffff; --elev:#ffffff; --hov:#f5f5f5;
+    --bd:#e5e5e5; --bd2:#d4d4d4;
+    --t1:#171717; --t2:#525252; --t3:#a3a3a3;
+    --ac:#7c3aed; --ac-cta:#7c3aed; --ac-soft:#f5f3ff; --ac-bd:#ddd6fe;
+    --warn:#b45309; --warn-soft:#fffbeb; --warn-bd:#fde68a;
+    --bad:#b91c1c; --bad-soft:#fef2f2; --bad-bd:#fecaca;
+    --info:#1d4ed8; --info-soft:#eff6ff; --info-bd:#bfdbfe;
+    --sh:0 1px 2px rgba(0,0,0,.04);
+    --sh-lg:0 8px 28px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--page);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  a{color:var(--ac);text-decoration:none}
+  a:hover{color:var(--ac-cta)}
+  .n{font-family:var(--mono);font-feature-settings:'tnum' 1;letter-spacing:-.01em}
+  input,select,textarea{font-family:var(--ui)}
+  input::placeholder,textarea::placeholder{color:var(--t3)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ac)!important}
+  .s::-webkit-scrollbar{width:10px;height:10px}
+  .s::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+  .s::-webkit-scrollbar-track{background:transparent}
+  tbody tr:hover td{background:var(--hov)}
+  @keyframes ov{from{opacity:0}to{opacity:1}}
+  @keyframes md{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--page);color:var(--t1);font-family:var(--ui)">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside style="width:203px;flex:none;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--bd);position:relative">
+    <div style="display:flex;align-items:center;gap:10px;padding:15px 14px 13px;flex:none">
+      <img src="./assets/logo.png" alt="Hostyllo" style="width:30px;height:30px;flex:none;border-radius:8px;display:block"/>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:.03em;line-height:1.15">HOSTYLLO</div>
+        <div style="font-size:10.5px;color:var(--t3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Daman Hostel For Boys</div>
+      </div>
+    </div>
+
+    <nav class="s" style="flex:1;overflow-y:auto;padding:2px 8px 60px">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="5">
+        <div style="margin-bottom:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:9px 8px 6px">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+            <a onClick="{{ it.go }}" style="display:flex;align-items:center;gap:10px;height:33px;padding:0 9px;border-radius:6px;font-size:12.5px;cursor:pointer;margin-bottom:1px;{{ it.style }}">
+              <span style="flex:none;display:flex;width:16px;height:16px">{{ it.icon }}</span>
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+              <sc-if value="{{ it.hasBadge }}" hint-placeholder-val="{{ false }}">
+                <span class="n" style="flex:none;font-size:10px;font-weight:600;min-width:17px;height:17px;padding:0 5px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;{{ it.badgeStyle }}">{{ it.badge }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 13px;border-top:1px solid var(--bd);background:var(--card)">
+      <div style="width:27px;height:27px;flex:none;border-radius:50%;background:var(--ac-soft);border:1px solid var(--ac-bd);display:flex;align-items:center;justify-content:center;color:var(--ac);font-size:11px;font-weight:600">K</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;line-height:1.2">Khan</div>
+        <div style="font-size:10px;color:var(--t3);line-height:1.3">Administrator</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+  </aside>
+
+  <!-- ════════════ MAIN ════════════ -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+    <!-- header -->
+    <header style="flex:none;display:flex;align-items:center;padding:11px 18px;border-bottom:1px solid var(--bd);background:var(--card)">
+      <div style="flex:none;min-width:0">
+        <h1 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Payments</h1>
+        <div style="font-size:11.5px;color:var(--t3);margin-top:2px;white-space:nowrap">Manage all student payments and collections</div>
+      </div>
+
+      <div style="flex:none;width:36px"></div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;width:326px;height:34px;padding:0 12px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t3);font-size:12.5px;cursor:text" style-hover="border-color:var(--bd2)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Search students, rooms, invoices…</span>
+        <span class="n" style="flex:none;font-size:10px;padding:2px 5px;border-radius:4px;background:var(--card);border:1px solid var(--bd);white-space:nowrap">Ctrl K</span>
+      </div>
+
+      <div style="flex:1;min-width:16px"></div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:8px">
+        <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span class="n">Jul 2026</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+
+        <button title="Notifications" style="position:relative;width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+          <span class="n" style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9999px;background:var(--bad);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">5</span>
+        </button>
+
+        <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <span style="display:flex">{{ themeIcon }}</span>
+        </button>
+
+        <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>Export CSV</button>
+
+        <button onClick="{{ openAdd }}" style="display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:none;border-radius:8px;background:var(--grad);color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(124,58,237,.4)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add Payment</button>
+      </div>
+    </header>
+
+    <!-- ════════════ BODY ════════════ -->
+    <div class="s" style="flex:1;overflow-y:auto;padding:14px 18px 24px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+
+        <!-- ─────── LEFT COLUMN ─────── -->
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:13px">
+
+          <!-- KPI ROW -->
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:11px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column;min-height:128px">
+                <div style="padding:12px 13px 0;flex:1;display:flex;flex-direction:column">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+                    <div style="width:26px;height:26px;flex:none;border-radius:6px;background:var(--hov);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ k.icon }}</div>
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.label }}</span>
+                  </div>
+                  <div class="n" style="font-size:21px;font-weight:600;line-height:1.1;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.value }}</div>
+                  <div style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--t3);margin-top:4px;white-space:nowrap">
+                    <span style="display:flex;flex:none">{{ k.deltaIcon }}</span><span class="n">{{ k.delta }}</span>
+                  </div>
+                  <div style="flex:1;min-height:6px"></div>
+                  <svg viewBox="0 0 200 34" preserveAspectRatio="none" style="width:100%;height:30px;display:block">
+                    <polygon points="{{ k.area }}" fill="var(--ac-soft)"></polygon>
+                    <polyline points="{{ k.spark }}" fill="none" stroke="var(--ac)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  </svg>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- FILTER BAR -->
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:11px 13px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;flex:1;min-width:220px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t3)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+                <input value="{{ q }}" onChange="{{ setQ }}" placeholder="Search by student, room, invoice, transaction ID…" style="flex:1;min-width:0;height:32px;background:transparent;border:none;color:var(--t1);font-size:12.5px;padding:0"/>
+                <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ clearQ }}" title="Clear search" style="width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:var(--hov);color:var(--t2);cursor:pointer">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                  </button>
+                </sc-if>
+              </div>
+              <sc-for list="{{ selectsTop }}" as="sl" hint-placeholder-count="3">
+                <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 11px;flex:none;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+                  <span style="display:flex;color:var(--t3)">{{ sl.icon }}</span>{{ sl.label }}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+              <sc-for list="{{ selectsRow }}" as="sl" hint-placeholder-count="5">
+                <button style="display:flex;align-items:center;gap:7px;height:32px;padding:0 11px;flex:none;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+                  {{ sl.label }}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+              </sc-for>
+              <div style="flex:1;min-width:8px"></div>
+              <button onClick="{{ clearAll }}" style="display:flex;align-items:center;gap:6px;height:32px;padding:0 10px;flex:none;border-radius:8px;background:transparent;border:1px solid transparent;color:var(--ac);font:500 12px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--ac-soft)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>Clear Filters</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ statusTabs }}" as="s" hint-placeholder-count="5">
+                <button onClick="{{ s.go }}" style="display:flex;align-items:center;gap:6px;height:27px;padding:0 11px;border-radius:9999px;font:12px/1 var(--ui);cursor:pointer;{{ s.style }}">
+                  {{ s.label }}<span class="n" style="font-size:10px;opacity:.7">{{ s.count }}</span>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- BULK BAR -->
+          <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:9px;padding:9px 13px;border-radius:10px;background:var(--ac-soft);border:1px solid var(--ac-bd)">
+              <span class="n" style="font-size:12px;font-weight:600;color:var(--ac)">{{ selCount }} selected</span>
+              <span style="font-size:11.5px;color:var(--t2)">·</span>
+              <span class="n" style="font-size:11.5px;color:var(--t2)">PKR {{ selUnpaid }} outstanding</span>
+              <div style="flex:1;min-width:8px"></div>
+              <button style="height:28px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Mark as Paid</button>
+              <button style="height:28px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Send Reminder</button>
+              <button style="height:28px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Print Receipts</button>
+              <button onClick="{{ clearSel }}" style="height:28px;padding:0 11px;border-radius:6px;background:transparent;border:1px solid transparent;color:var(--t2);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="color:var(--t1)">Clear</button>
+            </div>
+          </sc-if>
+
+          <!-- TABLE -->
+          <div class="s" style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:auto;box-shadow:var(--sh)">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;min-width:920px">
+              <thead><tr>
+                <th style="position:sticky;top:0;z-index:1;padding:10px 8px 10px 13px;background:var(--elev);border-bottom:1px solid var(--bd);width:34px">
+                  <div onClick="{{ toggleAll }}" style="width:15px;height:15px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;{{ allBoxStyle }}">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" style="{{ allBoxTick }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                  </div>
+                </th>
+                <sc-for list="{{ cols }}" as="c" hint-placeholder-count="11">
+                  <th onClick="{{ c.sort }}" style="position:sticky;top:0;z-index:1;font:700 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:10px 9px;background:var(--elev);border-bottom:1px solid var(--bd);white-space:nowrap;cursor:pointer;{{ c.align }}">
+                    <span style="display:inline-flex;align-items:center;gap:4px;{{ c.active }}">{{ c.label }}<span style="display:flex;opacity:.75">{{ c.arrow }}</span></span>
+                  </th>
+                </sc-for>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+                  <tr>
+                    <td style="padding:9px 8px 9px 13px;border-bottom:1px solid var(--bd);vertical-align:middle">
+                      <div onClick="{{ r.toggle }}" style="width:15px;height:15px;border-radius:4px;cursor:pointer;display:flex;align-items:center;justify-content:center;{{ r.boxStyle }}">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" style="{{ r.boxTick }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                      </div>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd)">
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <span style="width:26px;height:26px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;{{ r.avatar }}">{{ r.initials }}</span>
+                        <div style="min-width:0">
+                          <div style="font-size:12px;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</div>
+                          <div class="n" style="font-size:10px;color:var(--t3);line-height:1.3;white-space:nowrap">ID: {{ r.id }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <div class="n" style="font-size:12px;font-weight:500;line-height:1.25">{{ r.room }}</div>
+                      <div style="font-size:10px;color:var(--t3);line-height:1.3">{{ r.seater }}</div>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ r.month }}</td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap;text-align:right">
+                      <div class="n" style="font-size:12px;font-weight:500;line-height:1.25">PKR {{ r.rentTotal }}</div>
+                      <div class="n" style="font-size:9.5px;color:var(--t3);line-height:1.3">{{ r.rentBreak }}</div>
+                    </td>
+                    <td class="n" style="padding:8px 9px;border-bottom:1px solid var(--bd);color:var(--t2);white-space:nowrap;text-align:right">{{ r.conc }}</td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap;text-align:right">
+                      <div class="n" style="font-size:12px;color:var(--t2);line-height:1.25">{{ r.extra }}</div>
+                      <sc-if value="{{ r.hasExtra }}" hint-placeholder-val="{{ false }}">
+                        <div style="font-size:9.5px;color:var(--t3);line-height:1.3">{{ r.extraNote }}</div>
+                      </sc-if>
+                    </td>
+                    <td class="n" style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap;text-align:right;font-weight:600">PKR {{ r.paid }}</td>
+                    <td class="n" style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap;text-align:right;color:var(--t2)">{{ r.unpaid }}</td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <span style="font-size:9.5px;font-weight:600;padding:2.5px 8px;border-radius:9999px;background:var(--hov);border:1px solid var(--bd);color:var(--t2)">{{ r.method }}</span>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <span style="font-size:9.5px;font-weight:600;padding:2.5px 8px;border-radius:9999px;{{ r.statusPill }}">{{ r.status }}</span>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap;text-align:right">
+                      <div style="display:inline-flex;align-items:center;gap:3px">
+                        <sc-for list="{{ r.actions }}" as="ac" hint-placeholder-count="4">
+                          <button title="{{ ac.name }}" style="width:24px;height:24px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:transparent;border:1px solid transparent;color:var(--t3);cursor:pointer" style-hover="background:var(--hov);color:var(--t1);border-color:var(--bd)">{{ ac.icon }}</button>
+                        </sc-for>
+                      </div>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:44px 20px">
+                <span style="display:flex;color:var(--t3)">{{ emptyIcon }}</span>
+                <span style="font-size:12.5px;font-weight:500">No payments match these filters</span>
+                <span style="font-size:11.5px;color:var(--t3)">Try clearing the search or switching status</span>
+              </div>
+            </sc-if>
+          </div>
+
+          <!-- PAGINATION -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <span style="font-size:12px;color:var(--t3)">{{ pageLabel }}</span>
+            <div style="display:flex;align-items:center;gap:5px">
+              <button onClick="{{ prev }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--card);border:1px solid var(--bd);cursor:pointer;{{ prevStyle }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"></path></svg>
+              </button>
+              <sc-for list="{{ pages }}" as="p" hint-placeholder-count="7">
+                <button onClick="{{ p.go }}" style="min-width:28px;height:28px;padding:0 7px;border-radius:6px;font:12px/1 var(--ui);cursor:pointer;{{ p.style }}">{{ p.label }}</button>
+              </sc-for>
+              <button onClick="{{ next }}" style="width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:var(--card);border:1px solid var(--bd);cursor:pointer;{{ nextStyle }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+              </button>
+              <span class="n" style="margin-left:6px;font-size:11.5px;color:var(--t3);white-space:nowrap">{{ perPageLabel }}</span>
+            </div>
+          </div>
+
+          <!-- RECENT PAYMENT ACTIVITY -->
+          <sc-if value="{{ showActivity }}" hint-placeholder-val="{{ true }}">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--bd);background:var(--elev)">
+              <span style="font-size:13px;font-weight:600;letter-spacing:-.01em">Recent Payment Activity</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all activity</a>
+            </div>
+            <div style="padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:11px">
+              <sc-for list="{{ activity }}" as="a" hint-placeholder-count="5">
+                <div style="display:flex;gap:9px;padding:10px 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd)">
+                  <span style="width:26px;height:26px;flex:none;border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--hov);color:var(--t2)">{{ a.icon }}</span>
+                  <div style="min-width:0;flex:1">
+                    <div style="font-size:11.5px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.title }}</div>
+                    <div style="font-size:10.5px;color:var(--t2);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.who }}</div>
+                    <div class="n" style="font-size:10.5px;color:var(--t1);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ a.amount }}</div>
+                    <div class="n" style="font-size:9.5px;color:var(--t3);line-height:1.4;white-space:nowrap">{{ a.when }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+
+        <!-- ─────── RIGHT RAIL — one bounded panel ─────── -->
+        <aside style="width:276px;flex:none;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+
+          <div style="flex:none;display:flex;align-items:center;gap:8px;padding:13px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+            <span style="flex:1;font-size:13px;font-weight:600;letter-spacing:-.01em">Collection Insights</span>
+            <span class="n" style="flex:none;font-size:10px;color:var(--t3);white-space:nowrap">Jul 2026</span>
+          </div>
+
+          <!-- Collection Overview -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+              <span style="font-size:12px;font-weight:600">Collection Overview</span>
+              <span style="font-size:11px;color:var(--t3);white-space:nowrap">By method</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:13px">
+              <div style="position:relative;flex:none;width:86px;height:86px">
+                <svg viewBox="0 0 100 100" style="width:86px;height:86px;transform:rotate(-90deg)">
+                  <sc-for list="{{ methods }}" as="m" hint-placeholder-count="5">
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="{{ m.color }}" stroke-width="13" stroke-dasharray="{{ m.dash }}" stroke-dashoffset="{{ m.offset }}"></circle>
+                  </sc-for>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                  <span class="n" style="font-size:11.5px;font-weight:600;line-height:1.15">PKR</span>
+                  <span class="n" style="font-size:12.5px;font-weight:600;line-height:1.15">{{ collectedShort }}</span>
+                  <span style="font-size:8px;color:var(--t3);line-height:1.3">Collected</span>
+                </div>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+                <sc-for list="{{ methods }}" as="m" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:10.5px;white-space:nowrap">
+                    <span style="width:7px;height:7px;flex:none;border-radius:2px;background:{{ m.color }}"></span>
+                    <span style="flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis">{{ m.label }}</span>
+                    <span class="n" style="flex:none;color:var(--t1);font-weight:500">{{ m.pct }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- Monthly Collection Trend -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+              <span style="font-size:12px;font-weight:600">Monthly Collection Trend</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">This year</a>
+            </div>
+            <div style="display:flex;gap:7px">
+              <div style="flex:none;display:flex;flex-direction:column;justify-content:space-between;height:78px">
+                <sc-for list="{{ trendAxis }}" as="ax" hint-placeholder-count="4">
+                  <span class="n" style="font-size:8.5px;color:var(--t3);line-height:1">{{ ax.label }}</span>
+                </sc-for>
+              </div>
+              <div style="flex:1;min-width:0">
+                <svg viewBox="0 0 200 78" preserveAspectRatio="none" style="width:100%;height:78px;display:block;overflow:visible">
+                  <sc-for list="{{ trendGrid }}" as="g" hint-placeholder-count="4">
+                    <line x1="0" x2="200" y1="{{ g.y }}" y2="{{ g.y }}" stroke="var(--bd)" stroke-width="1" vector-effect="non-scaling-stroke"></line>
+                  </sc-for>
+                  <polygon points="{{ trendArea }}" fill="var(--ac-soft)"></polygon>
+                  <polyline points="{{ trendLine }}" fill="none" stroke="var(--ac)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  <sc-for list="{{ trendDots }}" as="d" hint-placeholder-count="6">
+                    <circle cx="{{ d.x }}" cy="{{ d.y }}" r="2.4" fill="var(--ac)"></circle>
+                  </sc-for>
+                </svg>
+                <div style="display:flex;justify-content:space-between;margin-top:5px">
+                  <sc-for list="{{ trendLabels }}" as="t" hint-placeholder-count="6">
+                    <span class="n" style="font-size:8.5px;color:var(--t3)">{{ t.label }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dues Aging -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+              <span style="font-size:12px;font-weight:600">Dues Aging Summary</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ aging }}" as="ag" hint-placeholder-count="4">
+                <div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px">
+                    <span style="font-size:11px;color:var(--t2);white-space:nowrap">{{ ag.label }}</span>
+                    <span class="n" style="flex:none;font-size:11px;font-weight:500">PKR {{ ag.amount }}</span>
+                  </div>
+                  <div style="height:4px;border-radius:2px;background:var(--hov);overflow:hidden">
+                    <div style="height:100%;border-radius:2px;background:{{ ag.color }};width:{{ ag.pct }}"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Top outstanding -->
+          <div style="border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:13px 15px 9px">
+              <span style="font-size:12px;font-weight:600">Top Outstanding Students</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+            </div>
+            <sc-for list="{{ topDue }}" as="td" hint-placeholder-count="4">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 15px;cursor:pointer" style-hover="background:var(--hov)">
+                <span class="n" style="width:17px;height:17px;flex:none;border-radius:4px;background:var(--hov);border:1px solid var(--bd);color:var(--t3);font-size:9.5px;display:flex;align-items:center;justify-content:center">{{ td.rank }}</span>
+                <span style="flex:1;min-width:0;font-size:11.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ td.name }}</span>
+                <span class="n" style="flex:none;font-size:10.5px;color:var(--t3)">{{ td.room }}</span>
+                <span class="n" style="flex:none;font-size:11px;font-weight:600;white-space:nowrap">PKR {{ td.due }}</span>
+              </div>
+            </sc-for>
+            <div style="height:6px"></div>
+          </div>
+
+          <!-- Quick actions -->
+          <div style="padding:13px 15px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:10px">Quick Actions</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ quickActions }}" as="qa" hint-placeholder-count="4">
+                <button style="display:flex;align-items:center;gap:9px;height:33px;padding:0 10px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;text-align:left" style-hover="background:var(--hov)">
+                  <span style="flex:none;display:flex;color:var(--t2)">{{ qa.icon }}</span>
+                  <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ qa.label }}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="flex:none;padding:11px 15px;border-top:1px solid var(--bd);background:var(--elev);display:flex;align-items:center;gap:9px">
+            <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:32px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>Export ledger</button>
+            <span class="n" style="flex:none;font-size:9.5px;color:var(--t3);white-space:nowrap">Updated 2m ago</span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ ADD PAYMENT ════════════ -->
+  <sc-if value="{{ isAdd }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;background:rgba(0,0,0,.64);display:flex;align-items:center;justify-content:center;padding:28px 20px;z-index:60;animation:ov .14s ease">
+    <div onClick="{{ stop }}" style="width:860px;max-width:100%;max-height:calc(100vh - 56px);display:flex;flex-direction:column;background:var(--elev);border:1px solid var(--bd2);border-radius:12px;box-shadow:var(--sh-lg);animation:md .2s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+
+      <div style="flex:none;display:flex;align-items:center;gap:11px;padding:14px 18px;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14.5px;font-weight:600;letter-spacing:-.01em">Add Payment</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Record a collection against a student ledger</div>
+        </div>
+        <button onClick="{{ close }}" style="width:27px;height:27px;flex:none;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="s" style="flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+
+        <!-- student search -->
+        <div>
+          <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Search Student <span style="color:var(--bad)">*</span></label>
+          <div style="position:relative">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;left:11px;top:11px;pointer-events:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+            <input value="{{ fStudent }}" onChange="{{ setStudent }}" placeholder="Type name, room # or phone to search…" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px 0 33px;color:var(--t1);font-size:12.5px"/>
+            <sc-if value="{{ hasSuggest }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:41px;left:0;right:0;z-index:5;background:var(--card);border:1px solid var(--bd2);border-radius:8px;box-shadow:var(--sh-lg);overflow:hidden">
+                <sc-for list="{{ suggestions }}" as="sg" hint-placeholder-count="4">
+                  <div onClick="{{ sg.pick }}" style="display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer" style-hover="background:var(--hov)">
+                    <span style="width:24px;height:24px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600;{{ sg.avatar }}">{{ sg.initials }}</span>
+                    <span style="flex:1;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sg.name }}</span>
+                    <span class="n" style="flex:none;font-size:10.5px;color:var(--t3)">{{ sg.meta }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ hasPicked }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:9px;margin-top:8px;padding:8px 11px;border-radius:6px;background:var(--ac-soft);border:1px solid var(--ac-bd)">
+              <span style="width:24px;height:24px;flex:none;border-radius:50%;background:var(--card);border:1px solid var(--ac-bd);color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600">{{ pickedInitials }}</span>
+              <span style="flex:1;min-width:0;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ pickedName }}</span>
+              <span class="n" style="flex:none;font-size:11px;color:var(--t2)">{{ pickedMeta }}</span>
+              <button onClick="{{ clearPicked }}" style="width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:transparent;color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+              </button>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- money row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Monthly Rent (PKR) <span style="color:var(--bad)">*</span></label>
+            <input class="n" value="{{ fRent }}" onChange="{{ setRent }}" placeholder="Enter monthly rent" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px;text-align:right"/>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Amount Paid (PKR) <span style="color:var(--bad)">*</span></label>
+            <input class="n" value="{{ fPaid }}" onChange="{{ setPaid }}" placeholder="Enter amount paid" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px;text-align:right"/>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Admission Fee (PKR)</label>
+            <input class="n" value="{{ fAdm }}" onChange="{{ setAdm }}" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px;text-align:right"/>
+          </div>
+        </div>
+
+        <!-- concession + extras -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Concession / Discount (PKR)</label>
+              <input class="n" value="{{ fConc }}" onChange="{{ setConc }}" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px;text-align:right"/>
+            </div>
+            <div>
+              <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Concession Description <span style="color:var(--t3);font-weight:500;letter-spacing:0;text-transform:none">(optional)</span></label>
+              <input value="{{ fConcDesc }}" onChange="{{ setConcDesc }}" placeholder="e.g. Scholarship, hardship, early payment" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px"/>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--bd);border-radius:8px;background:var(--page);overflow:hidden">
+            <div style="display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--bd)">
+              <span style="flex:1;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2)">Extra Charges / Add-ons</span>
+              <button onClick="{{ addExtra }}" style="display:flex;align-items:center;gap:5px;height:24px;padding:0 9px;border-radius:5px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:600 11px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add</button>
+            </div>
+            <div style="padding:9px 11px;display:flex;flex-direction:column;gap:7px">
+              <sc-for list="{{ extras }}" as="ex" hint-placeholder-count="1">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <input class="n" value="{{ ex.amt }}" onChange="{{ ex.setAmt }}" placeholder="Amount" style="width:96px;flex:none;height:32px;background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:0 9px;color:var(--t1);font-size:12px;text-align:right"/>
+                  <input value="{{ ex.desc }}" onChange="{{ ex.setDesc }}" placeholder="Description (e.g. laundry)" style="flex:1;min-width:0;height:32px;background:var(--card);border:1px solid var(--bd);border-radius:6px;padding:0 9px;color:var(--t1);font-size:12px"/>
+                  <button onClick="{{ ex.remove }}" title="Remove" style="width:28px;height:28px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:transparent;border:1px solid var(--bd);color:var(--t3);cursor:pointer" style-hover="color:var(--t1);background:var(--hov)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                  </button>
+                </div>
+              </sc-for>
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;background:var(--card);border:1px solid var(--bd)">
+                <span style="flex:1;font-size:11.5px;color:var(--t2)">Extra charges total</span>
+                <span class="n" style="flex:none;font-size:12.5px;font-weight:600">PKR {{ extrasTotal }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ledger math -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Unpaid / Remaining (PKR)</label>
+            <div class="n" style="width:100%;height:37px;display:flex;align-items:center;justify-content:flex-end;background:var(--hov);border:1px solid var(--bd);border-radius:6px;padding:0 11px;font-size:13px;font-weight:600">{{ formUnpaid }}</div>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Payment Method</label>
+            <div style="position:relative">
+              <select value="{{ fMethod }}" onChange="{{ setMethod }}" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 11px;color:var(--t1);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>Cash</option><option>Bank Transfer</option><option>JazzCash</option><option>EasyPaisa</option><option>Cheque</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:13px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Month</label>
+            <div style="position:relative">
+              <select value="{{ fMonth }}" onChange="{{ setMonth }}" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 11px;color:var(--t1);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>July 2026</option><option>August 2026</option><option>June 2026</option><option>May 2026</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:13px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Status</label>
+            <div style="position:relative">
+              <span style="position:absolute;left:11px;top:16px;width:6px;height:6px;border-radius:50%;background:{{ statusDot }};pointer-events:none"></span>
+              <select value="{{ fStatus }}" onChange="{{ setStatus }}" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 25px;color:var(--t1);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>Paid</option><option>Partial</option><option>Pending</option><option>Overdue</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:13px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Payment Date</label>
+            <input class="n" type="date" value="{{ fPayDate }}" onChange="{{ setPayDate }}" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px"/>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Due Date</label>
+            <input class="n" type="date" value="{{ fDueDate }}" onChange="{{ setDueDate }}" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px"/>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Notes</label>
+          <textarea value="{{ fNotes }}" onChange="{{ setNotes }}" placeholder="Optional notes…" style="width:100%;height:64px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:9px 11px;color:var(--t1);font-size:12.5px;resize:vertical;line-height:1.5"></textarea>
+        </div>
+
+        <!-- receipt summary -->
+        <div style="border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+          <div style="padding:9px 12px;border-bottom:1px solid var(--bd);background:var(--card);font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2)">Receipt Summary</div>
+          <div style="padding:10px 9px;display:flex;flex-direction:column;gap:6px">
+            <sc-for list="{{ summaryLines }}" as="ln" hint-placeholder-count="4">
+              <div style="display:flex;align-items:baseline;gap:10px;font-size:11.5px">
+                <span style="flex:1;color:var(--t2)">{{ ln.label }}</span>
+                <span class="n" style="flex:none;color:var(--t1)">{{ ln.value }}</span>
+              </div>
+            </sc-for>
+            <div style="display:flex;align-items:baseline;gap:10px;padding-top:8px;border-top:1px solid var(--bd)">
+              <span style="flex:1;font-size:12px;font-weight:600">Total payable</span>
+              <span class="n" style="flex:none;font-size:15px;font-weight:600">PKR {{ formTotal }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:13px 18px;border-top:1px solid var(--bd)">
+        <span style="flex:1;font-size:11px;color:var(--t3)"><span style="color:var(--bad)">*</span> Required fields</span>
+        <button onClick="{{ close }}" style="height:34px;padding:0 14px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Cancel</button>
+        <button style="height:34px;padding:0 14px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Save Draft</button>
+        <button style="height:34px;padding:0 14px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Save &amp; Add Another</button>
+        <button onClick="{{ close }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 16px;border-radius:6px;background:var(--grad);border:none;color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;box-shadow:0 1px 3px rgba(124,58,237,.4)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"></path><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path><path d="M12 17.5v-11"></path></svg>Add Payment &amp; Generate Receipt</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:1024},&quot;perPage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;10&quot;,&quot;25&quot;,&quot;50&quot;],&quot;default&quot;:&quot;25&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Table&quot;},&quot;showMessBreakdown&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Table&quot;},&quot;showActivity&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme:'dark', status:'All', q:'', sortKey:'room', sortDir:'asc', page:1, sel:{}, modal:null,
+    fStudent:'', picked:null, fRent:'', fPaid:'', fAdm:'0', fConc:'0', fConcDesc:'',
+    extras:[{ amt:'', desc:'' }], fMethod:'Cash', fMonth:'July 2026', fStatus:'Paid',
+    fPayDate:'2026-07-28', fDueDate:'2026-08-05', fNotes:'',
+  };
+
+  ic(d, w){
+    return React.createElement('svg', {
+      width:w||15, height:w||15, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor',
+      strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round',
+      dangerouslySetInnerHTML:{ __html:d },
+    });
+  }
+
+  /* one deterministic ledger — every figure on the page derives from it */
+  ledger(){
+    if (this._led) return this._led;
+    const FIRST = ['Hassan','Usman','Hamza','Ahmed','Asad','Bilal','Saad','Talha','Fahad','Zain','Umar','Adnan','Asif','Rahid','Mubeen','Danyal','Naveed','Kauser','Azeem','Zabit','Sifat','Abdullah','Hamid','Ali','Noman','Waqas','Shahid','Imran','Junaid','Faizan','Kashif','Sohail','Tariq','Yasir','Rizwan','Salman','Arsalan','Bahadur','Owais','Haris','Mudassir','Nabeel','Qasim','Rehan','Shoaib','Taimoor','Uzair','Wajid','Yousaf','Zohaib','Ibrahim','Sami','Anas','Areeb','Basit','Daud','Ehsan','Furqan','Ghazi','Haseeb'];
+    const LAST  = ['Ali','Tariq','Sheikh','Raza','Malik','Khan','Mehmood','Yousaf','Iqbal','Abbas','Farooq','Ahmad','Hussain','Nawaz','Shah','Zaman','Aslam','Javed','Rashid','Bashir','Saleem','Akhtar','Hameed','Qureshi','Siddiqui','Baig'];
+    const COURSE = ['BSCS - 2nd Year','BBA - 1st Year','BCOM - 2nd Year','BSSE - 3rd Year','Pharm-D - 1st Year','FSc Pre-Medical','BS Civil Eng. - 3rd Year','BS Nursing - 2nd Year','MDCAT Prep','BS Law - 1st Year'];
+
+    /* blocks: B = 2-seater, C = 3-seater, A = 4-seater — base rent + mess */
+    const BLOCKS = [
+      { p:'B', start:101, rooms:24, seats:2, base:12000, mess:2500 },
+      { p:'C', start:301, rooms:16, seats:3, base:14000, mess:2500 },
+      { p:'A', start:201, rooms:7,  seats:4, base:16800, mess:3000 },
+    ];
+    const recs = [];
+    let n = 0;
+    BLOCKS.forEach(b => {
+      for (let r = 0; r < b.rooms; r++) {
+        for (let s = 0; s < b.seats; s++) {
+          const i = n++;
+          recs.push({
+            i,
+            id: 'ST-' + (1201 + i),
+            name: FIRST[i % FIRST.length] + ' ' + LAST[(i * 7 + 3) % LAST.length],
+            course: COURSE[i % COURSE.length],
+            room: b.p + '-' + (b.start + r),
+            block: b.p,
+            roomNum: b.start + r,
+            seater: b.seats + '-Seater',
+            base: b.base,
+            mess: (i % 7 === 3) ? 0 : b.mess,
+          });
+        }
+      }
+    });
+
+    /* status mix: 89 paid · 21 partial · 12 pending · 2 overdue = 124 */
+    const bag = [];
+    for (let k = 0; k < 89; k++) bag.push('Paid');
+    for (let k = 0; k < 21; k++) bag.push('Partial');
+    for (let k = 0; k < 12; k++) bag.push('Pending');
+    for (let k = 0; k < 2;  k++) bag.push('Overdue');
+    const order = recs.map((r, i) => (i * 47 + 11) % recs.length);
+    const seen = {};
+    let cursor = 0;
+    const slot = [];
+    order.forEach(o => {
+      let t = o;
+      while (seen[t]) t = (t + 1) % recs.length;
+      seen[t] = 1;
+      slot[t] = bag[cursor++];
+    });
+
+    const EXTRAS = [
+      { amt:500,  desc:'Late fee · 4 days' },
+      { amt:1000, desc:'Laundry' },
+      { amt:1500, desc:'Extra bedding' },
+      { amt:800,  desc:'Generator fuel' },
+    ];
+    const METHODS = ['Cash','Cash','Bank','JazzCash','Cash','EasyPaisa','Bank','Cash','JazzCash','Cash'];
+
+    recs.forEach(r => {
+      r.status = slot[r.i] || 'Paid';
+      r.rent = r.base + r.mess;
+      const ex = (r.i % 11 === 2) ? EXTRAS[0] : (r.i % 17 === 5) ? EXTRAS[1] : (r.i % 23 === 7) ? EXTRAS[2] : (r.i % 29 === 9) ? EXTRAS[3] : null;
+      r.extra = ex ? ex.amt : 0;
+      r.extraNote = ex ? ex.desc : '';
+      r.conc = (r.i % 9 === 4) ? 2000 : (r.i % 13 === 6) ? 3000 : 0;
+      r.billed = r.rent + r.extra - r.conc;
+      if (r.status === 'Paid') { r.paid = r.billed; r.unpaid = 0; }
+      else if (r.status === 'Partial') { r.paid = Math.round(r.billed * 0.55 / 500) * 500; r.unpaid = r.billed - r.paid; }
+      else { r.paid = 0; r.unpaid = r.billed; }
+      r.method = r.paid > 0 ? METHODS[r.i % METHODS.length] : '—';
+      const day = r.paid > 0 ? (r.i % 27) + 1 : 0;
+      r.payDay = day;
+      r.payLabel = day ? String(day).padStart(2,'0') + ' Jul 2026' : '—';
+      r.payTime = day ? String(7 + (r.i % 11)).padStart(2,'0') + ':' + String((r.i * 13) % 60).padStart(2,'0') + ' AM' : '';
+      r.month = 'Jul 2026';
+      /* aging bucket for anything unpaid */
+      r.ageDays = r.unpaid > 0 ? [12, 22, 44, 52, 71, 83, 96, 118][r.i % 8] : 0;
+    });
+
+    this._led = recs;
+    return recs;
+  }
+
+  renderVals(){
+    const st = this.state;
+    const recs = this.ledger();
+    const fmt = n => Math.round(n).toLocaleString('en-US');
+    const num = v => { const x = parseFloat(String(v).replace(/[^0-9.-]/g, '')); return isNaN(x) ? 0 : x; };
+    const initials = s => s.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    const avatarSet = [
+      'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac)',
+      'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+    ];
+
+    /* ═════ derived totals ═════ */
+    const collected  = recs.reduce((a,r) => a + r.paid, 0);
+    const outstanding = recs.filter(r => r.status === 'Partial' || r.status === 'Overdue').reduce((a,r) => a + r.unpaid, 0);
+    const pendingAmt = recs.filter(r => r.status === 'Pending').reduce((a,r) => a + r.unpaid, 0);
+    const txCount = recs.length;
+    const daysElapsed = 29;
+    const avgPerDay = collected / daysElapsed;
+
+    /* prior months held as an index against this month's ledger, so the trend
+       chart and every KPI delta stay tied to the same source of truth */
+    const MONTH_INDEX = [['Feb',.655],['Mar',.709],['Apr',.771],['May',.757],['Jun',.874]];
+    const junFactor = MONTH_INDEX[MONTH_INDEX.length - 1][1];
+    const junCollected = collected * junFactor;
+    const junAvgPerDay = junCollected / 30;
+    const junOutstanding = outstanding * .924;
+    const junPending = pendingAmt * 1.056;
+    const junTx = Math.round(txCount * .911);
+    const pct = (now, then) => (then ? (now - then) / then * 100 : 0);
+
+    const mkSpark = seed => {
+      const pts = [];
+      for (let i = 0; i <= 11; i++) {
+        const v = Math.sin(i * .8 + seed) * 6 + Math.sin(i * 2.1 + seed * 2) * 3;
+        pts.push([i * (200/11), 22 - v]);
+      }
+      const line = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+      return { spark:line, area:line + ' 200,34 0,34' };
+    };
+    const up = this.ic('<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>', 11);
+    const down = this.ic('<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>', 11);
+
+    const kpis = [
+      { label:'Total Collected (Jul)', value:'PKR ' + fmt(collected),  d:pct(collected, junCollected),   seed:.4, icon:this.ic('<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>', 14) },
+      { label:'Outstanding Dues',      value:'PKR ' + fmt(outstanding), d:pct(outstanding, junOutstanding), seed:1.3, icon:this.ic('<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>', 14) },
+      { label:'This Month Pending',    value:'PKR ' + fmt(pendingAmt),  d:pct(pendingAmt, junPending),    seed:2.2, icon:this.ic('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 14) },
+      { label:'Total Transactions',    value:fmt(txCount),              d:pct(txCount, junTx),            seed:3.1, icon:this.ic('<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>', 14) },
+      { label:'Average / Day',         value:'PKR ' + fmt(avgPerDay),   d:pct(avgPerDay, junAvgPerDay),   seed:4.4, icon:this.ic('<path d="M4 20h16"/><rect width="3.4" height="7" x="5" y="11" rx="1"/><rect width="3.4" height="12" x="10.3" y="6" rx="1"/><rect width="3.4" height="5" x="15.6" y="13" rx="1"/>', 14) },
+    ].map(k => Object.assign(k, mkSpark(k.seed), {
+      delta: Math.abs(k.d).toFixed(1) + '% vs Jun 2026',
+      deltaIcon: k.d >= 0 ? up : down,
+    }));
+
+    /* ═════ filters ═════ */
+    const STATUSES = ['All','Paid','Partial','Pending','Overdue'];
+    const statusTabs = STATUSES.map(s => ({
+      label:s,
+      count: s === 'All' ? recs.length : recs.filter(r => r.status === s).length,
+      go: () => this.setState({ status:s, page:1 }),
+      style: st.status === s
+        ? 'background:var(--ac-cta);border:1px solid var(--ac-cta);color:#fff;font-weight:600'
+        : 'background:var(--page);border:1px solid var(--bd);color:var(--t2);font-weight:500',
+    }));
+
+    const q = st.q.trim().toLowerCase();
+    let pool = st.status === 'All' ? recs.slice() : recs.filter(r => r.status === st.status);
+    if (q) pool = pool.filter(r =>
+      r.name.toLowerCase().indexOf(q) >= 0 ||
+      r.room.toLowerCase().indexOf(q) >= 0 ||
+      r.id.toLowerCase().indexOf(q) >= 0 ||
+      r.method.toLowerCase().indexOf(q) >= 0
+    );
+
+    const dir = st.sortDir === 'asc' ? 1 : -1;
+    const key = st.sortKey;
+    pool.sort((a,b) => {
+      if (key === 'room') return (a.block.localeCompare(b.block) || a.roomNum - b.roomNum) * dir;
+      if (key === 'student') return a.name.localeCompare(b.name) * dir;
+      if (key === 'rent') return (a.rent - b.rent) * dir;
+      if (key === 'conc') return (a.conc - b.conc) * dir;
+      if (key === 'extra') return (a.extra - b.extra) * dir;
+      if (key === 'paid') return (a.paid - b.paid) * dir;
+      if (key === 'unpaid') return (a.unpaid - b.unpaid) * dir;
+      if (key === 'method') return a.method.localeCompare(b.method) * dir;
+      if (key === 'status') return a.status.localeCompare(b.status) * dir;
+      return (a.block.localeCompare(b.block) || a.roomNum - b.roomNum) * dir;
+    });
+
+    const per = parseInt(this.props.perPage || '10', 10) || 10;
+    const pageCount = Math.max(1, Math.ceil(pool.length / per));
+    const page = Math.min(st.page, pageCount);
+    const slice = pool.slice((page - 1) * per, page * per);
+
+    const arrowUp = this.ic('<path d="m18 15-6-6-6 6"/>', 10);
+    const arrowDown = this.ic('<path d="m6 9 6 6 6-6"/>', 10);
+    const COLS = [
+      ['Student','student',''], ['Room','room',''], ['Month','',''],
+      ['Rent / Mo','rent','text-align:right'], ['Conc.','conc','text-align:right'],
+      ['Extra','extra','text-align:right'], ['Paid','paid','text-align:right'],
+      ['Unpaid','unpaid','text-align:right'], ['Method','method',''], ['Status','status',''],
+      ['Actions','','text-align:right'],
+    ];
+    const cols = COLS.map(c => ({
+      label:c[0], align:c[2],
+      active: (c[1] && c[1] === key) ? 'color:var(--t1)' : '',
+      arrow: (c[1] && c[1] === key) ? (st.sortDir === 'asc' ? arrowUp : arrowDown) : '',
+      sort: c[1] ? () => this.setState(s => ({
+        sortKey:c[1], sortDir: s.sortKey === c[1] && s.sortDir === 'asc' ? 'desc' : 'asc', page:1,
+      })) : () => {},
+    }));
+
+    const statusPill = s => {
+      if (s === 'Overdue') return 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)';
+      if (s === 'Pending') return 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)';
+      return 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)';
+    };
+    const box = on => on
+      ? 'background:var(--ac-cta);border:1px solid var(--ac-cta)'
+      : 'background:var(--page);border:1px solid var(--bd2)';
+
+    const ACT = [
+      ['Receipt','<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 9h8"/><path d="M8 13h6"/>'],
+      ['View','<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>'],
+      ['Edit','<path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/><path d="M18.4 2.6a2 2 0 0 1 3 3L12 15l-4 1 1-4z"/>'],
+      ['More','<circle cx="12" cy="5" r=".4"/><circle cx="12" cy="12" r=".4"/><circle cx="12" cy="19" r=".4"/>'],
+    ];
+
+    const rows = slice.map(r => ({
+      id:r.id, name:r.name, initials:initials(r.name), avatar:avatarSet[r.i % 2],
+      room:r.room, seater:r.seater, month:r.month,
+      rentTotal:fmt(r.rent),
+      rentBreak: (this.props.showMessBreakdown !== false)
+        ? (r.mess ? fmt(r.base) + ' + ' + fmt(r.mess) + ' mess' : 'Mess not included')
+        : '',
+      conc: r.conc ? fmt(r.conc) : '—',
+      extra: r.extra ? fmt(r.extra) : '0',
+      hasExtra: r.extra > 0, extraNote:r.extraNote,
+      paid: fmt(r.paid),
+      unpaid: r.unpaid ? 'PKR ' + fmt(r.unpaid) : '—',
+      method: r.method, status: r.status, statusPill: statusPill(r.status),
+      boxStyle: box(!!st.sel[r.id]), boxTick: st.sel[r.id] ? '' : 'opacity:0',
+      toggle: () => this.setState(s => {
+        const sel = Object.assign({}, s.sel);
+        if (sel[r.id]) delete sel[r.id]; else sel[r.id] = true;
+        return { sel };
+      }),
+      actions: ACT.map(a => ({ name:a[0], icon:this.ic(a[1], 13) })),
+    }));
+
+    const pageIds = slice.map(r => r.id);
+    const allOn = pageIds.length > 0 && pageIds.every(id => st.sel[id]);
+    const selIds = Object.keys(st.sel);
+    const selUnpaid = recs.filter(r => st.sel[r.id]).reduce((a,r) => a + r.unpaid, 0);
+
+    const pageNums = [];
+    for (let p = 1; p <= pageCount; p++) {
+      if (p <= 5 || p === pageCount) pageNums.push(String(p));
+      else if (p === 6) pageNums.push('…');
+    }
+    const pages = pageNums.map(p => ({
+      label:p,
+      go: p === '…' ? () => {} : () => this.setState({ page: parseInt(p, 10) }),
+      style: p === String(page)
+        ? 'background:var(--ac-cta);border:1px solid var(--ac-cta);color:#fff;font-weight:600'
+        : p === '…'
+          ? 'background:transparent;border:1px solid transparent;color:var(--t3);cursor:default'
+          : 'background:var(--card);border:1px solid var(--bd);color:var(--t2)',
+    }));
+
+    /* ═════ right rail ═════ */
+    const METHOD_COLORS = { Cash:'#8b5cf6', Bank:'#a78bfa', JazzCash:'#c4b5fd', EasyPaisa:'#6d28d9', Cheque:'#4c1d95' };
+    const byMethod = {};
+    recs.filter(r => r.paid > 0).forEach(r => { byMethod[r.method] = (byMethod[r.method] || 0) + r.paid; });
+    const CIRC = 2 * Math.PI * 38;
+    let acc = 0;
+    const methods = Object.keys(byMethod).sort((a,b) => byMethod[b] - byMethod[a]).map(m => {
+      const frac = byMethod[m] / collected;
+      const seg = {
+        label: m + '  ·  PKR ' + fmt(byMethod[m]),
+        color: METHOD_COLORS[m] || '#a78bfa',
+        pct: (frac * 100).toFixed(1) + '%',
+        dash: (CIRC * frac).toFixed(2) + ' ' + CIRC.toFixed(2),
+        offset: (-CIRC * acc).toFixed(2),
+      };
+      acc += frac;
+      return seg;
+    });
+
+    const series = MONTH_INDEX.map(h => ({ label:h[0], v:collected * h[1] })).concat([{ label:'Jul', v:collected }]);
+    const maxV = Math.max.apply(null, series.map(s => s.v)) * 1.12;
+    const pts = series.map((s, i) => [i * (200 / (series.length - 1)), 78 - (s.v / maxV) * 74]);
+    const trendLine = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    const trendDots = pts.map(p => ({ x:p[0].toFixed(1), y:p[1].toFixed(1) }));
+    const trendAxis = [3, 2, 1, 0].map(i => ({ label: (maxV / 1000000 * i / 3).toFixed(1) + 'M' }));
+    const trendGrid = [0, 1, 2, 3].map(i => ({ y: (i * 74 / 3 + 2).toFixed(1) }));
+
+    const BUCKETS = [
+      { label:'Current (0–30 days)', min:0,  max:30,  color:'#c4b5fd' },
+      { label:'31–60 days',          min:31, max:60,  color:'#a78bfa' },
+      { label:'61–90 days',          min:61, max:90,  color:'#8b5cf6' },
+      { label:'90+ days',            min:91, max:999, color:'#6d28d9' },
+    ];
+    const bucketSums = BUCKETS.map(b =>
+      recs.filter(r => r.unpaid > 0 && r.ageDays >= b.min && r.ageDays <= b.max).reduce((a,r) => a + r.unpaid, 0)
+    );
+    const maxBucket = Math.max.apply(null, bucketSums) || 1;
+    const aging = BUCKETS.map((b, i) => ({
+      label:b.label, color:b.color, amount:fmt(bucketSums[i]),
+      pct: Math.round(bucketSums[i] / maxBucket * 100) + '%',
+    }));
+
+    const topDue = recs.filter(r => r.unpaid > 0).sort((a,b) => b.unpaid - a.unpaid).slice(0, 4)
+      .map((r, i) => ({ rank:i + 1, name:r.name, room:r.room, due:fmt(r.unpaid) }));
+
+    const paidSorted = recs.filter(r => r.paid > 0).sort((a,b) => b.payDay - a.payDay || b.i - a.i);
+    const overdueOne = recs.filter(r => r.status === 'Overdue')[0];
+    const activity = [];
+    paidSorted.slice(0, 4).forEach(r => activity.push({
+      icon: this.ic(r.unpaid > 0
+        ? '<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'
+        : '<path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/>', 14),
+      title: r.unpaid > 0 ? 'Partial Payment' : 'Payment Received',
+      who: r.name + ' (' + r.room + ')',
+      amount: 'PKR ' + fmt(r.paid) + ' via ' + r.method,
+      when: r.payLabel + ' · ' + r.payTime,
+    }));
+    if (overdueOne) activity.push({
+      icon: this.ic('<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>', 14),
+      title:'Overdue Payment',
+      who: overdueOne.name + ' (' + overdueOne.room + ')',
+      amount: 'PKR ' + fmt(overdueOne.unpaid) + ' outstanding',
+      when: '28 Jul 2026 · 09:20 AM',
+    });
+
+    const quickActions = [
+      ['Generate Month Report','<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/><path d="M8 13h8"/><path d="M8 17h5"/>'],
+      ['Send WhatsApp Reminders','<path d="M3 21l1.9-5A9 9 0 1 1 8 19.1z"/><path d="M8.5 10.5c.6 2 2.4 3.6 4.4 4.2l1-1.2 2 .8v1.6c-2.9.4-6.6-2.4-7.6-5.4z"/>'],
+      ['Record Bulk Collection','<rect width="18" height="14" x="3" y="6" rx="2"/><path d="M3 11h18"/><path d="M7 16h4"/>'],
+      ['Reconcile Bank Statement','<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>'],
+    ].map(a => ({ label:a[0], icon:this.ic(a[1], 14) }));
+
+    /* ═════ modal form ═════ */
+    const extrasTotalNum = st.extras.reduce((a,e) => a + num(e.amt), 0);
+    const formTotal = num(st.fRent) + num(st.fAdm) + extrasTotalNum - num(st.fConc);
+    const formUnpaid = Math.max(0, formTotal - num(st.fPaid));
+    const extras = st.extras.map((e, idx) => ({
+      amt:e.amt, desc:e.desc,
+      setAmt: ev => { const v = ev.target.value; this.setState(s => { const x = s.extras.slice(); x[idx] = Object.assign({}, x[idx], { amt:v }); return { extras:x }; }); },
+      setDesc: ev => { const v = ev.target.value; this.setState(s => { const x = s.extras.slice(); x[idx] = Object.assign({}, x[idx], { desc:v }); return { extras:x }; }); },
+      remove: () => this.setState(s => ({ extras: s.extras.length > 1 ? s.extras.filter((_,j) => j !== idx) : [{ amt:'', desc:'' }] })),
+    }));
+
+    const sq = st.fStudent.trim().toLowerCase();
+    const suggestions = (sq && !st.picked)
+      ? recs.filter(r => r.name.toLowerCase().indexOf(sq) >= 0 || r.room.toLowerCase().indexOf(sq) >= 0 || r.id.toLowerCase().indexOf(sq) >= 0)
+          .slice(0, 5)
+          .map(r => ({
+            name:r.name, initials:initials(r.name), avatar:avatarSet[r.i % 2],
+            meta: r.room + ' · ' + r.seater,
+            pick: () => this.setState({
+              picked:{ name:r.name, initials:initials(r.name), meta:r.room + ' · ' + r.course },
+              fStudent:'', fRent:String(r.rent), fDueDate:'2026-08-05',
+            }),
+          }))
+      : [];
+
+    const summaryLines = [
+      { label:'Monthly rent', value:'PKR ' + fmt(num(st.fRent)) },
+      { label:'Admission fee', value:'PKR ' + fmt(num(st.fAdm)) },
+      { label:'Extra charges', value:'PKR ' + fmt(extrasTotalNum) },
+      { label:'Concession / discount', value:'− PKR ' + fmt(num(st.fConc)) },
+      { label:'Amount paid', value:'PKR ' + fmt(num(st.fPaid)) },
+    ];
+
+    const NAV = [
+      ['Main', [
+        ['Dashboard','<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',0],
+        ['Students','<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',0],
+        ['Rooms','<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',0],
+        ['Cancellations','<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',3],
+        ['Complaints','<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',4],
+      ]],
+      ['Finance', [
+        ['Payments','<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',5],
+        ['Expenses','<path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>',0],
+        ['Reports','<path d="M4 20h16"/><rect width="3.4" height="7" x="5" y="11" rx="1"/><rect width="3.4" height="12" x="10.3" y="6" rx="1"/><rect width="3.4" height="5" x="15.6" y="13" rx="1"/>',0],
+        ['Funds Transfers','<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',0],
+      ]],
+      ['Inventory', [
+        ['Stock Inventory','<path d="M12 22V12"/><path d="M3.29 7 12 12l8.71-5"/><path d="M20 8.5v7L12 20l-8-4.5v-7L12 4z"/>',0],
+      ]],
+      ['System', [
+        ['Staff','<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',0],
+        ['Users','<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',0],
+        ['Maintenance','<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-1.4-1.4z"/>',2],
+        ['Settings','<circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>',0],
+        ['Activity Log','<path d="M3 12h4l3 8 4-16 3 8h4"/>',0],
+        ['Help & Support','<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',0],
+      ]],
+    ];
+
+    return {
+      theme: st.theme,
+      themeIcon: st.theme === 'dark'
+        ? this.ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>', 16)
+        : this.ic('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>', 16),
+      toggleTheme: () => this.setState(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
+      navGroups: NAV.map(g => ({
+        label:g[0],
+        items: g[1].map(it => ({
+          label:it[0], icon:this.ic(it[1], 16),
+          hasBadge: it[2] > 0, badge: it[2],
+          badgeStyle: it[0] === 'Complaints'
+            ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+            : it[0] === 'Cancellations'
+              ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+              : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+          go: () => { const R = {Dashboard:'Dashboard.dc.html',Students:'Students.dc.html',Rooms:'Rooms.dc.html',Cancellations:'Cancellations.dc.html',Complaints:'Complaints.dc.html',Payments:'Payments.dc.html',Expenses:'Expenses.dc.html',Reports:'Reports.dc.html',Settings:'Settings.dc.html'}[it[0]]; if (R) window.location.href = R; },
+          style: it[0] === 'Payments'
+            ? 'background:var(--ac-soft);color:var(--ac);font-weight:600'
+            : 'color:var(--t2);font-weight:500',
+        })),
+      })),
+
+      kpis, statusTabs, cols, rows, pages, methods, aging, topDue, activity, quickActions,
+      trendLine, trendArea: trendLine + ' 200,78 0,78', trendDots, trendAxis, trendGrid,
+      trendLabels: series.map(s => ({ label:s.label })),
+      collectedShort: (collected / 1000000).toFixed(2) + 'M',
+
+      q: st.q, hasQ: st.q.length > 0,
+      setQ: e => this.setState({ q:e.target.value, page:1 }),
+      clearQ: () => this.setState({ q:'', page:1 }),
+      clearAll: () => this.setState({ q:'', status:'All', page:1, sel:{} }),
+
+      selectsTop: [
+        { label:'July 2026', icon:this.ic('<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>', 13) },
+        { label:'Current', icon:this.ic('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 13) },
+        { label:'All Branches', icon:this.ic('<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/>', 13) },
+      ],
+      selectsRow: [
+        { label:'All Payment Methods' }, { label:'All Rooms' }, { label:'All Courses' }, { label:'All Collectors' },
+      ],
+
+      allBoxStyle: box(allOn), allBoxTick: allOn ? '' : 'opacity:0',
+      toggleAll: () => this.setState(s => {
+        const sel = Object.assign({}, s.sel);
+        if (allOn) pageIds.forEach(id => { delete sel[id]; });
+        else pageIds.forEach(id => { sel[id] = true; });
+        return { sel };
+      }),
+      hasSel: selIds.length > 0, selCount: selIds.length, selUnpaid: fmt(selUnpaid),
+      clearSel: () => this.setState({ sel:{} }),
+
+      isEmpty: rows.length === 0,
+      emptyIcon: this.ic('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/>', 22),
+      pageLabel: 'Showing ' + (pool.length ? (page - 1) * per + 1 : 0) + ' to ' + Math.min(page * per, pool.length) + ' of ' + fmt(pool.length) + ' entries',
+      perPageLabel: per + ' / page',
+      prev: () => this.setState(s => ({ page: Math.max(1, s.page - 1) })),
+      next: () => this.setState(s => ({ page: Math.min(pageCount, s.page + 1) })),
+      prevStyle: page > 1 ? 'color:var(--t1)' : 'color:var(--t3);cursor:not-allowed',
+      nextStyle: page < pageCount ? 'color:var(--t1)' : 'color:var(--t3);cursor:not-allowed',
+      showActivity: this.props.showActivity !== false,
+
+      isAdd: st.modal === 'add',
+      openAdd: () => this.setState({ modal:'add' }),
+      close: () => this.setState({ modal:null }),
+      stop: e => { if (e && e.stopPropagation) e.stopPropagation(); },
+
+      fStudent: st.fStudent,
+      setStudent: e => this.setState({ fStudent:e.target.value }),
+      hasSuggest: suggestions.length > 0, suggestions,
+      hasPicked: !!st.picked,
+      pickedName: st.picked ? st.picked.name : '',
+      pickedMeta: st.picked ? st.picked.meta : '',
+      pickedInitials: st.picked ? st.picked.initials : '',
+      clearPicked: () => this.setState({ picked:null, fRent:'' }),
+
+      fRent: st.fRent, setRent: e => this.setState({ fRent:e.target.value }),
+      fPaid: st.fPaid, setPaid: e => this.setState({ fPaid:e.target.value }),
+      fAdm: st.fAdm, setAdm: e => this.setState({ fAdm:e.target.value }),
+      fConc: st.fConc, setConc: e => this.setState({ fConc:e.target.value }),
+      fConcDesc: st.fConcDesc, setConcDesc: e => this.setState({ fConcDesc:e.target.value }),
+      extras, extrasTotal: fmt(extrasTotalNum),
+      formUnpaid: fmt(formUnpaid), formTotal: fmt(formTotal), summaryLines,
+      fMethod: st.fMethod, setMethod: e => this.setState({ fMethod:e.target.value }),
+      fMonth: st.fMonth, setMonth: e => this.setState({ fMonth:e.target.value }),
+      fStatus: st.fStatus, setStatus: e => this.setState({ fStatus:e.target.value }),
+      statusDot: st.fStatus === 'Overdue' ? 'var(--bad)' : st.fStatus === 'Pending' ? 'var(--warn)' : 'var(--t3)',
+      fPayDate: st.fPayDate, setPayDate: e => this.setState({ fPayDate:e.target.value }),
+      fDueDate: st.fDueDate, setDueDate: e => this.setState({ fDueDate:e.target.value }),
+      fNotes: st.fNotes, setNotes: e => this.setState({ fNotes:e.target.value }),
+    };
+  }
+}
+</script>
+</body>
+</html>

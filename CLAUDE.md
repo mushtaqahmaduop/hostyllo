@@ -3,10 +3,20 @@
 > Auto-loaded by Claude Code every session. This is the behavioral contract for the
 > HOSTYLLO engineering team (architect, backend, frontend, database, security, devops, qa).
 > **PRD authority:** `docs/01_MASTER_PRD_v15.md`. If anything here conflicts with the PRD, the PRD wins.
-> **UI authority:** `docs/15_UI_SPEC_v1.md` — appearance only; behaviour still follows the PRD.
-> It supersedes `docs/04_UX_DESIGN_SYSTEM.md`'s palette, tokens and type (the gold/teal dark-first
-> system is dead). Tokens live in `apps/web/src/styles/tokens.css`; a hardcoded hex, px font-size or
-> ms duration in a component is a build failure. Read §16 (hard NO list) before generating any screen.
+> **UI authority:** `docs/design/README.md` — appearance only; behaviour still follows the PRD.
+> It ranks three sources and decides where they disagree: (1) `docs/design/handoff/DESIGN_RULES.md`
+> + `docs/design/handoff/README.md` for density, type scale, radius, spacing, composition and IA;
+> (2) the Claude design-system teardown for colour philosophy, elevation method and motion; (3) the
+> per-screen `docs/design/handoff/designs/<Screen>.dc.html` for exact per-element values.
+> Read it before generating any screen.
+> `docs/15_UI_SPEC_v1.md` is **retired** as a visual authority (settled with the owner 2026-08-05) —
+> only its §5 layout, §9 motion and §12 a11y survive; everything it says about colour, type and shape
+> is dead, as is `docs/04_UX_DESIGN_SYSTEM.md`'s gold/teal dark-first system.
+> Tokens live in `apps/web/src/styles/tokens.css` (v3: warm ivory ladder, violet `#7c3aed` accent,
+> no shadows outside a modal over its overlay, radius ≤12, light default). A hardcoded hex, px
+> font-size or ms duration in a component is a **review rejection, not a build failure** — nothing
+> lints for it today (`apps/web/eslint.config.js` carries only the two TS rules), so it is on the
+> author and the reviewer to catch.
 > **Deep reference:** `docs/06_CLAUDE_MD_v15.md` (full stack/queue/redis/env tables).
 
 ---
@@ -26,10 +36,15 @@ HOSTYLLO — a multi-tenant SaaS hostel-management platform for Pakistan (global
 The tracker (`docs/09_BUILD_STATE_v15.md`) has drifted more than once — always verify.
 
 Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
-- 11 DB migrations (`packages/db/migrations/001–011`) — the 28-table schema + FORCE-RLS/app-role
-  + function hardening. ⚠️ Live **production has no `schema_migrations` ledger** (hand-migrated,
-  never baselined) and carries a legacy `users.totp_secret` column that a migrated-from-scratch DB
-  does not have — staging and prod schemas are NOT identical. See `docs/AUDIT_2026-07-27.md`.
+- 14 DB migrations (`packages/db/migrations/001–014`) — the 28-table schema + FORCE-RLS/app-role
+  + function hardening + `payments.notes` + the students mess/nationality/course columns.
+  ✅ **Staging and production are both on 014 and now hold identical `public` schemas**
+  (fingerprint `2cae6320cbc431572594423285adcf37`, 308 columns) — verified 2026-08-06.
+  Both ledgers carry all 14 files with checksums matching the repo.
+  ⚠️ `docs/AUDIT_2026-07-27.md` is stale on two points and should be read with this note beside it:
+  it says prod has no `schema_migrations` ledger and carries a legacy `users.totp_secret`. Both
+  were fixed *later that same day* — prod was baselined 2026-07-27 10:45 UTC and 012 dropped the
+  column. The audit was never revised. Verify against the live DB, not that file.
 - `packages/db`: canonical `withTenant.ts` (single pool layer), `paymentService.ts`, `formatters.ts` + tests.
 - `apps/api`: full Fastify server, **16 route modules** (auth, students, rooms, payments, expenses,
   dashboard, cancellations, maintenance, complaints, checkin, notices, transfers, fines, users,
@@ -37,8 +52,14 @@ Current reality (Phase 1, code ~95% authored, gated on live-DB verification):
   **4 workers** (auto-cancel, billing-sync, email-send, rent-generate) plus the `dlq.ts` helper.
   The "7 queues" in `docs/06_CLAUDE_MD_v15.md` counts two WhatsApp queues that are not built — a
   Phase-2 feature, not missing Phase-1 work.
-  ⚠️ **No BullMQ *producer* exists anywhere in `apps/api`** — only `Worker` is ever constructed, so
-  none of the four receives a job. Under investigation; see `tasks/todo`.
+  The producer side landed 2026-08-06 (`lib/queues.ts` + `workers/dispatch.ts`): a tick on the
+  `dispatch` queue fans out to one job per due tenant, on deterministic job IDs so replicas cannot
+  double-fire. Schedules are Asia/Karachi. **Workers are opt-in per environment via
+  `WORKERS_ENABLED`, default OFF** — turning it on generates rent, frees beds and expires trials,
+  so it must be proven on staging before prod. `billing-sync`'s `pii_purge` is deliberately not
+  scheduled (it clears CNIC only; the lifecycle spec requires the rest of the PII too), and
+  `email-send` has no caller yet — its jobs are request-triggered, so the producers belong in the
+  routes. Producer/worker parity is pinned by `apps/api/src/__tests__/queues.test.ts`.
   `pdf-receipts` was deleted 2026-07-28: receipts are rendered on demand by
   `GET /payments/:id/receipt`. See `docs/05_API_SPECIFICATION.md` Module 4 for why.
 - `packages/config/eslint-plugin-hostyllo` (withTenant + no-hostel-id-from-request rules).

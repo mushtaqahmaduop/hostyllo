@@ -818,13 +818,23 @@ status   = amountPaidPkr >= totalDue ? 'paid' : amountPaidPkr > 0 ? 'partial' : 
     "totalDuePkr": 8300,
     "amountPaidPkr": 8300,
     "unpaidPkr": 0,
-    "status": "paid"
+    "status": "paid",
+    "notes": ""
   }
 }
 ```
 
 The receipt is available immediately at `GET /payments/:id/receipt`. There is no `receiptStatus`, no
 asynchronous generation step and no waiting.
+
+**`notes` is persisted as of 2026-07-28 (migration 013).** It had been declared in this request
+body — and in `PATCH /payments/:id` — since the route was written, while no column existed and
+neither handler referenced one: a client could send a note, receive `201`, and have it vanish. It
+is now stored, echoed on create, returned by `GET /payments/:id`, and editable through `PATCH`.
+Capped at 1000 characters by the request schema, so an over-long note is a `400`, not a `500`.
+It is **not** returned by `GET /payments` — free text in a ledger table would be truncated to
+uselessness in every row. An omitted `notes` on `PATCH` leaves the stored note unchanged rather
+than clearing it.
 
 **Error codes:**
 | Code | HTTP | Trigger |
@@ -930,6 +940,7 @@ A voided payment still returns its receipt — an operator may need a copy for t
   "data": {
     "defaulters": [
       {
+        "paymentId": "uuid",
         "studentId": "uuid",
         "studentName": "Ahmed Khan",
         "phone": "0312-3456789",
@@ -937,9 +948,7 @@ A voided payment still returns its receipt — an operator may need a copy for t
         "totalDuePkr": 8000,
         "amountPaidPkr": 0,
         "unpaidPkr": 8000,
-        "status": "pending",
-        "paymentRiskScore": "medium",
-        "whatsappMessage": "Dear Ahmed Khan, your rent for June 2026 is PKR 8,000. Room: 4. Please arrange payment. — Hostel Name"
+        "status": "pending"
       }
     ],
     "totalDefaulters": 5,
@@ -947,6 +956,15 @@ A voided payment still returns its receipt — an operator may need a copy for t
   }
 }
 ```
+
+**`paymentId` is the row to settle** (added 2026-07-28). Every defaulter already has a payment row
+for the month — that is what the pending/partial filter selects — so collecting from one is
+`PATCH /payments/:id`. `POST /payments` cannot be used: it hits the duplicate-month guard and
+returns `409 PAY_DUPLICATE_MONTH`. Without this field a client has nothing to target.
+
+⚠️ **Not implemented:** `paymentRiskScore` and `whatsappMessage` were specified here but have never
+been built, and the WhatsApp work they belong to is deferred. They are omitted above rather than
+left in as a promise the endpoint does not keep.
 
 ---
 

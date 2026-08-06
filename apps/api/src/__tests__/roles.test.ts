@@ -16,6 +16,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   OWNER_A_EMAIL, CHAIN_A_EMAIL, WARDEN_A_EMAIL, VIEWER_A_EMAIL,
   TEST_PASSWORD, HOSTEL_A_STUDENT_ID, HOSTEL_A_ROOM_ID,
+  LOGIN_IP as SUITE_LOGIN_IP,
 } from './fixtures.js';
 
 const HAS_DB = !!process.env.DATABASE_URL;
@@ -24,7 +25,7 @@ const token: Record<string, string> = {};
 
 // rl:login is keyed per IP and allows 10 per 15 minutes; four logins from the shared default
 // address would eat the budget the auth suite depends on.
-const LOGIN_IP = '10.10.10.30';
+const LOGIN_IP = SUITE_LOGIN_IP.roles;
 
 beforeAll(async () => {
   if (!HAS_DB) return;

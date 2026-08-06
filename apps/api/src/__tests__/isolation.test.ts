@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
-  OWNER_A_EMAIL, OWNER_B_EMAIL, TEST_PASSWORD,
+  OWNER_A_EMAIL, OWNER_B_EMAIL, LOGIN_IP, loginAs,
   HOSTEL_A_ID, HOSTEL_B_STUDENT_ID, HOSTEL_B_ROOM_ID, HOSTEL_B_PAYMENT_ID,
 } from './fixtures.js';
 
@@ -18,8 +18,7 @@ let app: FastifyInstance;
 let tokenA = '';
 
 async function login(email: string): Promise<string> {
-  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password: TEST_PASSWORD } });
-  return JSON.parse(res.body).data?.accessToken ?? '';
+  return loginAs(app, email, LOGIN_IP.isolation);
 }
 function get(url: string, token: string) {
   return app.inject({ method: 'GET', url, headers: { authorization: `Bearer ${token}` } });

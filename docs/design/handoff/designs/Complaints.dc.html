@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ui:'Geist',-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --page:#0f0f0f; --card:#141414; --elev:#1c1c1c; --hov:#262626;
+    --bd:#2a2a2a; --bd2:#363636;
+    --t1:#e5e5e5; --t2:#a3a3a3; --t3:#737373;
+    --ac:#8b5cf6; --ac-cta:#7c3aed; --ac-soft:rgba(139,92,246,.12); --ac-bd:rgba(139,92,246,.28);
+    --grad:linear-gradient(100deg,#7c3aed 0%,#a855f7 52%,#22d3ee 100%);
+    --warn:#fbbf24; --warn-soft:rgba(251,191,36,.10); --warn-bd:rgba(251,191,36,.22);
+    --bad:#f87171; --bad-soft:rgba(248,113,113,.10); --bad-bd:rgba(248,113,113,.22);
+    --info:#60a5fa; --info-soft:rgba(96,165,250,.10); --info-bd:rgba(96,165,250,.22);
+    --sh:0 1px 2px rgba(0,0,0,.4);
+    --sh-lg:0 8px 28px rgba(0,0,0,.6),0 2px 6px rgba(0,0,0,.45);
+  }
+  [data-theme="light"]{
+    --page:#fafafa; --card:#ffffff; --elev:#ffffff; --hov:#f5f5f5;
+    --bd:#e5e5e5; --bd2:#d4d4d4;
+    --t1:#171717; --t2:#525252; --t3:#a3a3a3;
+    --ac:#7c3aed; --ac-cta:#7c3aed; --ac-soft:#f5f3ff; --ac-bd:#ddd6fe;
+    --warn:#b45309; --warn-soft:#fffbeb; --warn-bd:#fde68a;
+    --bad:#b91c1c; --bad-soft:#fef2f2; --bad-bd:#fecaca;
+    --info:#1d4ed8; --info-soft:#eff6ff; --info-bd:#bfdbfe;
+    --sh:0 1px 2px rgba(0,0,0,.04);
+    --sh-lg:0 8px 28px rgba(0,0,0,.10),0 2px 6px rgba(0,0,0,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--page);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+  a{color:var(--ac);text-decoration:none}
+  a:hover{color:var(--ac-cta)}
+  .n{font-family:var(--mono);font-feature-settings:'tnum' 1;letter-spacing:-.01em}
+  input,select,textarea{font-family:var(--ui)}
+  input::placeholder,textarea::placeholder{color:var(--t3)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--ac)!important}
+  .s::-webkit-scrollbar{width:10px;height:10px}
+  .s::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:6px;border:3px solid transparent;background-clip:content-box}
+  .s::-webkit-scrollbar-track{background:transparent}
+  tbody tr:hover td{background:var(--hov)}
+  @keyframes ov{from{opacity:0}to{opacity:1}}
+  @keyframes md{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="display:flex;height:100vh;width:100%;overflow:hidden;background:var(--page);color:var(--t1);font-family:var(--ui)">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside style="width:203px;flex:none;display:flex;flex-direction:column;background:var(--card);border-right:1px solid var(--bd)">
+    <div style="display:flex;align-items:center;gap:10px;padding:15px 14px 13px;flex:none">
+      <img src="./assets/logo.png" alt="Hostyllo" style="width:30px;height:30px;flex:none;border-radius:8px;display:block"/>
+      <div style="min-width:0">
+        <div style="font-size:12.5px;font-weight:700;letter-spacing:.03em;line-height:1.15">HOSTYLLO</div>
+        <div style="font-size:10.5px;color:var(--t3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Daman Hostel For Boys</div>
+      </div>
+    </div>
+
+    <nav class="s" style="flex:1;overflow-y:auto;padding:2px 8px 60px">
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="4">
+        <div style="margin-bottom:8px">
+          <div style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);padding:9px 8px 6px">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="5">
+            <a onClick="{{ it.go }}" style="display:flex;align-items:center;gap:10px;height:33px;padding:0 9px;border-radius:6px;font-size:12.5px;cursor:pointer;margin-bottom:1px;{{ it.style }}">
+              <span style="flex:none;display:flex;width:16px;height:16px">{{ it.icon }}</span>
+              <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ it.label }}</span>
+              <sc-if value="{{ it.hasBadge }}" hint-placeholder-val="{{ false }}">
+                <span class="n" style="flex:none;font-size:10px;font-weight:600;min-width:17px;height:17px;padding:0 5px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;{{ it.badgeStyle }}">{{ it.badge }}</span>
+              </sc-if>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="flex:none;display:flex;align-items:center;gap:9px;padding:10px 13px;border-top:1px solid var(--bd);background:var(--card)">
+      <div style="width:27px;height:27px;flex:none;border-radius:50%;background:var(--ac-soft);border:1px solid var(--ac-bd);display:flex;align-items:center;justify-content:center;color:var(--ac);font-size:11px;font-weight:600">K</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;line-height:1.2">Khan</div>
+        <div style="font-size:10px;color:var(--t3);line-height:1.3">Administrator</div>
+      </div>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m6 9 6 6 6-6"></path></svg>
+    </div>
+  </aside>
+
+  <!-- ════════════ MAIN ════════════ -->
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+    <header style="flex:none;display:flex;align-items:center;padding:11px 18px;border-bottom:1px solid var(--bd);background:var(--card)">
+      <div style="flex:none;min-width:0">
+        <h1 style="margin:0;font-size:19px;font-weight:600;letter-spacing:-.02em;line-height:1.2">Complaints</h1>
+        <div style="font-size:11.5px;color:var(--t3);margin-top:2px;white-space:nowrap">Track, prioritise and resolve student complaints</div>
+      </div>
+
+      <div style="flex:none;width:36px"></div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;width:300px;height:34px;padding:0 12px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t3);font-size:12.5px;cursor:text" style-hover="border-color:var(--bd2)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">Search students, rooms, tickets…</span>
+        <span class="n" style="flex:none;font-size:10px;padding:2px 5px;border-radius:4px;background:var(--card);border:1px solid var(--bd);white-space:nowrap">Ctrl K</span>
+      </div>
+
+      <div style="flex:1;min-width:16px"></div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:8px">
+        <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+          <span class="n">Jul 01 – Jul 31, 2026</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </button>
+
+        <button title="Notifications" style="position:relative;width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+          <span class="n" style="position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9999px;background:var(--bad);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">4</span>
+        </button>
+
+        <button onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px;height:34px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t2);cursor:pointer" style-hover="background:var(--hov);color:var(--t1)">
+          <span style="display:flex">{{ themeIcon }}</span>
+        </button>
+
+        <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path><path d="M14 2v5h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg>Export Report</button>
+
+        <button onClick="{{ openNew }}" style="display:flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:none;border-radius:8px;background:var(--grad);color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;white-space:nowrap;box-shadow:0 1px 3px rgba(124,58,237,.4)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>New Complaint</button>
+      </div>
+    </header>
+
+    <!-- ════════════ BODY ════════════ -->
+    <div class="s" style="flex:1;overflow-y:auto;padding:14px 18px 24px">
+      <div style="display:flex;gap:14px;align-items:flex-start">
+
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:13px">
+
+          <!-- KPI ROW -->
+          <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:11px">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+              <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column;min-height:124px">
+                <div style="padding:12px 13px 0;flex:1;display:flex;flex-direction:column">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+                    <div style="width:26px;height:26px;flex:none;border-radius:6px;background:var(--hov);display:flex;align-items:center;justify-content:center;color:var(--t2)">{{ k.icon }}</div>
+                    <span style="font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ k.label }}</span>
+                  </div>
+                  <div class="n" style="font-size:22px;font-weight:600;line-height:1.1;letter-spacing:-.02em;white-space:nowrap">{{ k.value }}</div>
+                  <div style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--t3);margin-top:4px;white-space:nowrap">
+                    <span style="display:flex;flex:none">{{ k.deltaIcon }}</span><span class="n">{{ k.delta }}</span>
+                  </div>
+                  <div style="flex:1;min-height:6px"></div>
+                  <svg viewBox="0 0 200 34" preserveAspectRatio="none" style="width:100%;height:28px;display:block">
+                    <polygon points="{{ k.area }}" fill="var(--ac-soft)"></polygon>
+                    <polyline points="{{ k.spark }}" fill="none" stroke="var(--ac)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                  </svg>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <!-- FILTER BAR -->
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:11px 13px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;flex:1;min-width:220px;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t3)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+                <input value="{{ q }}" onChange="{{ setQ }}" placeholder="Search by issue title, student name, room, phone, CNIC…" style="flex:1;min-width:0;height:32px;background:transparent;border:none;color:var(--t1);font-size:12.5px;padding:0"/>
+                <sc-if value="{{ hasQ }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ clearQ }}" title="Clear search" style="width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:var(--hov);color:var(--t2);cursor:pointer">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+                  </button>
+                </sc-if>
+              </div>
+
+              <sc-for list="{{ prioFilters }}" as="p" hint-placeholder-count="4">
+                <button onClick="{{ p.go }}" style="display:flex;align-items:center;gap:6px;height:34px;padding:0 11px;flex:none;border-radius:8px;font:500 12px/1 var(--ui);cursor:pointer;white-space:nowrap;{{ p.style }}">{{ p.label }}<span class="n" style="font-size:10px;opacity:.7">{{ p.count }}</span></button>
+              </sc-for>
+
+              <sc-for list="{{ selects }}" as="sl" hint-placeholder-count="4">
+                <button style="display:flex;align-items:center;gap:7px;height:34px;padding:0 11px;flex:none;border-radius:8px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 12px/1 var(--ui);cursor:pointer;white-space:nowrap" style-hover="background:var(--hov)">
+                  {{ sl.label }}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"></path></svg>
+                </button>
+              </sc-for>
+
+              <div style="display:flex;flex:none;gap:2px;padding:2px;border-radius:8px;background:var(--page);border:1px solid var(--bd)">
+                <button onClick="{{ setBoard }}" title="Kanban board" style="display:flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:none;border-radius:6px;font:500 11.5px/1 var(--ui);cursor:pointer;{{ boardBtnStyle }}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect width="6" height="18" x="3" y="3" rx="1"></rect><rect width="6" height="11" x="15" y="3" rx="1"></rect></svg>Board</button>
+                <button onClick="{{ setTable }}" title="Table view" style="display:flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:none;border-radius:6px;font:500 11.5px/1 var(--ui);cursor:pointer;{{ tableBtnStyle }}">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h.01"></path><path d="M3 18h.01"></path><path d="M3 6h.01"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M8 6h13"></path></svg>Table</button>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <sc-for list="{{ catTabs }}" as="c" hint-placeholder-count="9">
+                <button onClick="{{ c.go }}" style="display:flex;align-items:center;gap:6px;height:27px;padding:0 11px;border-radius:9999px;font:12px/1 var(--ui);cursor:pointer;{{ c.style }}">
+                  {{ c.label }}<span class="n" style="font-size:10px;opacity:.7">{{ c.count }}</span>
+                </button>
+              </sc-for>
+              <div style="flex:1;min-width:8px"></div>
+              <button onClick="{{ resetFilters }}" style="display:flex;align-items:center;gap:6px;height:27px;padding:0 10px;flex:none;border-radius:8px;background:transparent;border:1px solid transparent;color:var(--ac);font:500 12px/1 var(--ui);cursor:pointer" style-hover="background:var(--ac-soft)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>Reset</button>
+            </div>
+          </div>
+
+          <!-- ═════ KANBAN BOARD ═════ -->
+          <sc-if value="{{ isBoard }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;align-items:start">
+            <sc-for list="{{ columns }}" as="col" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:hidden;box-shadow:var(--sh)">
+                <div style="flex:none;display:flex;align-items:center;gap:7px;padding:10px 12px;border-bottom:1px solid var(--bd);background:var(--elev)">
+                  <span style="width:7px;height:7px;flex:none;border-radius:50%;background:{{ col.dot }}"></span>
+                  <span style="flex:1;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ col.label }}</span>
+                  <span class="n" style="flex:none;font-size:10px;font-weight:600;padding:2px 6px;border-radius:4px;background:var(--hov);border:1px solid var(--bd);color:var(--t2)">{{ col.count }}</span>
+                </div>
+
+                <div class="s" style="flex:1;overflow-y:auto;max-height:560px;padding:10px;display:flex;flex-direction:column;gap:9px">
+                  <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="3">
+                    <div onClick="{{ c.open }}" style="display:flex;flex-direction:column;gap:8px;padding:10px 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd);cursor:pointer;{{ c.cardStyle }}" style-hover="border-color:var(--bd2)">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <span style="flex:none;font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2.5px 7px;border-radius:4px;background:var(--hov);border:1px solid var(--bd);color:var(--t2);white-space:nowrap">{{ c.category }}</span>
+                        <div style="flex:1;min-width:2px"></div>
+                        <span style="flex:none;font-size:9px;font-weight:600;padding:2.5px 7px;border-radius:9999px;white-space:nowrap;{{ c.prioPill }}">{{ c.priority }}</span>
+                      </div>
+
+                      <div>
+                        <div style="font-size:12.5px;font-weight:600;line-height:1.3;letter-spacing:-.01em">{{ c.title }}</div>
+                        <div style="font-size:11px;color:var(--t2);line-height:1.4;margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ c.desc }}</div>
+                      </div>
+
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="width:22px;height:22px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;{{ c.avatar }}">{{ c.initials }}</span>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:11px;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.student }}</div>
+                          <div class="n" style="font-size:9.5px;color:var(--t3);line-height:1.3;white-space:nowrap">{{ c.room }}</div>
+                        </div>
+                        <sc-if value="{{ c.hasFiles }}" hint-placeholder-val="{{ false }}">
+                          <span class="n" style="flex:none;display:inline-flex;align-items:center;gap:3px;font-size:9.5px;color:var(--t3)">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>{{ c.files }}
+                          </span>
+                        </sc-if>
+                      </div>
+
+                      <div style="display:flex;align-items:center;gap:7px;padding-top:8px;border-top:1px solid var(--bd)">
+                        <span class="n" style="flex:none;font-size:9.5px;color:var(--t3)">{{ c.id }}</span>
+                        <span style="flex:1;min-width:2px"></span>
+                        <span class="n" style="flex:none;font-size:9.5px;color:var(--t3);white-space:nowrap">{{ c.age }}</span>
+                        <sc-if value="{{ c.canBack }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ c.back }}" title="Move back" style="width:21px;height:21px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:var(--card);border:1px solid var(--bd);color:var(--t3);cursor:pointer" style-hover="color:var(--t1)">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m15 18-6-6 6-6"></path></svg>
+                          </button>
+                        </sc-if>
+                        <sc-if value="{{ c.canFwd }}" hint-placeholder-val="{{ true }}">
+                          <button onClick="{{ c.fwd }}" title="{{ c.fwdLabel }}" style="width:21px;height:21px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:5px;background:var(--card);border:1px solid var(--bd);color:var(--t3);cursor:pointer" style-hover="color:var(--ac);border-color:var(--ac-bd)">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m9 18 6-6-6-6"></path></svg>
+                          </button>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+
+                  <sc-if value="{{ col.isEmpty }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:26px 10px;border-radius:8px;border:1px dashed var(--bd2)">
+                      <span style="display:flex;color:var(--t3)">{{ col.emptyIcon }}</span>
+                      <span style="font-size:11px;color:var(--t3);text-align:center">Nothing here</span>
+                    </div>
+                  </sc-if>
+                </div>
+
+                <div style="flex:none;padding:9px 10px;border-top:1px solid var(--bd);background:var(--elev)">
+                  <button onClick="{{ openNew }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;height:28px;border-radius:6px;background:var(--card);border:1px dashed var(--bd2);color:var(--t2);font:500 11px/1 var(--ui);cursor:pointer" style-hover="color:var(--t1);border-color:var(--ac-bd)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Add ticket</button>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          </sc-if>
+
+          <!-- ═════ TABLE VIEW ═════ -->
+          <sc-if value="{{ isTable }}" hint-placeholder-val="{{ false }}">
+          <div class="s" style="background:var(--card);border:1px solid var(--bd);border-radius:10px;overflow:auto;box-shadow:var(--sh)">
+            <table style="width:100%;border-collapse:separate;border-spacing:0;font-size:12px;min-width:920px">
+              <thead><tr>
+                <sc-for list="{{ cols }}" as="c" hint-placeholder-count="10">
+                  <th onClick="{{ c.sort }}" style="position:sticky;top:0;z-index:1;font:700 9.5px/1 var(--ui);letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:10px 9px;background:var(--elev);border-bottom:1px solid var(--bd);white-space:nowrap;cursor:pointer;{{ c.align }}">
+                    <span style="display:inline-flex;align-items:center;gap:4px;{{ c.active }}">{{ c.label }}<span style="display:flex;opacity:.75">{{ c.arrow }}</span></span>
+                  </th>
+                </sc-for>
+              </tr></thead>
+              <tbody>
+                <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+                  <tr onClick="{{ r.open }}" style="cursor:pointer">
+                    <td class="n" style="padding:8px 9px;border-bottom:1px solid var(--bd);font-weight:600;color:var(--ac);white-space:nowrap">{{ r.id }}</td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);max-width:170px">
+                      <div style="font-size:12px;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.title }}</div>
+                      <div style="font-size:10px;color:var(--t3);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.desc }}</div>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <span style="font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2.5px 7px;border-radius:4px;background:var(--hov);border:1px solid var(--bd);color:var(--t2)">{{ r.category }}</span>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd)">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="width:24px;height:24px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;{{ r.avatar }}">{{ r.initials }}</span>
+                        <div style="min-width:0">
+                          <div style="font-size:11.5px;font-weight:500;line-height:1.25;white-space:nowrap">{{ r.student }}</div>
+                          <div class="n" style="font-size:9.5px;color:var(--t3);line-height:1.3;white-space:nowrap">{{ r.phone }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <div class="n" style="font-size:11.5px;font-weight:500;line-height:1.25">{{ r.room }}</div>
+                      <div style="font-size:9.5px;color:var(--t3);line-height:1.3">{{ r.block }}</div>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <div class="n" style="font-size:11.5px;line-height:1.25;color:var(--t2)">{{ r.date }}</div>
+                      <div class="n" style="font-size:9.5px;color:var(--t3);line-height:1.3">{{ r.time }}</div>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap;color:var(--t2)">{{ r.assignee }}</td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <span style="font-size:9.5px;font-weight:600;padding:2.5px 8px;border-radius:9999px;{{ r.prioPill }}">{{ r.priority }}</span>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap">
+                      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--t2)">
+                        <span style="width:6px;height:6px;flex:none;border-radius:50%;background:{{ r.dot }}"></span>{{ r.status }}
+                      </span>
+                    </td>
+                    <td style="padding:8px 9px;border-bottom:1px solid var(--bd);white-space:nowrap;text-align:right">
+                      <button title="More" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;background:transparent;border:1px solid transparent;color:var(--t3);cursor:pointer" style-hover="background:var(--hov);color:var(--t1);border-color:var(--bd)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="12" cy="5" r=".4"></circle><circle cx="12" cy="12" r=".4"></circle><circle cx="12" cy="19" r=".4"></circle></svg>
+                      </button>
+                    </td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+            <sc-if value="{{ noRows }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:44px 20px">
+                <span style="display:flex;color:var(--t3)">{{ emptyIcon }}</span>
+                <span style="font-size:12.5px;font-weight:500">No complaints match these filters</span>
+                <span style="font-size:11.5px;color:var(--t3)">Try clearing the search or picking another category</span>
+              </div>
+            </sc-if>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <span style="font-size:12px;color:var(--t3)">{{ tableLabel }}</span>
+          </div>
+          </sc-if>
+
+          <!-- ═════ ANALYTICS STRIP ═════ -->
+          <sc-if value="{{ showAnalytics }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:11px">
+
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);padding:12px 13px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px">
+                <span style="font-size:12.5px;font-weight:600">Opened vs Resolved</span>
+                <span style="font-size:10.5px;color:var(--t3)">Cumulative, July by week</span>
+              </div>
+              <svg viewBox="0 0 200 66" preserveAspectRatio="none" style="width:100%;height:66px;display:block;overflow:visible">
+                <polyline points="{{ openedLine }}" fill="none" stroke="var(--ac)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+                <polyline points="{{ resolvedLine }}" fill="none" stroke="var(--t3)" stroke-width="1.4" stroke-dasharray="3 3" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></polyline>
+              </svg>
+              <div style="display:flex;justify-content:space-between;margin-top:5px">
+                <sc-for list="{{ weekLabels }}" as="w" hint-placeholder-count="4">
+                  <span class="n" style="font-size:8.5px;color:var(--t3)">{{ w.label }}</span>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:13px;margin-top:9px">
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--t2)"><span style="width:12px;height:2px;background:var(--ac);border-radius:2px"></span>Opened</span>
+                <span style="display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--t2)"><span style="width:12px;height:2px;background:var(--t3);border-radius:2px"></span>Resolved</span>
+              </div>
+            </div>
+
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);padding:12px 13px">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+                <span style="font-size:12.5px;font-weight:600">Where complaints come from</span>
+                <span style="font-size:10.5px;color:var(--t3)">This month</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ sources }}" as="s" hint-placeholder-count="4">
+                  <div>
+                    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px">
+                      <span style="font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.label }}</span>
+                      <span class="n" style="flex:none;font-size:10.5px;color:var(--t3)"><b style="color:var(--t1);font-weight:600">{{ s.pct }}</b> {{ s.countLabel }}</span>
+                    </div>
+                    <div style="height:4px;border-radius:2px;background:var(--hov);overflow:hidden">
+                      <div style="height:100%;border-radius:2px;background:var(--ac);width:{{ s.pct }}"></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 13px 9px">
+                <span style="font-size:12.5px;font-weight:600">Recent Activity</span>
+                <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+              </div>
+              <sc-for list="{{ recent }}" as="a" hint-placeholder-count="4">
+                <div style="display:flex;gap:9px;padding:7px 13px">
+                  <span style="width:22px;height:22px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600;{{ a.avatar }}">{{ a.initials }}</span>
+                  <div style="min-width:0;flex:1">
+                    <div style="font-size:11px;line-height:1.4;color:var(--t2)"><b style="color:var(--t1);font-weight:600">{{ a.who }}</b> {{ a.what }}</div>
+                    <div class="n" style="font-size:9.5px;color:var(--t3);line-height:1.4">{{ a.meta }}</div>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="height:10px"></div>
+            </div>
+          </div>
+          </sc-if>
+        </div>
+
+        <!-- ─────── RIGHT RAIL ─────── -->
+        <aside style="width:276px;flex:none;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh);overflow:hidden">
+
+          <div style="flex:none;display:flex;align-items:center;gap:8px;padding:13px 15px;border-bottom:1px solid var(--bd);background:var(--elev)">
+            <span style="flex:1;font-size:13px;font-weight:600;letter-spacing:-.01em">Complaint Insights</span>
+            <span class="n" style="flex:none;font-size:10px;color:var(--t3);white-space:nowrap">Jul 2026</span>
+          </div>
+
+          <!-- categories donut -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+              <span style="font-size:12px;font-weight:600">Categories</span>
+              <span style="font-size:11px;color:var(--t3);white-space:nowrap">All time</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:13px">
+              <div style="position:relative;flex:none;width:84px;height:84px">
+                <svg viewBox="0 0 100 100" style="width:84px;height:84px;transform:rotate(-90deg)">
+                  <sc-for list="{{ donut }}" as="d" hint-placeholder-count="6">
+                    <circle cx="50" cy="50" r="38" fill="none" stroke="{{ d.color }}" stroke-width="13" stroke-dasharray="{{ d.dash }}" stroke-dashoffset="{{ d.offset }}"></circle>
+                  </sc-for>
+                </svg>
+                <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                  <span class="n" style="font-size:17px;font-weight:600;line-height:1">{{ total }}</span>
+                  <span style="font-size:8.5px;color:var(--t3);line-height:1.3">Tickets</span>
+                </div>
+              </div>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                <sc-for list="{{ donut }}" as="d" hint-placeholder-count="6">
+                  <div style="display:flex;align-items:center;gap:6px;font-size:10px;white-space:nowrap">
+                    <span style="width:7px;height:7px;flex:none;border-radius:2px;background:{{ d.color }}"></span>
+                    <span style="flex:1;color:var(--t2);overflow:hidden;text-overflow:ellipsis">{{ d.label }}</span>
+                    <span class="n" style="flex:none;color:var(--t1);font-weight:500">{{ d.count }}</span>
+                    <span class="n" style="flex:none;color:var(--t3)">{{ d.pct }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+
+          <!-- priority mix -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="font-size:12px;font-weight:600;margin-bottom:11px">Priority of Open Tickets</div>
+            <div style="display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--hov);margin-bottom:10px">
+              <sc-for list="{{ prioMix }}" as="p" hint-placeholder-count="3">
+                <div style="height:100%;background:{{ p.color }};width:{{ p.pct }}"></div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ prioMix }}" as="p" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:6px;font-size:11px;white-space:nowrap">
+                  <span style="width:7px;height:7px;flex:none;border-radius:2px;background:{{ p.color }}"></span>
+                  <span style="flex:1;color:var(--t2)">{{ p.label }}</span>
+                  <span class="n" style="flex:none;color:var(--t1);font-weight:500">{{ p.count }}</span>
+                  <span class="n" style="flex:none;color:var(--t3)">{{ p.pct }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- staff workload -->
+          <div style="padding:13px 15px;border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:11px">
+              <span style="font-size:12px;font-weight:600">Staff Workload</span>
+              <span style="font-size:11px;color:var(--t3);white-space:nowrap">Open items</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ workload }}" as="w" hint-placeholder-count="5">
+                <div>
+                  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:5px">
+                    <span style="font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ w.name }}</span>
+                    <span class="n" style="flex:none;font-size:10.5px;color:var(--t3)"><b style="color:var(--t1);font-weight:600">{{ w.count }}</b> open</span>
+                  </div>
+                  <div style="height:4px;border-radius:2px;background:var(--hov);overflow:hidden">
+                    <div style="height:100%;border-radius:2px;background:var(--ac);width:{{ w.pct }}"></div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- oldest unresolved -->
+          <div style="border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:13px 15px 9px">
+              <span style="font-size:12px;font-weight:600">Oldest Unresolved</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+            </div>
+            <sc-for list="{{ oldest }}" as="o" hint-placeholder-count="4">
+              <div onClick="{{ o.open }}" style="display:flex;align-items:center;gap:9px;padding:7px 15px;cursor:pointer" style-hover="background:var(--hov)">
+                <span class="n" style="flex:none;font-size:10.5px;font-weight:600;color:var(--ac);width:62px">{{ o.id }}</span>
+                <span style="flex:1;min-width:0;font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ o.title }}</span>
+                <span class="n" style="flex:none;font-size:10px;color:var(--t3);white-space:nowrap">{{ o.age }}</span>
+              </div>
+            </sc-for>
+            <div style="height:6px"></div>
+          </div>
+
+          <!-- rooms with repeat issues -->
+          <div style="border-bottom:1px solid var(--bd)">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:13px 15px 9px">
+              <span style="font-size:12px;font-weight:600">Rooms With Repeat Issues</span>
+              <a style="font-size:11px;cursor:pointer;white-space:nowrap">View all</a>
+            </div>
+            <sc-for list="{{ repeats }}" as="rp" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:9px;padding:7px 15px">
+                <span class="n" style="flex:none;font-size:11.5px;font-weight:600;width:48px">{{ rp.room }}</span>
+                <span style="flex:1;min-width:0;font-size:11px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ rp.detail }}</span>
+                <span class="n" style="flex:none;font-size:10px;font-weight:600;padding:2px 7px;border-radius:9999px;background:var(--hov);border:1px solid var(--bd);color:var(--t2)">{{ rp.count }}</span>
+              </div>
+            </sc-for>
+            <div style="height:6px"></div>
+          </div>
+
+          <!-- quick actions -->
+          <div style="padding:13px 15px">
+            <div style="font-size:12px;font-weight:600;margin-bottom:10px">Quick Actions</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <sc-for list="{{ quickActions }}" as="qa" hint-placeholder-count="4">
+                <button style="display:flex;align-items:center;gap:9px;height:33px;padding:0 10px;border-radius:6px;background:var(--page);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer;text-align:left" style-hover="background:var(--hov)">
+                  <span style="flex:none;display:flex;color:var(--t2)">{{ qa.icon }}</span>
+                  <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ qa.label }}</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="flex:none"><path d="m9 18 6-6-6-6"></path></svg>
+                </button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="flex:none;padding:11px 15px;border-top:1px solid var(--bd);background:var(--elev);display:flex;align-items:center;gap:9px">
+            <button style="flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:32px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>Export complaints</button>
+            <span class="n" style="flex:none;font-size:9.5px;color:var(--t3);white-space:nowrap">Updated 1m ago</span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ TICKET DETAIL ════════════ -->
+  <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;background:rgba(0,0,0,.64);display:flex;align-items:stretch;justify-content:flex-end;z-index:60;animation:ov .14s ease">
+    <div onClick="{{ stop }}" style="width:520px;max-width:100%;display:flex;flex-direction:column;background:var(--elev);border-left:1px solid var(--bd2);box-shadow:var(--sh-lg);animation:md .2s cubic-bezier(.2,.8,.2,1)">
+
+      <div style="flex:none;display:flex;align-items:flex-start;gap:11px;padding:15px 18px;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+            <span class="n" style="font-size:11px;font-weight:600;color:var(--ac)">{{ dId }}</span>
+            <span style="font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2.5px 7px;border-radius:4px;background:var(--hov);border:1px solid var(--bd);color:var(--t2)">{{ dCategory }}</span>
+            <span style="font-size:9px;font-weight:600;padding:2.5px 7px;border-radius:9999px;{{ dPrioPill }}">{{ dPriority }}</span>
+          </div>
+          <div style="font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.3">{{ dTitle }}</div>
+        </div>
+        <button onClick="{{ close }}" style="width:27px;height:27px;flex:none;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="s" style="flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:15px">
+
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px">
+          <sc-for list="{{ dFacts }}" as="f" hint-placeholder-count="6">
+            <div style="padding:9px 11px;border-radius:8px;background:var(--page);border:1px solid var(--bd)">
+              <div style="font:600 9px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t3);margin-bottom:5px">{{ f.label }}</div>
+              <div style="font-size:12px;font-weight:500;line-height:1.3">{{ f.value }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div>
+          <div style="font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Description</div>
+          <div style="padding:11px 12px;border-radius:8px;background:var(--page);border:1px solid var(--bd);font-size:12.5px;line-height:1.55;color:var(--t1);text-wrap:pretty">{{ dDesc }}</div>
+        </div>
+
+        <div>
+          <div style="font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:9px">Status</div>
+          <div style="display:flex;gap:6px">
+            <sc-for list="{{ dStatusOpts }}" as="so" hint-placeholder-count="4">
+              <button onClick="{{ so.go }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:32px;border-radius:6px;font:500 11.5px/1 var(--ui);cursor:pointer;{{ so.style }}">
+                <span style="width:6px;height:6px;flex:none;border-radius:50%;background:{{ so.dot }}"></span>{{ so.label }}
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <div style="font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:9px">Assign To</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <sc-for list="{{ dStaffOpts }}" as="so" hint-placeholder-count="5">
+              <button onClick="{{ so.go }}" style="display:flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:9999px;font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap;{{ so.style }}">
+                <span style="width:19px;height:19px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:600;{{ so.avatar }}">{{ so.initials }}</span>{{ so.name }}
+              </button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <div style="font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:9px">Timeline</div>
+          <div style="display:flex;flex-direction:column">
+            <sc-for list="{{ dTimeline }}" as="tl" hint-placeholder-count="4">
+              <div style="display:flex;gap:11px">
+                <div style="flex:none;display:flex;flex-direction:column;align-items:center;width:19px">
+                  <span style="width:9px;height:9px;flex:none;border-radius:50%;margin-top:4px;{{ tl.dotStyle }}"></span>
+                  <span style="flex:1;width:1px;background:var(--bd);min-height:14px"></span>
+                </div>
+                <div style="flex:1;min-width:0;padding-bottom:13px">
+                  <div style="font-size:12px;font-weight:500;line-height:1.35">{{ tl.title }}</div>
+                  <div style="font-size:11px;color:var(--t2);line-height:1.45">{{ tl.by }}</div>
+                  <div class="n" style="font-size:9.5px;color:var(--t3);line-height:1.4;margin-top:2px">{{ tl.when }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <div style="font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Add Update</div>
+          <textarea value="{{ dComment }}" onChange="{{ setComment }}" placeholder="Log what was done, or note what the student said…" style="width:100%;height:64px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:9px 11px;color:var(--t1);font-size:12.5px;resize:vertical;line-height:1.5"></textarea>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+            <button style="display:flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--t2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>Attach photo</button>
+            <div style="flex:1"></div>
+            <button onClick="{{ addComment }}" style="height:30px;padding:0 13px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:600 11.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Post update</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:13px 18px;border-top:1px solid var(--bd)">
+        <button style="height:34px;padding:0 13px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Notify student</button>
+        <div style="flex:1"></div>
+        <button onClick="{{ close }}" style="height:34px;padding:0 14px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Close</button>
+        <button onClick="{{ resolveTicket }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 15px;border-radius:6px;background:var(--grad);border:none;color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;box-shadow:0 1px 3px rgba(124,58,237,.4)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Mark Resolved</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ════════════ NEW COMPLAINT ════════════ -->
+  <sc-if value="{{ isNew }}" hint-placeholder-val="{{ false }}">
+  <div onClick="{{ close }}" style="position:fixed;inset:0;background:rgba(0,0,0,.64);display:flex;align-items:center;justify-content:center;padding:28px 20px;z-index:60;animation:ov .14s ease">
+    <div onClick="{{ stop }}" style="width:760px;max-width:100%;max-height:calc(100vh - 56px);display:flex;flex-direction:column;background:var(--elev);border:1px solid var(--bd2);border-radius:12px;box-shadow:var(--sh-lg);animation:md .2s cubic-bezier(.2,.8,.2,1);overflow:hidden">
+
+      <div style="flex:none;display:flex;align-items:center;gap:11px;padding:14px 18px;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14.5px;font-weight:600;letter-spacing:-.01em">New Complaint</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Log an issue raised by a student, or one found during inspection</div>
+        </div>
+        <button onClick="{{ close }}" style="width:27px;height:27px;flex:none;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center" style-hover="background:var(--hov);color:var(--t1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+
+      <div class="s" style="flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px">
+
+        <div>
+          <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Student <span style="color:var(--bad)">*</span></label>
+          <div style="position:relative">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;left:11px;top:11px;pointer-events:none"><path d="m21 21-4.34-4.34"></path><circle cx="11" cy="11" r="8"></circle></svg>
+            <input value="{{ nStudent }}" onChange="{{ setNStudent }}" placeholder="Type name, room # or phone to search…" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px 0 33px;color:var(--t1);font-size:12.5px"/>
+            <sc-if value="{{ hasNSuggest }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:41px;left:0;right:0;z-index:5;background:var(--card);border:1px solid var(--bd2);border-radius:8px;box-shadow:var(--sh-lg);overflow:hidden">
+                <sc-for list="{{ nSuggestions }}" as="sg" hint-placeholder-count="4">
+                  <div onClick="{{ sg.pick }}" style="display:flex;align-items:center;gap:9px;padding:8px 11px;cursor:pointer" style-hover="background:var(--hov)">
+                    <span style="width:24px;height:24px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600;{{ sg.avatar }}">{{ sg.initials }}</span>
+                    <span style="flex:1;min-width:0;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sg.name }}</span>
+                    <span class="n" style="flex:none;font-size:10.5px;color:var(--t3)">{{ sg.meta }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ nPicked }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;align-items:center;gap:9px;margin-top:8px;padding:8px 11px;border-radius:6px;background:var(--ac-soft);border:1px solid var(--ac-bd)">
+              <span style="width:24px;height:24px;flex:none;border-radius:50%;background:var(--card);border:1px solid var(--ac-bd);color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600">{{ nPickedInitials }}</span>
+              <span style="flex:1;min-width:0;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ nPickedName }}</span>
+              <span class="n" style="flex:none;font-size:11px;color:var(--t2)">{{ nPickedMeta }}</span>
+              <button onClick="{{ clearNPicked }}" style="width:20px;height:20px;flex:none;display:flex;align-items:center;justify-content:center;border:none;border-radius:5px;background:transparent;color:var(--t2);cursor:pointer" style-hover="color:var(--t1)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+              </button>
+            </div>
+          </sc-if>
+        </div>
+
+        <div>
+          <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Issue Title <span style="color:var(--bad)">*</span></label>
+          <input value="{{ nTitle }}" onChange="{{ setNTitle }}" placeholder="e.g. No hot water in morning" style="width:100%;height:37px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 11px;color:var(--t1);font-size:12.5px"/>
+        </div>
+
+        <div>
+          <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Category <span style="color:var(--bad)">*</span></label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <sc-for list="{{ nCatOpts }}" as="co" hint-placeholder-count="8">
+              <button onClick="{{ co.go }}" style="height:30px;padding:0 11px;border-radius:6px;font:500 11.5px/1 var(--ui);cursor:pointer;white-space:nowrap;{{ co.style }}">{{ co.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Priority</label>
+            <div style="display:flex;gap:5px">
+              <sc-for list="{{ nPrioOpts }}" as="po" hint-placeholder-count="3">
+                <button onClick="{{ po.go }}" style="flex:1;height:34px;border-radius:6px;font:500 11.5px/1 var(--ui);cursor:pointer;{{ po.style }}">{{ po.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Logged Via</label>
+            <div style="position:relative">
+              <select value="{{ nSource }}" onChange="{{ setNSource }}" style="width:100%;height:34px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 11px;color:var(--t1);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>Front desk</option><option>Student portal</option><option>WhatsApp</option><option>Warden inspection</option><option>Phone call</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:11px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+          <div>
+            <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:7px">Assign To</label>
+            <div style="position:relative">
+              <select value="{{ nAssignee }}" onChange="{{ setNAssignee }}" style="width:100%;height:34px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:0 28px 0 11px;color:var(--t1);font-size:12.5px;appearance:none;cursor:pointer">
+                <option>Unassigned</option><option>Imran Khan</option><option>Faisal Khan</option><option>Zain Abbas</option><option>Usman Khan</option><option>Munir Ahmad</option>
+              </select>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" style="position:absolute;right:10px;top:11px;pointer-events:none"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Description</label>
+          <textarea value="{{ nDesc }}" onChange="{{ setNDesc }}" placeholder="What exactly is wrong, since when, and what has been tried…" style="width:100%;height:78px;background:var(--page);border:1px solid var(--bd);border-radius:6px;padding:9px 11px;color:var(--t1);font-size:12.5px;resize:vertical;line-height:1.5"></textarea>
+        </div>
+
+        <div>
+          <label style="display:block;font:600 9.5px/1 var(--ui);letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Photos</label>
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:16px;border-radius:8px;background:var(--page);border:1px dashed var(--bd2);cursor:pointer" style-hover="border-color:var(--ac-bd)">
+            <div style="width:34px;height:34px;border-radius:8px;background:var(--hov);display:flex;align-items:center;justify-content:center;color:var(--t3)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg>
+            </div>
+            <span style="font-size:11.5px;font-weight:500">Drop photos of the issue, or click to browse</span>
+            <span style="font-size:10px;color:var(--t3)">JPG, PNG up to 5MB each</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:none;display:flex;align-items:center;gap:9px;padding:13px 18px;border-top:1px solid var(--bd)">
+        <span style="flex:1;font-size:11px;color:var(--t3)"><span style="color:var(--bad)">*</span> Required fields</span>
+        <button onClick="{{ close }}" style="height:34px;padding:0 14px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Cancel</button>
+        <button style="height:34px;padding:0 14px;border-radius:6px;background:var(--card);border:1px solid var(--bd);color:var(--t1);font:500 12.5px/1 var(--ui);cursor:pointer" style-hover="background:var(--hov)">Save &amp; Add Another</button>
+        <button onClick="{{ close }}" style="display:flex;align-items:center;gap:7px;height:34px;padding:0 16px;border-radius:6px;background:var(--grad);border:none;color:#fff;font:600 12.5px/1 var(--ui);cursor:pointer;box-shadow:0 1px 3px rgba(124,58,237,.4)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>Create Complaint</button>
+      </div>
+    </div>
+  </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1536,&quot;height&quot;:1024},&quot;showAnalytics&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Layout&quot;}}">
+class Component extends DCLogic {
+  state = {
+    theme:'dark', view:'board', cat:'All', prio:'All', q:'', open:null, modal:null,
+    moved:{}, assigned:{}, comment:'', logged:{},
+    nStudent:'', nPicked:null, nTitle:'', nCat:'Maintenance', nPrio:'Medium',
+    nSource:'Front desk', nAssignee:'Unassigned', nDesc:'',
+  };
+
+  ic(d, w){
+    return React.createElement('svg', {
+      width:w||15, height:w||15, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor',
+      strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round',
+      dangerouslySetInnerHTML:{ __html:d },
+    });
+  }
+
+  /* one source of truth — 32 complaint tickets for July 2026 */
+  tickets(){
+    if (this._tix) return this._tix;
+    const T = [
+      ['CMP-032','No hot water in morning','Geyser gives cold water between 6 and 8 AM, when everyone needs to bathe for class.','Maintenance','Hassan Ali','0313-5107981','B-103',26,'08:15','Imran Khan','High','New',2,'Front desk'],
+      ['CMP-031','Noisy neighbours after 12 AM','Loud music and talking from the next room every night, impossible to sleep before exams.','Discipline','Usman Tariq','0335-5265138','B-110',25,'23:45','Unassigned','Low','In Progress',1,'Student portal'],
+      ['CMP-030','Mess food quality dropped','Roti is stale and daal is watery since the new cook joined two weeks ago.','Mess','Saad Mehmood','0321-4123012','A-208',24,'01:30','Faisal Khan','Medium','New',3,'WhatsApp'],
+      ['CMP-029','Wi-Fi drops on 3rd floor','Internet disconnects every 10 minutes in C block third floor, online classes keep cutting.','Internet','Fahad Iqbal','0312-7780890','C-302',24,'10:00','Zain Abbas','Medium','In Progress',1,'Student portal'],
+      ['CMP-028','Broken study chair','Chair handle and back rest are broken, unsafe to sit for long study hours.','Maintenance','Zain Abbas','0300-5566771','C-305',22,'17:20','Usman Khan','Low','Resolved',2,'Front desk'],
+      ['CMP-027','Tube light flickering','Room light blinks continuously, causing headache while studying at night.','Maintenance','Talha Ahmed','0331-2345678','A-105',21,'09:15','Imran Khan','High','New',2,'Warden inspection'],
+      ['CMP-026','Washroom flush not working','Flush handle turns but no water comes, whole floor is using the other washroom.','Maintenance','Muhammad Bilal','0301-6677889','B-201',21,'16:10','Unassigned','Medium','In Progress',1,'Front desk'],
+      ['CMP-025','Garden cleaning required','Grass is too high near the entrance and mosquitoes have increased.','Cleaning','Ahmed Raza','0345-7768990','A-203',20,'15:10','Munir Ahmad','Low','Resolved',0,'Warden inspection'],
+      ['CMP-024','Bathroom flush leaking','Water keeps running from the cistern, floor stays wet all day.','Maintenance','Bilal Khan','0333-1122334','B-118',19,'11:40','Usman Khan','Medium','Closed',1,'Front desk'],
+      ['CMP-023','Broken window lock','Window does not lock, room is unsafe at night on the ground floor.','Security','Munir Hassan','0342-9988776','B-104',19,'08:50','Munir Ahmad','High','Resolved',2,'Warden inspection'],
+      ['CMP-022','Wi-Fi speed very slow','Downloads are under 1 Mbps in the evening even though the plan is 50 Mbps.','Internet','Zabit Khan','0311-4455667','C-310',18,'20:25','Zain Abbas','Medium','Resolved',0,'Student portal'],
+      ['CMP-021','Main gate lock broken','Main gate latch is loose, gate stays open after 10 PM which anyone can push.','Security','Abdullah Shah','0308-3344556','A-201',17,'22:05','Munir Ahmad','High','In Progress',3,'Warden inspection'],
+      ['CMP-020','Warden was rude on late entry','Warden shouted in front of other students instead of noting the late entry.','Staff','Danyal Shah','0349-2233445','C-303',17,'23:10','Unassigned','Medium','New',0,'Student portal'],
+      ['CMP-019','Rent charged twice for July','My July rent was recorded twice, receipt shows two entries of PKR 14,500.','Billing','Naveed Anjum','0321-8877665','B-112',16,'12:35','Faisal Khan','High','New',1,'Front desk'],
+      ['CMP-018','Fan speed regulator dead','Fan runs at one speed only, room is unbearable in the afternoon.','Maintenance','Kauser Rehman','0332-6655443','C-308',16,'14:00','Imran Khan','Medium','Resolved',1,'Front desk'],
+      ['CMP-017','Dustbins not emptied','Corridor dustbins have not been emptied for three days, smell is spreading.','Cleaning','Azeem Ullah','0303-7766554','A-205',15,'09:30','Munir Ahmad','Low','Closed',1,'Warden inspection'],
+      ['CMP-016','Roommate smokes inside room','Roommate smokes in the room at night despite the no-smoking rule.','Discipline','Sifat Ullah','0347-1199887','B-107',15,'21:50','Unassigned','Medium','New',0,'Student portal'],
+      ['CMP-015','Water cooler not cooling','Cooler on second floor gives warm water, students buy bottles instead.','Maintenance','Adnan Khan','0313-5566778','B-115',14,'13:20','Usman Khan','Medium','In Progress',2,'Front desk'],
+      ['CMP-014','Breakfast served late','Breakfast comes at 8:40 AM but our first class is at 8:30 AM.','Mess','Umar Farooq','0300-9911223','A-204',13,'08:40','Faisal Khan','Low','Resolved',0,'WhatsApp'],
+      ['CMP-013','Cockroaches in kitchen store','Cockroaches seen in the ration store next to the kitchen.','Cleaning','Asif Raza','0334-2277889','C-301',12,'19:05','Munir Ahmad','High','Resolved',3,'Warden inspection'],
+      ['CMP-012','Door handle came off','Room door handle detached, door has to be pulled by hand.','Maintenance','Rahid Ullah','0316-3388990','B-121',12,'10:55','Usman Khan','Low','Closed',1,'Front desk'],
+      ['CMP-011','Security guard absent at night','No guard at the gate between 2 and 5 AM on two nights this week.','Security','Hamid Noor','0305-4499001','A-207',11,'02:30','Munir Ahmad','High','New',0,'Warden inspection'],
+      ['CMP-010','Late fee added wrongly','Late fee of PKR 500 charged although payment was made on the 4th.','Billing','Mubeen Aslam','0322-5511229','C-306',10,'11:15','Faisal Khan','Medium','Resolved',2,'Front desk'],
+      ['CMP-009','Bed frame squeaks badly','Metal frame squeaks on every movement and wakes the roommate.','Maintenance','Saad Iqbal','0339-6622338','B-109',10,'22:40','Imran Khan','Low','Closed',0,'Student portal'],
+      ['CMP-008','Common room TV not working','TV shows no signal since the storm last week.','Maintenance','Ali Hassan','0301-7733449','A-206',9,'18:00','Imran Khan','Low','New',1,'Front desk'],
+      ['CMP-007','Mess bill dispute','Charged for mess in a month I was on leave for 20 days.','Billing','Ahmad Noor','0344-8811220','C-312',8,'12:10','Faisal Khan','Medium','In Progress',2,'Front desk'],
+      ['CMP-006','Cleaner enters without knocking','Housekeeping staff walks in without knocking while students are changing.','Staff','Muhammad Talha','0307-9922114','B-116',7,'07:45','Unassigned','Medium','New',0,'Student portal'],
+      ['CMP-005','Drain blocked in washroom','Water stands ankle deep in the shared washroom of A block.','Maintenance','Asad Malik','0318-2244668','A-202',6,'08:20','Usman Khan','High','Resolved',2,'Front desk'],
+      ['CMP-004','Fruit missing from mess menu','Menu promises fruit daily but it is served only twice a week.','Mess','Hamza Sheikh','0335-1177335','B-118',5,'13:50','Faisal Khan','Low','Closed',0,'WhatsApp'],
+      ['CMP-003','Internet cable cut in room','LAN cable to the room is cut near the skirting board.','Internet','Fahad Yousaf','0312-3355779','C-309',4,'16:35','Zain Abbas','Medium','Resolved',1,'Front desk'],
+      ['CMP-002','No soap in washrooms','Hand soap has not been refilled in B block washrooms for a week.','Cleaning','Talha Yousaf','0331-4466882','B-113',3,'09:05','Munir Ahmad','Low','New',0,'Warden inspection'],
+      ['CMP-001','Study lamp not provided','Room was allotted without the study lamp promised at admission.','Maintenance','Noman Javed','0302-5577993','C-304',2,'10:30','Unassigned','Low','New',0,'Front desk'],
+    ];
+    this._tix = T.map((t, i) => ({
+      i, id:t[0], title:t[1], desc:t[2], category:t[3], student:t[4], phone:t[5],
+      room:t[6], block:'Block ' + t[6].charAt(0), day:t[7], time:t[8],
+      assignee:t[9], priority:t[10], status:t[11], files:t[12], source:t[13],
+      resolveHours: t[11] === 'Resolved' || t[11] === 'Closed' ? 1.5 + (i % 7) * 0.75 : 0,
+    }));
+    return this._tix;
+  }
+
+  renderVals(){
+    const st = this.state;
+    const base = this.tickets();
+    const initials = s => s.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase();
+    const avatarSet = [
+      'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac)',
+      'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+    ];
+    const STATUSES = ['New','In Progress','Resolved','Closed'];
+    const DOT = { 'New':'var(--ac)', 'In Progress':'var(--t2)', 'Resolved':'var(--t2)', 'Closed':'var(--t3)' };
+    const TODAY = 29;
+
+    /* live tickets = base + user moves / assignments */
+    const tix = base.map(t => Object.assign({}, t, {
+      status: st.moved[t.id] || t.status,
+      assignee: st.assigned[t.id] || t.assignee,
+    }));
+
+    const openTix = tix.filter(t => t.status === 'New' || t.status === 'In Progress');
+    const doneTix = tix.filter(t => t.status === 'Resolved' || t.status === 'Closed');
+    const avgHours = doneTix.length
+      ? doneTix.reduce((a,t) => a + t.resolveHours, 0) / doneTix.length : 0;
+    const hh = Math.floor(avgHours);
+    const mm = Math.round((avgHours - hh) * 60);
+
+    const mkSpark = seed => {
+      const pts = [];
+      for (let i = 0; i <= 11; i++) {
+        const v = Math.sin(i * .8 + seed) * 6 + Math.sin(i * 2.1 + seed * 2) * 3;
+        pts.push([i * (200/11), 22 - v]);
+      }
+      const line = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+      return { spark:line, area:line + ' 200,34 0,34' };
+    };
+    const up = this.ic('<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>', 11);
+    const down = this.ic('<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>', 11);
+
+    /* June comparison held as an index against this month, so deltas derive */
+    const JUN = { open:.833, high:.667, prog:1.2, done:.741, hours:1.136 };
+    const highOpen = openTix.filter(t => t.priority === 'High').length;
+    const inProg = tix.filter(t => t.status === 'In Progress').length;
+    const pct = (now, then) => (then ? (now - then) / then * 100 : 0);
+
+    const kpis = [
+      { label:'Open Tickets',    value:String(openTix.length), d:pct(openTix.length, openTix.length * JUN.open), seed:.4, icon:this.ic('<path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/>', 14) },
+      { label:'High Priority',   value:String(highOpen),        d:pct(highOpen, highOpen * JUN.high),            seed:1.3, icon:this.ic('<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>', 14) },
+      { label:'In Progress',     value:String(inProg),          d:pct(inProg, inProg * JUN.prog),                seed:2.2, icon:this.ic('<path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/>', 14) },
+      { label:'Resolved (Jul)',  value:String(doneTix.length),  d:pct(doneTix.length, doneTix.length * JUN.done), seed:3.1, icon:this.ic('<path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/>', 14) },
+      { label:'Avg Resolution',  value:hh + 'h ' + mm + 'm',    d:pct(avgHours, avgHours * JUN.hours),           seed:4.4, icon:this.ic('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 14) },
+    ].map(k => Object.assign(k, mkSpark(k.seed), {
+      delta: Math.abs(k.d).toFixed(0) + '% vs Jun 2026',
+      deltaIcon: k.d >= 0 ? up : down,
+    }));
+
+    /* filters */
+    const CATS = ['Maintenance','Cleaning','Mess','Internet','Security','Staff','Billing','Discipline'];
+    const CAT_LABEL = { Discipline:'Roommate / Discipline', Staff:'Staff behaviour', Billing:'Billing dispute' };
+    const catTabs = ['All'].concat(CATS).map(c => ({
+      label: c === 'All' ? 'All' : (CAT_LABEL[c] || c),
+      count: c === 'All' ? tix.length : tix.filter(t => t.category === c).length,
+      go: () => this.setState({ cat:c }),
+      style: st.cat === c
+        ? 'background:var(--ac-cta);border:1px solid var(--ac-cta);color:#fff;font-weight:600'
+        : 'background:var(--page);border:1px solid var(--bd);color:var(--t2);font-weight:500',
+    }));
+
+    const prioFilters = ['All','High','Medium','Low'].map(p => ({
+      label: p === 'All' ? 'All priorities' : p,
+      count: p === 'All' ? tix.length : tix.filter(t => t.priority === p).length,
+      go: () => this.setState({ prio:p }),
+      style: st.prio === p
+        ? 'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac)'
+        : 'background:var(--page);border:1px solid var(--bd);color:var(--t2)',
+    }));
+
+    const q = st.q.trim().toLowerCase();
+    let pool = tix.slice();
+    if (st.cat !== 'All') pool = pool.filter(t => t.category === st.cat);
+    if (st.prio !== 'All') pool = pool.filter(t => t.priority === st.prio);
+    if (q) pool = pool.filter(t =>
+      t.title.toLowerCase().indexOf(q) >= 0 ||
+      t.student.toLowerCase().indexOf(q) >= 0 ||
+      t.room.toLowerCase().indexOf(q) >= 0 ||
+      t.phone.indexOf(q) >= 0 ||
+      t.id.toLowerCase().indexOf(q) >= 0
+    );
+
+    const prioPill = p => p === 'High'
+      ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+      : p === 'Medium'
+        ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+        : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)';
+    const ageOf = t => {
+      const d = TODAY - t.day;
+      return d <= 0 ? 'today' : d === 1 ? '1 day' : d + ' days';
+    };
+    const move = (t, dir) => () => {
+      const idx = STATUSES.indexOf(t.status) + dir;
+      if (idx < 0 || idx >= STATUSES.length) return;
+      this.setState(s => ({ moved: Object.assign({}, s.moved, { [t.id]:STATUSES[idx] }) }));
+    };
+
+    const columns = STATUSES.map(sname => {
+      const cards = pool.filter(t => t.status === sname);
+      return {
+        label:sname, count:cards.length, dot: sname === 'New' ? 'var(--ac)' : 'var(--t3)',
+        isEmpty: cards.length === 0,
+        emptyIcon: this.ic('<path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/>', 17),
+        cards: cards.map(t => ({
+          id:t.id, title:t.title, desc:t.desc,
+          category: CAT_LABEL[t.category] || t.category,
+          priority:t.priority, prioPill:prioPill(t.priority),
+          student:t.student, room:t.room + ' · ' + t.block,
+          initials:initials(t.student), avatar:avatarSet[t.i % 2],
+          hasFiles:t.files > 0, files:t.files,
+          age: ageOf(t) + ' old',
+          cardStyle: t.priority === 'High' && (t.status === 'New' || t.status === 'In Progress')
+            ? 'border-color:var(--bad-bd)' : '',
+          canBack: STATUSES.indexOf(t.status) > 0,
+          canFwd: STATUSES.indexOf(t.status) < STATUSES.length - 1,
+          fwdLabel: 'Move to ' + STATUSES[Math.min(STATUSES.length - 1, STATUSES.indexOf(t.status) + 1)],
+          back: move(t, -1), fwd: move(t, 1),
+          open: () => this.setState({ open:t.id, modal:'detail', comment:'' }),
+        })),
+      };
+    });
+
+    const rows = pool.map(t => ({
+      id:t.id, title:t.title, desc:t.desc, category: CAT_LABEL[t.category] || t.category,
+      student:t.student, phone:t.phone, initials:initials(t.student), avatar:avatarSet[t.i % 2],
+      room:t.room, block:t.block,
+      date: String(t.day).padStart(2,'0') + ' Jul 2026', time:t.time,
+      assignee:t.assignee, priority:t.priority, prioPill:prioPill(t.priority),
+      status:t.status, dot:DOT[t.status], files: t.files || '—',
+      open: () => this.setState({ open:t.id, modal:'detail', comment:'' }),
+    }));
+
+    const COLS = [
+      ['Ticket',''], ['Issue',''], ['Category',''], ['Student',''], ['Room',''],
+      ['Reported',''], ['Assignee',''], ['Priority',''], ['Status',''],
+      ['','text-align:right'],
+    ].map(c => ({ label:c[0], align:c[1], active:'', arrow:'', sort: () => {} }));
+
+    /* rail — categories donut */
+    const RAMP = ['#8b5cf6','#a78bfa','#c4b5fd','#7c3aed','#6d28d9','#4c1d95','#ddd6fe','#9333ea'];
+    const CIRC = 2 * Math.PI * 38;
+    let acc = 0;
+    const catCounts = CATS.map(c => ({ c, n:tix.filter(t => t.category === c).length }))
+      .sort((a,b) => b.n - a.n);
+    const donut = catCounts.map((row, i) => {
+      const frac = row.n / tix.length;
+      const seg = {
+        label: CAT_LABEL[row.c] || row.c, color:RAMP[i % RAMP.length],
+        count: row.n, pct: (frac * 100).toFixed(0) + '%',
+        dash: (CIRC * frac).toFixed(2) + ' ' + CIRC.toFixed(2),
+        offset: (-CIRC * acc).toFixed(2),
+      };
+      acc += frac;
+      return seg;
+    });
+
+    const prioMix = ['High','Medium','Low'].map((p, i) => {
+      const n = openTix.filter(t => t.priority === p).length;
+      return {
+        label:p, count:n, color:RAMP[i],
+        pct: openTix.length ? Math.round(n / openTix.length * 100) + '%' : '0%',
+      };
+    });
+
+    const STAFF = ['Imran Khan','Faisal Khan','Zain Abbas','Usman Khan','Munir Ahmad'];
+    const loads = STAFF.map(s => ({ name:s, count:openTix.filter(t => t.assignee === s).length }));
+    const unassigned = openTix.filter(t => t.assignee === 'Unassigned').length;
+    if (unassigned) loads.push({ name:'Unassigned', count:unassigned });
+    const maxLoad = Math.max.apply(null, loads.map(l => l.count)) || 1;
+    const workload = loads.sort((a,b) => b.count - a.count).map(l => ({
+      name:l.name, count:l.count, pct: Math.round(l.count / maxLoad * 100) + '%',
+    }));
+
+    const oldest = openTix.slice().sort((a,b) => a.day - b.day).slice(0, 4).map(t => ({
+      id:t.id, title:t.title, age:ageOf(t),
+      open: () => this.setState({ open:t.id, modal:'detail', comment:'' }),
+    }));
+
+    const roomCounts = {};
+    tix.forEach(t => { roomCounts[t.room] = (roomCounts[t.room] || 0) + 1; });
+    const repeats = Object.keys(roomCounts).filter(r => roomCounts[r] > 1)
+      .sort((a,b) => roomCounts[b] - roomCounts[a]).slice(0, 3)
+      .map(r => ({
+        room:r, count:roomCounts[r],
+        detail: tix.filter(t => t.room === r).map(t => t.category).join(', '),
+      }));
+
+    /* analytics strip */
+    const BINS = [[1,7],[8,14],[15,21],[22,31]];
+    const openedSeries = [], resolvedSeries = [];
+    let cumO = 0, cumR = 0;
+    BINS.forEach(b => {
+      cumO += tix.filter(t => t.day >= b[0] && t.day <= b[1]).length;
+      cumR += tix.filter(t => t.day >= b[0] && t.day <= b[1] && (t.status === 'Resolved' || t.status === 'Closed')).length;
+      openedSeries.push(cumO);
+      resolvedSeries.push(cumR);
+    });
+    const maxSeries = Math.max.apply(null, openedSeries.concat(resolvedSeries)) || 1;
+    const toLine = arr => arr.map((v, i) =>
+      (i * (200 / (arr.length - 1))).toFixed(1) + ',' + (62 - v / maxSeries * 56).toFixed(1)).join(' ');
+
+    const SOURCES = ['Front desk','Student portal','WhatsApp','Warden inspection'];
+    const sources = SOURCES.map(s => {
+      const n = tix.filter(t => t.source === s).length;
+      return { label:s, countLabel:'(' + n + ')', pct: Math.round(n / tix.length * 100) + '%' };
+    }).sort((a,b) => parseInt(b.pct,10) - parseInt(a.pct,10));
+
+    const recent = [
+      ['Imran Khan','moved CMP-032 to In Progress','CMP-032 · 10 min ago'],
+      ['Hassan Ali','filed a new complaint','CMP-033 · 25 min ago'],
+      ['Faisal Khan','added a comment','CMP-030 · 40 min ago'],
+      ['Zain Abbas','uploaded 2 photos','CMP-029 · 1 hr ago'],
+      ['Munir Ahmad','resolved CMP-023','CMP-023 · 2 hrs ago'],
+    ].map((r, i) => ({
+      who:r[0], what:r[1], meta:r[2], initials:initials(r[0]), avatar:avatarSet[i % 2],
+    }));
+
+    const quickActions = [
+      ['Assign unassigned tickets','<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6"/><path d="M22 11h-6"/>'],
+      ['Notify students on progress','<path d="M3 21l1.9-5A9 9 0 1 1 8 19.1z"/>'],
+      ['Weekly complaint report','<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h6"/><path d="M8 13h8"/>'],
+      ['Raise maintenance job','<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-1.4-1.4z"/>'],
+    ].map(a => ({ label:a[0], icon:this.ic(a[1], 14) }));
+
+    /* detail drawer */
+    const cur = tix.filter(t => t.id === st.open)[0] || null;
+    const dTimeline = cur ? [
+      { title:'Complaint filed', by:cur.student + ' · via ' + cur.source, when:String(cur.day).padStart(2,'0') + ' Jul 2026, ' + cur.time, dotStyle:'background:var(--ac)' },
+      { title:'Acknowledged at front desk', by:'Khan (Administrator)', when:String(cur.day).padStart(2,'0') + ' Jul 2026, ' + cur.time, dotStyle:'background:var(--hov);border:1px solid var(--bd2)' },
+    ].concat(cur.assignee !== 'Unassigned' ? [
+      { title:'Assigned to ' + cur.assignee, by:'Khan (Administrator)', when:String(cur.day).padStart(2,'0') + ' Jul 2026, ' + cur.time, dotStyle:'background:var(--hov);border:1px solid var(--bd2)' },
+    ] : []).concat(cur.status === 'In Progress' ? [
+      { title:'Work started', by:cur.assignee, when:'28 Jul 2026, 09:10', dotStyle:'background:var(--hov);border:1px solid var(--bd2)' },
+    ] : []).concat(cur.status === 'Resolved' || cur.status === 'Closed' ? [
+      { title:'Marked ' + cur.status.toLowerCase(), by:cur.assignee, when:'28 Jul 2026, 14:20', dotStyle:'background:var(--hov);border:1px solid var(--bd2)' },
+    ] : []).concat((st.logged[cur.id] || []).map(c => ({
+      title:'Update logged', by:'Khan (Administrator) — ' + c, when:'29 Jul 2026, just now', dotStyle:'background:var(--ac)',
+    }))) : [];
+
+    return {
+      theme: st.theme,
+      themeIcon: st.theme === 'dark'
+        ? this.ic('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>', 16)
+        : this.ic('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9"/>', 16),
+      toggleTheme: () => this.setState(s => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
+      navGroups: [
+        ['Main', [
+          ['Dashboard','<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',0],
+          ['Students','<path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/>',0],
+          ['Rooms','<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>',0],
+          ['Cancellations','<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',3],
+          ['Complaints','<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',4],
+        ]],
+        ['Finance', [
+          ['Payments','<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',5],
+          ['Expenses','<path d="M13 16H8"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M4 3a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/>',0],
+          ['Reports','<path d="M4 20h16"/><rect width="3.4" height="7" x="5" y="11" rx="1"/><rect width="3.4" height="12" x="10.3" y="6" rx="1"/><rect width="3.4" height="5" x="15.6" y="13" rx="1"/>',0],
+          ['Funds Transfers','<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',0],
+        ]],
+        ['Inventory', [
+          ['Stock Inventory','<path d="M12 22V12"/><path d="M3.29 7 12 12l8.71-5"/><path d="M20 8.5v7L12 20l-8-4.5v-7L12 4z"/>',0],
+        ]],
+        ['System', [
+          ['Staff','<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',0],
+          ['Users','<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',0],
+          ['Maintenance','<path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 1 5.4-5.4l-2.6 2.6-1.4-1.4z"/>',2],
+          ['Settings','<circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>',0],
+          ['Activity Log','<path d="M3 12h4l3 8 4-16 3 8h4"/>',0],
+          ['Help & Support','<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',0],
+        ]],
+      ].map(g => ({
+        label:g[0],
+        items: g[1].map(it => ({
+          label:it[0], icon:this.ic(it[1], 16),
+          hasBadge: it[2] > 0, badge: it[2],
+          badgeStyle: it[0] === 'Complaints'
+            ? 'background:var(--bad-soft);border:1px solid var(--bad-bd);color:var(--bad)'
+            : it[0] === 'Cancellations'
+              ? 'background:var(--warn-soft);border:1px solid var(--warn-bd);color:var(--warn)'
+              : 'background:var(--hov);border:1px solid var(--bd);color:var(--t2)',
+          go: () => { const R = {Dashboard:'Dashboard.dc.html',Students:'Students.dc.html',Rooms:'Rooms.dc.html',Cancellations:'Cancellations.dc.html',Complaints:'Complaints.dc.html',Payments:'Payments.dc.html',Expenses:'Expenses.dc.html',Reports:'Reports.dc.html',Settings:'Settings.dc.html'}[it[0]]; if (R) window.location.href = R; },
+          style: it[0] === 'Complaints'
+            ? 'background:var(--ac-soft);color:var(--ac);font-weight:600'
+            : 'color:var(--t2);font-weight:500',
+        })),
+      })),
+
+      kpis, catTabs, prioFilters, columns, rows, cols:COLS,
+      donut, prioMix, workload, oldest, repeats, sources, recent, quickActions,
+      total: tix.length,
+      openedLine: toLine(openedSeries), resolvedLine: toLine(resolvedSeries),
+      weekLabels: ['Jul 1–7','8–14','15–21','22–31'].map(w => ({ label:w })),
+      showAnalytics: this.props.showAnalytics !== false,
+
+      selects: [
+        { label:'All Blocks' }, { label:'All Floors' }, { label:'All Technicians' }, { label:'All Sources' },
+      ],
+      q: st.q, hasQ: st.q.length > 0,
+      setQ: e => this.setState({ q:e.target.value }),
+      clearQ: () => this.setState({ q:'' }),
+      resetFilters: () => this.setState({ q:'', cat:'All', prio:'All' }),
+
+      isBoard: st.view === 'board', isTable: st.view === 'table',
+      setBoard: () => this.setState({ view:'board' }),
+      setTable: () => this.setState({ view:'table' }),
+      boardBtnStyle: st.view === 'board' ? 'background:var(--ac-cta);color:#fff' : 'background:transparent;color:var(--t3)',
+      tableBtnStyle: st.view === 'table' ? 'background:var(--ac-cta);color:#fff' : 'background:transparent;color:var(--t3)',
+      noRows: rows.length === 0,
+      emptyIcon: this.ic('<circle cx="11" cy="11" r="8"/><path d="m21 21-4.34-4.34"/>', 22),
+      tableLabel: 'Showing ' + rows.length + ' of ' + tix.length + ' complaints',
+
+      isDetail: st.modal === 'detail' && !!cur,
+      isNew: st.modal === 'new',
+      openNew: () => this.setState({ modal:'new' }),
+      close: () => this.setState({ modal:null, open:null }),
+      stop: e => { if (e && e.stopPropagation) e.stopPropagation(); },
+
+      dId: cur ? cur.id : '', dTitle: cur ? cur.title : '', dDesc: cur ? cur.desc : '',
+      dCategory: cur ? (CAT_LABEL[cur.category] || cur.category) : '',
+      dPriority: cur ? cur.priority : '', dPrioPill: cur ? prioPill(cur.priority) : '',
+      dFacts: cur ? [
+        { label:'Student', value:cur.student },
+        { label:'Phone', value:cur.phone },
+        { label:'Room', value:cur.room + ' · ' + cur.block },
+        { label:'Reported', value:String(cur.day).padStart(2,'0') + ' Jul 2026, ' + cur.time },
+        { label:'Logged via', value:cur.source },
+        { label:'Attachments', value: cur.files ? cur.files + ' photo(s)' : 'None' },
+      ] : [],
+      dStatusOpts: cur ? STATUSES.map(s => ({
+        label:s, dot:DOT[s],
+        go: () => this.setState(st2 => ({ moved: Object.assign({}, st2.moved, { [cur.id]:s }) })),
+        style: cur.status === s
+          ? 'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac);font-weight:600'
+          : 'background:var(--page);border:1px solid var(--bd);color:var(--t2)',
+      })) : [],
+      dStaffOpts: cur ? ['Unassigned'].concat(STAFF).map((s, i) => ({
+        name:s, initials: s === 'Unassigned' ? '—' : initials(s), avatar:avatarSet[i % 2],
+        go: () => this.setState(st2 => ({ assigned: Object.assign({}, st2.assigned, { [cur.id]:s }) })),
+        style: cur.assignee === s
+          ? 'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac);font-weight:600'
+          : 'background:var(--page);border:1px solid var(--bd);color:var(--t2)',
+      })) : [],
+      dTimeline,
+      dComment: st.comment,
+      setComment: e => this.setState({ comment:e.target.value }),
+      addComment: () => {
+        if (!cur || !st.comment.trim()) return;
+        this.setState(s => ({
+          logged: Object.assign({}, s.logged, { [cur.id]: (s.logged[cur.id] || []).concat([s.comment.trim()]) }),
+          comment:'',
+        }));
+      },
+      resolveTicket: () => {
+        if (!cur) return;
+        this.setState(s => ({ moved: Object.assign({}, s.moved, { [cur.id]:'Resolved' }), modal:null, open:null }));
+      },
+
+      nStudent: st.nStudent,
+      setNStudent: e => this.setState({ nStudent:e.target.value }),
+      hasNSuggest: !!(st.nStudent.trim() && !st.nPicked),
+      nSuggestions: (st.nStudent.trim() && !st.nPicked)
+        ? base.filter(t => t.student.toLowerCase().indexOf(st.nStudent.trim().toLowerCase()) >= 0 ||
+                           t.room.toLowerCase().indexOf(st.nStudent.trim().toLowerCase()) >= 0)
+            .slice(0, 5).map(t => ({
+              name:t.student, initials:initials(t.student), avatar:avatarSet[t.i % 2],
+              meta: t.room + ' · ' + t.block,
+              pick: () => this.setState({ nPicked:{ name:t.student, initials:initials(t.student), meta:t.room + ' · ' + t.phone }, nStudent:'' }),
+            }))
+        : [],
+      nPicked: !!st.nPicked,
+      nPickedName: st.nPicked ? st.nPicked.name : '',
+      nPickedMeta: st.nPicked ? st.nPicked.meta : '',
+      nPickedInitials: st.nPicked ? st.nPicked.initials : '',
+      clearNPicked: () => this.setState({ nPicked:null }),
+      nTitle: st.nTitle, setNTitle: e => this.setState({ nTitle:e.target.value }),
+      nDesc: st.nDesc, setNDesc: e => this.setState({ nDesc:e.target.value }),
+      nCatOpts: CATS.map(c => ({
+        label: CAT_LABEL[c] || c,
+        go: () => this.setState({ nCat:c }),
+        style: st.nCat === c
+          ? 'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac);font-weight:600'
+          : 'background:var(--page);border:1px solid var(--bd);color:var(--t2)',
+      })),
+      nPrioOpts: ['High','Medium','Low'].map(p => ({
+        label:p,
+        go: () => this.setState({ nPrio:p }),
+        style: st.nPrio === p
+          ? 'background:var(--ac-soft);border:1px solid var(--ac-bd);color:var(--ac);font-weight:600'
+          : 'background:var(--page);border:1px solid var(--bd);color:var(--t2)',
+      })),
+      nSource: st.nSource, setNSource: e => this.setState({ nSource:e.target.value }),
+      nAssignee: st.nAssignee, setNAssignee: e => this.setState({ nAssignee:e.target.value }),
+    };
+  }
+}
+</script>
+</body>
+</html>

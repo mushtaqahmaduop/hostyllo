@@ -64,9 +64,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   // Pinch-zoom stays available. These users are often reading small numbers in poor light, and
   // disabling zoom would be an accessibility failure, not a polish decision (§12).
+  // The two canvas values from tokens.css §2/§3 — warm, never pure black.
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0B0B0F' },
-    { media: '(prefers-color-scheme: light)', color: '#F7F7F8' },
+    { media: '(prefers-color-scheme: dark)', color: '#181715' },
+    { media: '(prefers-color-scheme: light)', color: '#f0eee6' },
   ],
 };
 
@@ -75,10 +76,19 @@ export const viewport: Viewport = {
  * document even when the stored preference is `system` — which the server cannot resolve.
  * "Zero flash is a Definition-of-Done item."
  */
+/*
+ * The default is `light`, not `system`.
+ *
+ * The owner chose light as the product default on 2026-08-05 (docs/design/README.md, "Theme
+ * default"), overriding DESIGN_RULES.md's dark-first. Defaulting to `system` quietly reinstated
+ * dark-first for every operator on a dark-mode device: a first-time user on a dark OS saw the
+ * dark theme with no preference ever having been expressed. `system` remains available as an
+ * explicit choice, and an explicit choice is still honoured over this default.
+ */
 const THEME_SCRIPT = `(function () {
   try {
     var t = document.cookie.match(/hs-theme=(light|dark|system)/);
-    var v = t ? t[1] : 'system';
+    var v = t ? t[1] : 'light';
     var dark = v === 'dark' || (v === 'system' &&
       matchMedia('(prefers-color-scheme: dark)').matches);
     document.documentElement.classList.toggle('dark', dark);

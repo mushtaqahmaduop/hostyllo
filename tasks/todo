@@ -4,6 +4,256 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
+## ★ SESSION 17 — STAGING BROUGHT UP TO THE REPO SCHEMA (2026-08-06)
+- [x] **Staging was auto-paused.** Restored `hostyllo-staging` (`ljnuwmfnpofzlmioskfc`) before
+      anything else could touch it.
+      ⚠️ **Read the database only AFTER the project reports `ACTIVE_HEALTHY`.** Queried during
+      `COMING_UP`, `information_schema` returns *zero rows* — the connection succeeds and the
+      schema looks empty. That false reading cost a round trip this session and nearly produced a
+      "staging has no schema" conclusion. It has 29 tables, 1 hostel and 3 students.
+- [x] **Migration 013 applied to staging** — `payments.notes`. This was a live gap, not just a
+      pending file: `63b4257` teaches the API to persist `notes` and was already deployed there,
+      so every note written to staging was being dropped on the floor.
+- [x] **Migration 014 applied to staging** — three columns + the widened status CHECK + the
+      nationality index. Verified after the fact: columns present, CHECK carries all four values,
+      `idx_students_nationality` exists, 3 student rows intact, FORCE RLS still on.
+- [x] **Both stamped into `public.schema_migrations`** with the repo's own sha256 checksums, so
+      `migrate.mjs` sees them applied rather than pending. Staging ledger is now 001–014.
+- [x] **Pushed `63b4257..757e3e6`** (9 commits: sessions 13–15 frontend + session 16 queues).
+      CI run `31050766599` green — **94 tests passed, 13 files, 0 skipped**, against real PG+Redis;
+      the RLS gate passed. This is the first run that covers `queues.test.ts`.
+
+### The first real tick — and the bug it caught (2026-08-06)
+- [x] **`WORKERS_ENABLED=true` set on Railway `staging`** (environment verified by
+      `RAILWAY_ENVIRONMENT_NAME`/`SENTRY_ENVIRONMENT` before writing — the CLI was linked to
+      **production** by default, which is one typo away from starting rent generation on live data).
+      Boot markers confirmed: `workers ENABLED (4 workers + dispatch)` + `schedulers registered`.
+- [x] **Fired a tick by hand rather than waiting for the cron.** Next natural tick was ~21 hours
+      out (00:30 Asia/Karachi). Enqueued the same job the scheduler writes, via the Redis public
+      proxy URL.
+- [x] **It failed — and the failure was real code, not the harness.** `Custom Id cannot contain :`.
+      BullMQ accepts a custom job ID with ':' only when it splits into exactly three parts, so
+      `rent:<hostelId>:<month>` passed by luck and `auto-cancel:<day>` threw. **The nightly sweep
+      would have failed at 00:30 tonight and every night after** — no beds freed, which is the
+      exact defect the producer work exists to close. Fixed in `3fb5a6e`: `lib/job-ids.ts` owns ID
+      construction, `-` separator, throws on ':' and on all-integer IDs.
+- [x] **DLQ proven end to end on staging** — the failed tick landed in `dlq_jobs` with its error
+      message. First time that path has run outside CI.
+- [x] **Re-fired after `3fb5a6e` deployed — full chain green.** `[dispatch] enqueued global sweep`
+      → `[auto-cancel] Running job auto-cancel-2026-08-05` → `No cancellations due` → `completed`.
+      The no-op is honest: staging has no cancellation with a passed vacate date.
+- [x] **`rent-monthly` fired — the money path has now run.** `enqueued 1 hostels` →
+      `3 created, 0 skipped`. Rows verified in the DB: rent mirrors `monthly_fee` (8000/8000/9500),
+      `admission_fee` and `concession` 0, `total_due` = `unpaid`, status `pending`, receipts 1–3.
+- [x] **Idempotency proven, not assumed.** Fired rent a second time: `rent-generate` completed
+      count unchanged and August still has exactly 3 rows — the deterministic job ID
+      (`rent-<hostelId>-2026-08`) was refused by BullMQ as a duplicate. This is the guard that lets
+      every replica run the dispatcher without billing a hostel N times.
+- [x] **`rent-generate` now bills `mess_fee` — FIXED `3b432c1`, CI green (run 31053240161).**
+      It inserted `rent = monthly_fee` and ignored the column, while migration 014 calls it "billed
+      together with monthly_fee". Unnoticed on staging because all 3 students have `mess_fee NULL`;
+      the first student with a mess fee would have been under-billed every month.
+      **Billed as a `payment_extra_charges` row, not folded into `rent`** — the canonical formula is
+      `rent + admission_fee + Σ(extras) - concession` and `PATCH /payments/:id` recalculates from
+      the real extras rows, so a total carrying mess with no row behind it would be silently
+      reduced by the first owner edit. NULL still gets no line; 0.00 gets a zero line (014's
+      "included, zero-rated"). Payment + mess line share one transaction via the new `lib/tx.ts`
+      (extracted from billing-sync, now used by both). Money arithmetic moved into Postgres —
+      `8000.00 + 0.10` is not 8000.10 in a double (INVARIANT-4).
+      4 DB-backed tests; the load-bearing one recomputes the canonical formula from what is on disk
+      so the generator and the PATCH recalc cannot drift.
+- [x] **PROVEN LIVE ON STAGING 2026-08-06** (deployment `b7e710d`). All three cases in one run,
+      billed for 2026-09 (`3 created, 0 skipped`):
+      | student | mess_fee | rent | total_due | extras row |
+      |---|---|---|---|---|
+      | Ahmed Raza | 1500.00 | 8000.00 | 9500.00 | `Mess=1500.00` |
+      | Bilal Khan | 0.00 | 8000.00 | 8000.00 | `Mess=0.00` |
+      | Usman Tariq | NULL | 9500.00 | 9500.00 | none |
+      `rent` is untouched in every row, mess rides as an extra charge, NULL and 0 stay
+      distinguishable. Enqueued straight to `rent-generate` with `monthLabel=2026-09` rather than
+      via a dispatch tick, because `dispatchRent()` always bills the CURRENT month and August was
+      already billed — a tick would have skipped all three and proven nothing.
+      **Staging now carries this test data on purpose**: 2 students with mess fees and a September
+      billing run. Left in place so the next mess-related change has something to run against.
+      The August rows predate the fix and need no backfill — those students genuinely had no mess.
+- [ ] ⚠️ **`WORKERS_ENABLED` is still OFF in production, and must stay off** until both of the
+      above are green on staging.
+
+### Open after this session
+- [x] ✅ **PRODUCTION BROUGHT TO 014 (2026-08-06).** Both 013 and 014 applied to
+      `hostyllo` (`eprrhckgtrerknenngdy`) and stamped into `public.schema_migrations` with the
+      repo's own sha256s. Ledger is now 001–014, every checksum matching the repo.
+      **Two ground-truth claims in CLAUDE.md were wrong and are now corrected there.** Prod was
+      *not* un-baselined and did *not* carry `users.totp_secret` — it has had a proper ledger
+      since 2026-07-27 (`baseline_schema_migrations_ledger`) and 012 had already dropped the
+      column. The audit note those claims came from (`docs/AUDIT_2026-07-27.md`) described the
+      state *before* that day's baseline and was never revised.
+      Verified after the fact: `payments.notes` text; `mess_fee` numeric(10,2); `nationality`,
+      `course` text; CHECK carries all four statuses; `idx_students_nationality` present with the
+      `deleted_at IS NULL` predicate; FORCE RLS still on for students and payments; row counts
+      unchanged at 1 hostel / 1 student / 2 payments / 3 users / 1 room; the one student row
+      intact (`active`, 8000.00, mess NULL).
+      ⚠️ **CORRECTION — the schema was only half the fix, and this file said otherwise.** The
+      earlier note here claimed "013's code is live [in production]". It is not. `63b4257`
+      ("persist payments.notes") is on `Develop` only; Railway's `production` environment deploys
+      `main`, which last moved 2026-07-28 (PR #38) and is **25 commits behind**. So:
+      • production's `POST /payments` and `PATCH /payments/:id` still declare `notes` in their JSON
+        Schema (lines 117 / 517 of `main`'s `payments.ts`) and still never write it. A note sent to
+        production today is accepted with a 201 and discarded — the column now exists but no code
+        writes to it.
+      • **The defect is not closed in production until `main` gets `63b4257`.** Applying 013 was
+        necessary and correct (the column must exist before the code that writes it deploys), but
+        it is not sufficient on its own.
+      • The `notes` at `main:payments.ts:648` is a different, working path — it goes into the
+        `audit_log` JSON on void-confirm, not into `payments.notes`.
+      **Prod and staging now return the same `public` schema fingerprint** —
+      `2cae6320cbc431572594423285adcf37`, 308 columns each. They were never identical before.
+      Rollback, if it is ever needed: `ALTER TABLE public.payments DROP COLUMN notes;`
+      `ALTER TABLE public.students DROP COLUMN mess_fee, DROP COLUMN nationality, DROP COLUMN course;`
+      `DROP INDEX public.idx_students_nationality;` then recreate the 3-value
+      `students_status_check` and delete the two ledger rows.
+      ⚠️ **PITR was NOT verified before this write.** `scripts/verify-pitr.sh` needs a Supabase PAT
+      that is not in the environment. The risk was judged acceptable — additive, idempotent DDL
+      over a single student row — but INVARIANT-6 remains formally unproven on prod and someone
+      should run that script.
+- [x] **`hostyllo_app` IS live on staging** — verified 2026-08-06: `rolcanlogin = true`,
+      `rolbypassrls = false`, and Railway's staging `DATABASE_URL_APP` is set. Staging exercises
+      FORCE RLS the same way production does. (An earlier note in this file claimed the opposite,
+      reasoning from migration 010 creating the role NOLOGIN without checking the live role — the
+      founder had set the credential out of band, exactly as 010 instructs. Corrected.)
+- [x] **`012` drift resolved — re-stamped on production 2026-08-06.** Confirmed harmless first:
+      `git diff cebe3aa..HEAD -- packages/db/migrations/012_*` has zero non-comment lines, and the
+      live DB has no `users.totp_secret`, so the DDL had taken effect. Prod's ledger row now
+      carries the current repo checksum (`acf65cf6…`) and `migrate.mjs` no longer warns.
+      Staging was re-stamped in the same pass — **both ledgers are now clean on all 14 files**.
+
+### DEPLOY TOPOLOGY — write this down, it explains a lot (verified 2026-08-06)
+`main` and `Develop` are 25 commits apart, and **four** things key off that split:
+
+| Surface | Production | Preview / staging |
+|---|---|---|
+| Vercel `hostyllo.web` | branch `main` → `hostyllo.vercel.app`, built 2026-07-28 | every `Develop` push → a preview URL (behind Vercel SSO) |
+| Railway | env `production`, branch `main` | env `staging`, branch `Develop` |
+
+Consequences worth holding in your head:
+- **`hostyllo.vercel.app` does not show the rebuilt UI.** Tokens v3, the app shell, the dashboard
+  and the students roster are all post-2026-08-05 and live only on `Develop`. Reviewing the new
+  design on the production alias will show nine-day-old screens.
+- **Railway production runs 25-commit-old API code**, so it has no `notes` persistence, no
+  `mess_fee` billing, and no queue producers — the last of which is fine, `WORKERS_ENABLED` is
+  off there on purpose.
+- The DB migrations are now *ahead* of the production code rather than behind it. That is the
+  safe direction (additive columns nothing writes to yet), but it means schema state alone is a
+  misleading measure of whether a defect is closed.
+- [ ] **Decide when `main` gets the 25 commits.** That single merge closes the `notes` defect in
+      production, ships the rebuilt UI to `hostyllo.vercel.app`, and puts the mess-fee billing fix
+      on the production API. It also deploys the queue producers — harmless while
+      `WORKERS_ENABLED` stays off, but that flag becomes the only thing standing between a deploy
+      and live rent generation, so flip nothing on the same day.
+
+## ★ SESSION 16 — THE WORKERS FINALLY HAVE A PRODUCER (2026-08-06)
+> Closes the P0 from `docs/_audit-2026-07-30`: `apps/api` had four `Worker`s and zero `Queue`s,
+> so rent was never generated, pending cancellations were never confirmed (beds stayed occupied)
+> and trials never expired. Committed `d205b8f` (billing-sync) + `726b77d` (producers).
+- [x] **`lib/queues.ts`** — four queues, shared retry/retention, deterministic job IDs.
+- [x] **`workers/dispatch.ts`** — tick + fan-out scheduler. Rent 00:00 on the 1st, auto-cancel
+      00:30 daily, trial sweep 02:00 daily, all Asia/Karachi. A tick re-reads the tenant list every
+      run, so it cannot drift when a hostel signs up or churns.
+- [x] **`WORKERS_ENABLED` flag (default OFF)** in `server.ts` + `.env.example`. Dynamic imports —
+      the worker modules construct their `Worker` at module scope, so a static import would start
+      them regardless of the flag.
+- [x] **`billing-sync` was unrunnable** — fake transactions (`pool.query('BEGIN')` across pooled
+      connections), `hostels` addressed by a non-existent `hostel_id`, three status values no CHECK
+      constraint permits ('expired', 'archived', 'trialing'), and a write to a non-existent
+      `subscriptions.suspended_at`. All fixed; trial expiry now lands on 'suspended'.
+- [x] **`queues.test.ts`** — producer/worker parity + "every `.add()` passes a jobId" + "pii_purge
+      is not scheduled", as static source assertions so they run without Redis on every push. 4/4.
+- [x] `tsc --noEmit` clean · `eslint src` clean.
+
+### Next on this, in order
+- [ ] ⚠️ **Enable `WORKERS_ENABLED=true` on STAGING only, and watch one dispatch tick.** Nothing
+      about this code path has ever executed against a real Redis or a real DB. The 90 DB-backed
+      API tests skip locally (no Postgres); CI's integration job is the gate, and it does not cover
+      billing-sync at all.
+- [ ] Only after a clean staging tick: enable on production. It generates rent — a wrong tick is
+      visible to every customer.
+- [ ] **Finish `purgePii` before scheduling it** — it clears `cnic_encrypted` only; the lifecycle
+      spec also requires name, phone, email, emergency contact and photo. A test currently pins it
+      as unscheduled; that test must be updated deliberately, not deleted.
+- [ ] **`email-send` has no producer.** Its job types (password_reset, trial_warning,
+      plan_activated, suspension_warning, account_suspended, data_export_ready) are all
+      request- or state-change-triggered, so the `.add()` calls belong in the routes and inside
+      `billing-sync`. No email is sent by this system today.
+
+## ★ SESSIONS 13–15 — FRONTEND REBUILT ON THE OWNER'S HANDOFF BUNDLE (2026-08-05)
+> Design authority changed. `docs/15_UI_SPEC_v1.md` is **retired** as a visual authority; the
+> chain is now `docs/design/README.md` → `docs/design/handoff/DESIGN_RULES.md` → the teardown →
+> the per-screen `.dc.html`. 15_UI_SPEC's §5 layout, §9 motion and §12 a11y still stand.
+> Committed in sessions 13–14: tokens v3 (warm ivory ladder, violet accent, no shadows,
+> radius ≤12), the app shell, and the dashboard (`62b5026`, `de8677a`, `9df8888`).
+
+### SESSION 15 — STUDENTS: API SLICE + THE ROSTER SCREEN (uncommitted at time of writing)
+- [x] **Migration 014** — `mess_fee` (nullable: NULL is "no mess", 0 is "included, zero-rated"),
+      `nationality`, `course`, and `blacklisted` added to the status CHECK. Written last session.
+      **APPLIED TO STAGING 2026-08-06** (see session 17 below). ⚠️ **Still NOT applied to production.**
+- [x] **`GET /students` rebuilt for the roster** — `status=all` tab, per-status `counts` computed
+      before the status predicate (so tabs and table agree from one request), whitelisted `sort`
+      (`name|room|rent|status|join_date`, room sorts numerically) + `dir`, search widened to
+      father's name / course / room number, and the new columns returned. POST/PATCH accept
+      `mess_fee`/`nationality`/`course`.
+- [x] **`masked_cnic` no longer lies.** It was the constant `'XXXXX-XXXXXXX-X'` for every row,
+      including students with no CNIC at all, so the roster could not distinguish "held, hidden"
+      from "never collected" — which is the actual question that column answers. Now NULL when
+      `cnic_encrypted IS NULL`.
+- [x] **Roster screen rebuilt** on `Students.dc.html`: `lib/students/{contract,presenter}.ts`
+      (the presenter owns every derived figure — initials, room meta, rent+mess, tab counts,
+      result line), `components/students/{status-tabs,roster-toolbar,roster-table}.tsx`, the page
+      and a geometry-matched `loading.tsx`. The shared
+      `apps/web/src/components/patterns/pagination.tsx` was upgraded to the redesign's numbered
+      shape (windowed to ≤7 slots) — every list screen inherits it.
+- [x] **CSV export is real** — a route handler under `apps/web/src/app` pages the API 100 at a time
+      (its `limit` clamp would otherwise truncate an export silently at 100 students), honours the
+      current tab/search/sort, neutralises spreadsheet formula injection on the way out, and ships
+      a UTF-8 BOM so Excel does not mangle Pakistani names. PDF export is **not** built.
+
+#### Deliberate deviations from the sketch — each one is a rule from authority #1 or a data fact
+- **No ID column.** The sketch's first column is `#002`; `students` has no per-hostel sequential
+  number and inventing one is a schema decision (a per-tenant sequence + backfill), not a UI one.
+- **One row action (View), not four.** Edit, Shift room and Delete have no destination on the web
+  app yet — 25 rows × 3 dead buttons is 75 controls that do nothing.
+- **Active pills are grey.** `DESIGN_RULES.md`: pills are grey unless the state is actionable.
+  Cancelling is amber and Blacklisted is red because both demand an action; Active is nine rows
+  in ten and colouring it drowns the two that matter.
+- **Nationality pills are all grey** (the sketch tints Afghan amber). Not an actionable state.
+- **One neutral avatar**, not the sketch's four-colour rotation — the rotation is keyed to row
+  index, so it changes when a student moves page, and "no rainbow" is an explicit rule.
+- **Actions in the toolbar, not the app header.** The header is a shared client component;
+  threading a server-rendered button into it needs a post-hydration portal, which would leave the
+  screen's primary action missing from first paint and absent without JavaScript.
+- **Search placeholder names only what is searched.** The sketch offers ID, CNIC, email and floor;
+  CNIC is AES-GCM with a random IV, so its ciphertext can never be ILIKE-matched — a box that
+  lists a field it ignores makes the operator conclude the student is not there.
+- **No Unpaid column** (the old screen had one) — the redesign drops it; dues live on
+  `/payments/defaulters`. Flagged in case that was not intended.
+
+#### Verified / not verified
+- [x] `tsc --noEmit` clean (web + api) · `eslint src` clean · `next build` green, 14 routes.
+- [x] **Generated CSS audited** (the session-11 lesson): all 18 new utilities emit real rules,
+      including `duration-fast` → `--tw-duration` + `transition-duration`.
+- [x] Production server started; `/students` and `/students/export` both 307 to `/login`
+      unauthenticated — the routes run server-side without crashing.
+- [ ] ⚠️ **Not rendered against real data, and cannot be yet.** `.env.local` points at the staging
+      API, which is running the *old* code: it would 400 on `sort`/`dir` (`additionalProperties:
+      false`) and reject `status=all`. **Deploy order matters — migration 014 and the API slice
+      must land before the web app**, or the Students screen 400s in production.
+- [ ] Not verified: contrast in both themes, keyboard-only pass, 1366×768 and 375px screenshots.
+
+#### Next on this screen, in order
+- [ ] Student record view (`VIEW RECORD` in the .dc.html) and the Add/Edit form — Edit is what
+      unlocks the second row action and makes `mess_fee`/`nationality`/`course` editable at all.
+- [ ] Shift-room flow (`POST /rooms/shift` exists; no UI) and a delete confirmation.
+- [ ] Decide the per-hostel student number (`#002`) — schema change, then the ID column.
+
 ## ★ SESSION 5 — DEPLOYED LIVE (2026-07-23)  ·  see `docs/14_DEPLOYMENT_RUNBOOK.md`
 - [x] **Production API deployed & healthy on Railway** (`Develop` branch) — `db:ok, redis:ok`.
       Fixed the deploy chain: `@hostyllo/db` build + `buildCommand=pnpm build`; PORT/domain 8080;
@@ -54,9 +304,24 @@
 - [ ] ⚠️ **Related, NOT fixed:** `PATCH /students/:id` can change `bed_id` without moving
       `beds.status`. `/rooms/shift` is the intended path for moves; decide whether PATCH should
       reject a `bed_id` change or maintain the status itself.
-- [ ] ⚠️ **API returns money as strings** (`revenuePkr: "11000.00"`, `activeStudents: "3"`) — pg
-      NUMERIC/COUNT not coerced in `dashboard.ts`. The web client defends with `Number()`, but the
-      API spec says numbers. Same class as the payment string-concat bug fixed in July.
+- [x] ⚠️ **API returns money as strings — FIXED 2026-07-28 (session 12), at the driver.**
+      Was `revenuePkr: "11000.00"`, `activeStudents: "3"`; pg returns NUMERIC (oid 1700) and INT8
+      (oid 20, what COUNT() returns) as strings. Fixed with `pg.types.setTypeParser` for both in
+      `packages/db/src/withTenant.ts` — the one module that creates the pools, so it covers every
+      route and worker at once.
+      **Why there and not in `dashboard.ts`:** this is the *fourth* instance of one defect. The
+      rent string-concat bug, the 10× rent-generate bug, and these responses were each fixed by
+      adding one more hand-written `Number()` at one more call site, which holds only until
+      someone forgets — and forgetting is silent, since `"5000" + "1000"` is legal JavaScript.
+      Parsing at the driver ends the class; the existing `Number()`/`parseInt()` calls in the
+      routes become harmless no-ops rather than load-bearing.
+      INT8 is parsed defensively (keeps the string if it would not survive the round trip, so an
+      unrepresentable value fails loudly instead of arriving quietly wrong). NUMERIC deliberately
+      has no such guard: money that overflowed a double is far outside `NUMERIC(10,2)`, and
+      returning a string there would resurrect the concatenation bug being removed.
+      Guarded by `numeric-types.test.ts` (4 tests) over dashboard stats, defaulters and the
+      payments list, including one that asserts the figures *add* rather than concatenate. Two
+      now-false `amount: string` annotations in `payments.ts` corrected.
 
 ### ⚠️ STAGING DEMO DATA (remove whenever you like)
 - Staging had **zero** rows, so a demo tenant was seeded to verify the screens: hostel
@@ -475,7 +740,29 @@ yours — see tasks/phase2-proposal.md §3.
 - [ ] DEFERRED (no code consumer yet — not adding dead schema): warden flags
       (`can_edit/can_delete/can_settings`) for DELETE-gating; hostel branding fields
       (`brand_color/show_branding/auto_month_advance`). Add with the feature that uses them.
-- [ ] **`payments.notes` is accepted and silently discarded** — found 2026-07-27 while building the
+- [x] **`payments.notes` accepted and silently discarded — FIXED 2026-07-28 (session 12)**, taking
+      option (a): migration `013_payments_notes.sql` adds the column, and both handlers persist it.
+      Create stores and echoes it, `GET /payments/:id` returns it, owner `PATCH` edits it. The
+      UPDATE uses COALESCE so an unrelated edit cannot blank a warden's note — that failure mode
+      has its own test. Capped at 1000 chars in the JSON Schema rather than by a VARCHAR(n), so an
+      over-long note is a 400 with a message instead of a constraint violation and a 500. Not
+      returned by `GET /payments`: free text in a ledger table is truncated to uselessness in every
+      row. Audit rows carry the note on create and edit (INVARIANT-5).
+      `payment-notes.test.ts` (6 tests) — a schema-only promise is invisible to typecheck, lint and
+      every existing test, because nothing fails; only reading the value back catches it.
+      ⚠️ **Migration 013 must be applied to staging + production.**
+- [ ] **Two more phantom `notes` fields of the same class** — found 2026-07-28 while fixing the
+      one above, by grepping every `notes` in the routes against the migrations.
+      **(a) `POST /rooms/shift`** (`rooms.ts:335`) declares `notes` and destructures it as `_notes`
+      — accepted, explicitly discarded. Unlike payments this should probably NOT become a column on
+      `rooms`: the note is about the *move*, so it belongs on the transfer/audit record or nowhere.
+      **(b) `expenses`** — `05_API_SPECIFICATION.md` shows `notes` in both the list response and
+      the create body, but `expenses.ts` never mentions the field and no migration creates the
+      column, so the spec documents something the route will not even accept. Decide per case:
+      persist, or drop from the contract. Neither is urgent; both are logged so the next reader
+      does not assume they work.
+      <details><summary>original report</summary>
+      found 2026-07-27 while building the
       web payment form. Both `POST /payments` (payments.ts:109) and `PATCH /payments/:id`
       (payments.ts:401) declare `notes` in their JSON Schema, but migration 003 defines no `notes`
       column and neither handler references one — the INSERT column list stops at `created_by`. A
@@ -486,7 +773,18 @@ yours — see tasks/phase2-proposal.md §3.
       promising it. (a) is the more useful one — a warden recording "paid in two instalments, second
       by JazzCash" has nowhere else to put it. Deliberately NOT fixed in the frontend slice: it is
       an API + live-schema change, not a UI one. `apps/web` omits the field until this is resolved.
-- [ ] **`GET /payments/defaulters` omits `paymentId`** — found 2026-07-28 while building the
+      </details>
+- [x] **`GET /payments/defaulters` omits `paymentId` — FIXED 2026-07-28 (session 12).**
+      `p.id as "paymentId"` added to the SELECT; `defaulters.test.ts` (3 tests) asserts the whole
+      chain rather than the field alone — the id comes back, a POST for the same month really does
+      409 `PAY_DUPLICATE_MONTH` (which is *why* the id is needed), and PATCHing that id settles the
+      row and drops it from the list. API spec Module 4 updated; while there, `paymentRiskScore`
+      and `whatsappMessage` were removed from the documented response — both were specified and
+      never built, and the WhatsApp work they belong to is deferred. `apps/web`'s `Defaulter` type
+      now carries `paymentId`. The rows still link to the student, because the remaining blocker
+      moved: the payment-edit UI does not exist yet.
+      <details><summary>original report</summary>
+      found 2026-07-28 while building the
       defaulters screen (payments.ts:263-281). The endpoint returns `studentId` but not the id of
       the payment row that is actually outstanding, which blocks the screen's whole purpose: every
       defaulter *already has* a payment row for that month (the query filters on status
@@ -496,6 +794,7 @@ yours — see tasks/phase2-proposal.md §3.
       list with rows linking to the student instead of a "collect" button that could not work.
       FIX: add `p.id as "paymentId"` to the SELECT. One line, no schema change, unblocks the
       collect flow. Pairs with the still-unbuilt payment-edit UI (`PATCH /payments/:id`).
+      </details>
 
 ## 1.7 Corrected-audit hardening findings (10_ENGINEERING_AUDIT_CRITICAL.md) — 2026-07-22
 - [x] Finding 1: TypeScript `strict` ENABLED (tsc --noEmit clean). One fix: email-send.ts

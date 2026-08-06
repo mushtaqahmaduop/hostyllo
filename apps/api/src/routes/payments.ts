@@ -114,7 +114,9 @@ export async function paymentsRoutes(app: FastifyInstance) {
           },
           payment_method: { type: 'string', enum: ['cash', 'jazzcash', 'easypaisa', 'bank', 'other'] },
           payment_date: { type: 'string' },
-          notes:        { type: 'string' },
+          // Bounded here rather than by a column type: this layer can answer 400 with a message,
+          // where a VARCHAR(n) overflow surfaces as a constraint violation and a 500.
+          notes:        { type: 'string', maxLength: 1000 },
         },
         additionalProperties: false,
       },
@@ -123,7 +125,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
     const body = request.body as {
       studentId: string; month: string; rent: number; paid: number;
       admission_fee?: number; concession?: number;
-      payment_method?: string; payment_date?: string;
+      payment_method?: string; payment_date?: string; notes?: string;
       extra_charges?: { label: string; amount: number }[];
     };
     const idempotencyKey = request.headers['x-idempotency-key'];
@@ -131,7 +133,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
     const result = await withTenant(request.hostelId, async (db) => {
       // Idempotency check
       const existing = await db.query(`
-        SELECT id, receipt_number, total_due, paid, unpaid, status
+        SELECT id, receipt_number, total_due, paid, unpaid, status, notes
         FROM public.payments
         WHERE idempotency_key = $1 AND hostel_id = current_setting('app.hostel_id')::uuid
       `, [idempotencyKey]);
@@ -179,14 +181,14 @@ export async function paymentsRoutes(app: FastifyInstance) {
         INSERT INTO public.payments (
           hostel_id, student_id, room_id, month, rent, admission_fee,
           concession, total_due, paid, unpaid, status,
-          payment_method, payment_date, receipt_number, idempotency_key, created_by
+          payment_method, payment_date, receipt_number, idempotency_key, created_by, notes
         )
         VALUES (
           current_setting('app.hostel_id')::uuid, $1, $2, $3, $4, $5,
           $6, $7, $8, $9, $10,
-          $11, $12, $13, $14, $15
+          $11, $12, $13, $14, $15, $16
         )
-        RETURNING id, receipt_number, total_due, paid, unpaid, status
+        RETURNING id, receipt_number, total_due, paid, unpaid, status, notes
       `, [
         body.studentId,
         student.rows[0].room_id,
@@ -203,6 +205,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
         receiptNumber,
         idempotencyKey,
         request.userId,
+        body.notes ?? null,
       ]);
 
       const paymentId = payment.rows[0].id;
@@ -230,6 +233,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
         paid: body.paid,
         unpaid,
         status,
+        notes: body.notes ?? null,
       })]);
 
       return { cached: false, data: payment.rows[0] };
@@ -249,6 +253,9 @@ export async function paymentsRoutes(app: FastifyInstance) {
         amountPaidPkr: p.paid,
         unpaidPkr: p.unpaid,
         status: p.status,
+        // Echoed back because "sent a note, got a 201, note vanished" is the exact defect this
+        // closes — seeing it in the response is what tells a client it was actually stored.
+        notes: p.notes ?? null,
       },
     });
   });
@@ -270,6 +277,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
     const result = await withTenant(request.hostelId, async (db) => {
       const defaulters = await db.query(`
         SELECT
+          p.id as "paymentId",
           p.student_id as "studentId",
           s.name as "studentName",
           s.phone,
@@ -374,6 +382,10 @@ export async function paymentsRoutes(app: FastifyInstance) {
           p.payment_date as "paymentDate",
           p.receipt_number as "receiptId",
           p.void_reason as "voidReason",
+          -- Returned on the single payment but deliberately NOT on the list: a free-text note is
+          -- unbounded and the list is a ledger table, so it would be truncated to uselessness in
+          -- every row while costing bandwidth on every page.
+          p.notes,
           p.created_at as "createdAt"
         FROM public.payments p
         JOIN public.students s ON s.id = p.student_id
@@ -465,7 +477,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
       rent: p.rent,
       admissionFee: p.admission_fee,
       concession: p.concession,
-      extraCharges: data.extras.map((e: { label: string; amount: string }) => ({
+      extraCharges: data.extras.map((e: { label: string; amount: number }) => ({
         label: e.label,
         amount: e.amount,
       })),
@@ -514,7 +526,7 @@ export async function paymentsRoutes(app: FastifyInstance) {
         properties: {
           paid:           { type: 'number', minimum: 0 },
           payment_method: { type: 'string' },
-          notes:          { type: 'string' },
+          notes:          { type: 'string', maxLength: 1000 },
           voidRequest:    { type: 'boolean' },
           voidReason:     { type: 'string' },
         },
@@ -525,12 +537,12 @@ export async function paymentsRoutes(app: FastifyInstance) {
     const { id } = request.params as { id: string };
     const body = request.body as {
       voidRequest?: boolean; voidReason?: string; paid?: number;
-      payment_method?: string; payment_date?: string;
+      payment_method?: string; payment_date?: string; notes?: string;
     };
 
     const result = await withTenant(request.hostelId, async (db) => {
       const payment = await db.query(`
-        SELECT id, status, rent, admission_fee, concession, paid
+        SELECT id, status, rent, admission_fee, concession, paid, notes
         FROM public.payments
         WHERE id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid AND deleted_at IS NULL
       `, [id]);
@@ -556,14 +568,15 @@ export async function paymentsRoutes(app: FastifyInstance) {
         return { ok: true };
       }
 
-      // Owner: full edit — recalculate with the payment's REAL extra charges
-      // (pg returns NUMERIC as strings, so coerce before doing math)
+      // Owner: full edit — recalculate with the payment's REAL extra charges.
+      // The Number() calls below are belt-and-braces: NUMERIC is parsed to a number at the driver
+      // (packages/db/src/withTenant.ts) since 2026-07-28, so they no longer carry the arithmetic.
       const p = payment.rows[0];
       const extrasResult = await db.query(`
         SELECT amount FROM public.payment_extra_charges
         WHERE payment_id = $1 AND hostel_id = current_setting('app.hostel_id')::uuid
       `, [id]);
-      const extraAmounts = extrasResult.rows.map((r: { amount: string }) => Number(r.amount));
+      const extraAmounts = extrasResult.rows.map((r: { amount: number }) => Number(r.amount));
 
       const newPaid = body.paid ?? Number(p.paid);
       const { totalDue, unpaid, status } = calculateUnpaid(
@@ -578,17 +591,24 @@ export async function paymentsRoutes(app: FastifyInstance) {
         UPDATE public.payments
         SET paid = $1, unpaid = $2, total_due = $3, status = $4,
             payment_method = COALESCE($5, payment_method),
+            notes = COALESCE($6, notes),
             updated_at = NOW()
-        WHERE id = $6
-      `, [newPaid, unpaid, totalDue, status, body.payment_method ?? null, id]);
+        WHERE id = $7
+      `, [newPaid, unpaid, totalDue, status, body.payment_method ?? null, body.notes ?? null, id]);
 
       // INVARIANT-5: immutable audit trail on every payment mutation
       await db.query(`
         INSERT INTO public.audit_log (hostel_id, user_id, action, entity_type, entity_id, old_data, new_data)
         VALUES (current_setting('app.hostel_id')::uuid, $1, 'payment_updated', 'payment', $2, $3::jsonb, $4::jsonb)
       `, [request.userId, id,
-        JSON.stringify({ paid: Number(p.paid), status: p.status }),
-        JSON.stringify({ paid: newPaid, unpaid, total_due: totalDue, status, payment_method: body.payment_method ?? null }),
+        JSON.stringify({ paid: Number(p.paid), status: p.status, notes: p.notes ?? null }),
+        JSON.stringify({
+          paid: newPaid, unpaid, total_due: totalDue, status,
+          payment_method: body.payment_method ?? null,
+          // COALESCE above means an omitted note leaves the stored one alone, so the audit row
+          // must record what the note now IS, not the (absent) field that was sent.
+          notes: body.notes ?? p.notes ?? null,
+        }),
       ]);
 
       return { ok: true };

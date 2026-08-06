@@ -1,283 +1,428 @@
 /* ============================================================
-   HOSTYLLO — Design Tokens  v1.0
+   HOSTYLLO — Design Tokens  v3.0
    Source of truth. Components consume these only.
    Never write a raw hex, px font-size, or ms duration elsewhere.
+
+   Authority and precedence: docs/design/README.md.
+     1. docs/design/handoff/DESIGN_RULES.md  — density, type, radius, spacing
+     2. the Claude design-system teardown    — colour method, elevation, motion
+     3. the per-screen *.dc.html files       — exact values for their own screen
+
+   v3.0 (2026-08-05) replaces v2's blue-tinted greys, seven hues, 14px cards and
+   box-shadow elevation. Those came from `Dashboard.dc.html` read on its own,
+   before the handoff bundle that governs it arrived.
+
+   THE THREE RULES THIS FILE EXISTS TO ENFORCE
+   -------------------------------------------
+   1. Elevation is a TONAL LADDER, never a shadow. A card is a step brighter than
+      the canvas plus a 1px hairline. `--hs-e1` is `none` on purpose and is not a
+      mistake to be "fixed". Shadow survives in one place: a modal over its
+      overlay, where there is a real gap between two planes.
+   2. Neutrals are WARM. Ivory and oat, never cool grey, never pure #ffffff —
+      pure white breaks the paper metaphor the whole palette rests on.
+   3. ONE chromatic voice: violet, spent on one action per screen. Never on an
+      icon, never on a hover, never on decoration. Warn / bad / info exist only
+      for states a human must act on.
+
+   The knowing exception: violet is a cool hue on a warm field. The owner kept it
+   because it is Hostyllo's brand — see docs/design/README.md, "The one rule we
+   knowingly break". It is not licence for a second cool colour anywhere else.
    ============================================================ */
 
 /* ---------- 1. PRIMITIVE RAMPS (never used directly in components) ---------- */
 :root {
-  /* Indigo — brand / interactive */
-  --indigo-50:  #EEF0FE;
-  --indigo-100: #E0E3FD;
-  --indigo-200: #C4C9FB;
-  --indigo-300: #A2AAF8;
-  --indigo-400: #7C86F1;
-  --indigo-500: #4F46E5;
-  --indigo-600: #4338CA;
-  --indigo-700: #3730A3;
-  --indigo-800: #2E2A80;
-  --indigo-900: #1E1B4B;
+  /* Warm neutrals — the ladder. Values from the Claude teardown's light surface
+     set; the dark twin is its inversion stops. Nothing here is cool-tinted. */
+  --ivory-light:  #faf9f5;   /* card — brighter than the canvas, deliberately */
+  --ivory:        #f5f0e8;
+  --ivory-medium: #f0eee6;   /* canvas */
+  --oat:          #efe9de;
+  --oat-strong:   #e8e0d2;
+  --oat-warm:     #e3dacc;
+  --manilla:      #f5e3c7;   /* feature card only — one per screen, at most */
 
-  /* Graphite — neutrals (cool-tinted) */
-  --graphite-0:   #FFFFFF;
-  --graphite-25:  #F7F7F8;
-  --graphite-50:  #F1F1F3;
-  --graphite-100: #E4E4E7;
-  --graphite-200: #D4D4D8;
-  --graphite-300: #A1A1AA;
-  --graphite-400: #8A8A93;
-  --graphite-500: #71717E;
-  --graphite-600: #52525B;
-  --graphite-700: #35353F;
-  --graphite-800: #26262E;
-  --graphite-850: #1A1A21;
-  --graphite-900: #131318;
-  --graphite-950: #0B0B0F;
-  --graphite-1000:#08080B;
+  --hairline-soft: #ebe6df;
+  --hairline-warm: #e6dfd8;
+  --stone:         #cccbc8;
 
-  /* Amber — ACTION REQUIRED ONLY */
-  --amber-50:  #FEF6E7;
-  --amber-100: #FDECC8;
-  --amber-400: #F5C563;
-  --amber-500: #F59E0B;
-  --amber-600: #D18700;
-  --amber-800: #8A6A2E;
+  --ink:         #141413;
+  --ink-body:    #3d3d3a;
+  --ink-muted:   #6c6a64;
+  --ink-soft:    #8e8b82;
+  --cloud-dark:  #87867f;
+  --cloud:       #b0aea5;
 
-  /* Brass — editorial accent, non-interactive */
-  --brass-light: #8A6A2E;
-  --brass-dark:  #C9A96E;
+  /* Dark surfaces — warm blacks, never #000. */
+  --shade:        #181715;
+  --shade-soft:   #1f1e1b;
+  --shade-raised: #252320;
+  --shade-rule:   #35322d;
+  --shade-rule-2: #45413a;
 
-  /* Emerald — money confirmed */
-  --emerald-50:  #ECFDF5;
-  --emerald-400: #34D399;
-  --emerald-600: #059669;
-  --emerald-700: #047857;
+  /* Violet — the one chromatic voice. */
+  --violet-100: #ede9fe;
+  --violet-200: #ddd6fe;
+  --violet-300: #c4b5fd;
+  --violet-400: #a78bfa;
+  --violet-500: #8b5cf6;
+  --violet-600: #7c3aed;
+  --violet-700: #6d28d9;
 
-  /* Red — destructive / failed */
-  --red-50:  #FEF2F2;
-  --red-400: #F87171;
-  --red-600: #DC2626;
-  --red-700: #B91C1C;
+  /*
+   * State colours, warm-leaning and desaturated — taken from the Claude system
+   * rather than from Tailwind's saturated defaults, which read as alarm bells
+   * against ivory. Two stops each: the light one carries text on a pale surface,
+   * the dark one carries text on a shade surface.
+   */
+  --warn:      #8a6a10;  --warn-lift: #d4a017;
+  --bad:       #a93b3b;  --bad-lift:  #d97070;
+  --info:      #3d6f9e;  --info-lift: #6a9bcc;
+  --good:      #3d7f4f;  --good-lift: #5db872;
 }
 
-/* ---------- 2. SEMANTIC TOKENS — LIGHT (default) ---------- */
+/* ---------- 2. SEMANTIC TOKENS — LIGHT (product default) ---------- */
 :root {
   color-scheme: light;
 
-  /* Surfaces */
-  --hs-canvas:            var(--graphite-25);
-  --hs-surface:           var(--graphite-0);
-  --hs-surface-raised:    var(--graphite-0);
-  --hs-surface-sunken:    var(--graphite-50);
-  --hs-surface-inverse:   var(--graphite-950);
-  --hs-surface-hover:     rgba(11, 11, 15, 0.035);
-  --hs-surface-active:    rgba(79, 70, 229, 0.06);
-  --hs-overlay:           rgba(11, 11, 15, 0.48);
+  /*
+   * The ladder. Read it top to bottom as depth:
+   *   canvas   the page
+   *   surface  a card — one step BRIGHTER than the page
+   *   raised   a modal, a sticky table head
+   *   sunken   a grouped panel, a hover fill, an inset well
+   *   deep     the strongest warm step, for nested groupings
+   */
+  --hs-canvas:         var(--ivory-medium);
+  --hs-surface:        var(--ivory-light);
+  --hs-surface-raised: var(--ivory-light);
+  --hs-surface-sunken: var(--oat);
+  --hs-surface-deep:   var(--oat-warm);
+  --hs-surface-hover:  var(--oat);
+  --hs-surface-active: rgba(124, 58, 237, 0.07);
+  --hs-surface-feature:var(--manilla);
+  --hs-surface-inverse:var(--shade);
+  --hs-overlay:        rgba(20, 20, 19, 0.64);
 
-  /* Hairlines */
-  --hs-hairline:          var(--graphite-100);
-  --hs-hairline-strong:   var(--graphite-200);
+  --hs-hairline:        var(--hairline-warm);
+  --hs-hairline-soft:   var(--hairline-soft);
+  --hs-hairline-strong: var(--stone);
 
-  /* Text */
-  --hs-text-primary:      var(--graphite-950);
-  --hs-text-secondary:    var(--graphite-600);
-  --hs-text-tertiary:     var(--graphite-400);
-  --hs-text-disabled:     var(--graphite-300);
-  --hs-text-inverse:      var(--graphite-25);
-  --hs-text-on-brand:     #FFFFFF;
+  --hs-text-primary:   var(--ink);
+  --hs-text-secondary: var(--ink-muted);
+  --hs-text-tertiary:  var(--ink-soft);
+  --hs-text-disabled:  var(--cloud);
+  --hs-text-inverse:   var(--ivory-light);
+  --hs-text-on-brand:  #ffffff;
 
-  /* Brand / interactive */
-  --hs-brand:             var(--indigo-500);
-  --hs-brand-hover:       var(--indigo-600);
-  --hs-brand-active:      var(--indigo-700);
-  --hs-brand-text:        var(--indigo-600);
-  --hs-brand-tint:        rgba(79, 70, 229, 0.06);
-  --hs-brand-tint-strong: rgba(79, 70, 229, 0.12);
-  --hs-focus-ring:        var(--indigo-500);
+  /* Brand — one filled violet action per screen. `-text` is for the rare inline
+     link; `-tint` is the active nav row and nothing else. */
+  --hs-brand:             var(--violet-600);
+  --hs-brand-hover:       var(--violet-700);
+  --hs-brand-active:      var(--violet-700);
+  --hs-brand-text:        var(--violet-600);
+  --hs-brand-tint:        #f5f3ff;
+  --hs-brand-tint-strong: var(--violet-200);
+  --hs-brand-border:      #ddd6fe;
+  --hs-focus-ring:        var(--violet-600);
 
-  /* Action required (amber) */
-  --hs-attention:         var(--amber-500);
-  --hs-attention-text:    var(--amber-800);
-  --hs-attention-tint:    rgba(245, 158, 11, 0.10);
-  --hs-attention-surface: var(--amber-50);
+  /*
+   * States. A pill is grey by default — these three appear only when the state
+   * is something a person must act on: overdue, pending review, out of service.
+   * At most one coloured pill per card.
+   */
+  --hs-attention:        var(--warn);
+  --hs-attention-tint:   #fffbeb;
+  --hs-attention-border: #fde68a;
 
-  /* Positive (money in) */
-  --hs-positive:          var(--emerald-600);
-  --hs-positive-text:     var(--emerald-700);
-  --hs-positive-tint:     rgba(5, 150, 105, 0.10);
-  --hs-positive-surface:  var(--emerald-50);
+  --hs-negative:         var(--bad);
+  --hs-negative-tint:    #fef2f2;
+  --hs-negative-border:  #fecaca;
 
-  /* Negative (failed / destructive) */
-  --hs-negative:          var(--red-600);
-  --hs-negative-text:     var(--red-700);
-  --hs-negative-tint:     rgba(220, 38, 38, 0.08);
-  --hs-negative-surface:  var(--red-50);
+  --hs-info:             var(--info);
+  --hs-info-tint:        #eff6ff;
+  --hs-info-border:      #bfdbfe;
 
-  /* Editorial accent */
-  --hs-accent:            var(--brass-light);
-  --hs-accent-tint:       rgba(138, 106, 46, 0.10);
+  --hs-positive:         var(--good);
+  --hs-positive-tint:    #f0f7f1;
+  --hs-positive-border:  #c7e2ce;
 
-  /* Chart series — fixed order, max 5 categorical */
-  --hs-chart-1: var(--indigo-500);
-  --hs-chart-2: var(--indigo-400);
-  --hs-chart-3: var(--indigo-200);
-  --hs-chart-4: var(--brass-dark);
-  --hs-chart-5: var(--graphite-500);
-  --hs-chart-grid: var(--hs-hairline);
-  --hs-chart-axis: var(--hs-text-tertiary);
-  --hs-chart-hero-fill: rgba(79, 70, 229, 0.08);
+  /* v1/v2 aliases, kept until the last old screen is redesigned. */
+  --hs-attention-text:    var(--hs-attention);
+  --hs-attention-surface: var(--hs-attention-tint);
+  --hs-negative-text:     var(--hs-negative);
+  --hs-negative-surface:  var(--hs-negative-tint);
+  --hs-positive-text:     var(--hs-positive);
+  --hs-positive-surface:  var(--hs-positive-tint);
+  --hs-teal:              var(--hs-info);
+  --hs-teal-tint:         var(--hs-info-tint);
+  --hs-pink:              var(--hs-brand);
+  --hs-pink-tint:         var(--hs-brand-tint);
+  --hs-accent:            var(--hs-brand);
+  --hs-accent-tint:       var(--hs-brand-tint);
 
-  /* Elevation */
+  /*
+   * Charts. One violet ramp plus warm neutrals — the handoff bundle's
+   * instruction is "violet + neutral greys except where a legend genuinely
+   * needs a second series colour". So: `--hs-series-1` is violet and carries
+   * the subject of the chart, `--hs-series-2` is a warm neutral and carries
+   * whatever it is being compared against, `--hs-series-3` is a lighter violet
+   * for a genuine third line. Nothing else is a series colour.
+   */
+  --hs-series-1: var(--violet-600);
+  --hs-series-2: var(--cloud);
+  --hs-series-3: var(--violet-300);
+
+  --hs-ramp-1: var(--violet-200);
+  --hs-ramp-2: var(--violet-300);
+  --hs-ramp-3: var(--violet-400);
+  --hs-ramp-4: var(--violet-500);
+  --hs-ramp-5: var(--violet-600);
+
+  --hs-chart-grid:      var(--hs-hairline);
+  --hs-chart-axis:      var(--hs-text-tertiary);
+  --hs-chart-track:     var(--oat-warm);
+  --hs-chart-hero-fill: rgba(124, 58, 237, 0.08);
+  /* v1 aliases */
+  --hs-chart-1: var(--hs-ramp-5); --hs-chart-2: var(--hs-ramp-4);
+  --hs-chart-3: var(--hs-ramp-3); --hs-chart-4: var(--hs-ramp-2);
+  --hs-chart-5: var(--hs-ramp-1); --hs-chart-6: var(--hs-series-2);
+  --hs-chart-7: var(--hs-series-2); --hs-chart-8: var(--hs-ramp-3);
+  --hs-chart-9: var(--hs-ramp-2);
+  --hs-chart-compare: var(--hs-series-2);
+  --hs-chart-neutral: var(--hs-text-secondary);
+
+  /*
+   * Elevation. `e1` and `e2` are `none` because a card is lifted by being a
+   * brighter surface with a hairline, not by a shadow. `e3` is the single
+   * exception: a modal genuinely floats above an overlay, and the ladder cannot
+   * express a gap that large.
+   */
   --hs-e0: none;
-  --hs-e1: 0 1px 2px rgba(11,11,15,.06), 0 1px 3px rgba(11,11,15,.04);
-  --hs-e2: 0 4px 8px rgba(11,11,15,.06), 0 2px 4px rgba(11,11,15,.04);
-  --hs-e3: 0 12px 32px rgba(11,11,15,.12), 0 4px 8px rgba(11,11,15,.06);
+  --hs-e1: none;
+  --hs-e2: none;
+  --hs-e3: 0 8px 28px rgba(20, 20, 19, 0.10), 0 2px 6px rgba(20, 20, 19, 0.05);
 }
 
 /* ---------- 3. SEMANTIC TOKENS — DARK ---------- */
 .dark {
   color-scheme: dark;
 
-  --hs-canvas:            var(--graphite-950);
-  --hs-surface:           var(--graphite-900);
-  --hs-surface-raised:    var(--graphite-850);
-  --hs-surface-sunken:    var(--graphite-1000);
-  --hs-surface-inverse:   var(--graphite-25);
-  --hs-surface-hover:     rgba(255, 255, 255, 0.04);
-  --hs-surface-active:    rgba(124, 134, 241, 0.12);
-  --hs-overlay:           rgba(5, 5, 8, 0.64);
+  --hs-canvas:         var(--shade);
+  --hs-surface:        var(--shade-soft);
+  --hs-surface-raised: var(--shade-raised);
+  --hs-surface-sunken: var(--shade-raised);
+  --hs-surface-deep:   var(--shade-raised);
+  --hs-surface-hover:  var(--shade-raised);
+  --hs-surface-active: rgba(139, 92, 246, 0.12);
+  --hs-surface-feature:var(--shade-raised);
+  --hs-surface-inverse:var(--ivory-light);
+  --hs-overlay:        rgba(0, 0, 0, 0.64);
 
-  --hs-hairline:          var(--graphite-800);
-  --hs-hairline-strong:   var(--graphite-700);
+  --hs-hairline:        var(--shade-rule);
+  --hs-hairline-soft:   #2b2823;
+  --hs-hairline-strong: var(--shade-rule-2);
 
-  --hs-text-primary:      #F4F4F6;   /* never pure white — halation on TN panels */
-  --hs-text-secondary:    #A1A1AB;
-  --hs-text-tertiary:     var(--graphite-500);
-  --hs-text-disabled:     var(--graphite-600);
-  --hs-text-inverse:      var(--graphite-950);
-  --hs-text-on-brand:     #FFFFFF;
+  /* Never pure white: halation on cheap panels, and it breaks the warmth. */
+  --hs-text-primary:   var(--ivory-light);
+  --hs-text-secondary: #a09d96;
+  --hs-text-tertiary:  var(--cloud-dark);
+  --hs-text-disabled:  #5f5d57;
+  --hs-text-inverse:   var(--ink);
+  --hs-text-on-brand:  #ffffff;
 
-  --hs-brand:             #5B54E8;   /* fills */
-  --hs-brand-hover:       #6B64EC;
-  --hs-brand-active:      #4F46E5;
-  --hs-brand-text:        var(--indigo-400);  /* text + icons lift for contrast */
-  --hs-brand-tint:        rgba(124, 134, 241, 0.10);
-  --hs-brand-tint-strong: rgba(124, 134, 241, 0.18);
-  --hs-focus-ring:        var(--indigo-400);
+  /* Fills stay at 600 so a filled button keeps its weight; text and icons
+     promote to 500, the only stop that clears #181715. */
+  --hs-brand:             var(--violet-600);
+  --hs-brand-hover:       var(--violet-500);
+  --hs-brand-active:      var(--violet-700);
+  --hs-brand-text:        var(--violet-500);
+  --hs-brand-tint:        rgba(139, 92, 246, 0.12);
+  --hs-brand-tint-strong: rgba(139, 92, 246, 0.24);
+  --hs-brand-border:      rgba(139, 92, 246, 0.28);
+  --hs-focus-ring:        var(--violet-500);
 
-  --hs-attention:         var(--amber-500);
-  --hs-attention-text:    var(--amber-400);
-  --hs-attention-tint:    rgba(245, 158, 11, 0.14);
-  --hs-attention-surface: rgba(245, 158, 11, 0.16);
+  /* Each state lifts to its bright stop and its tint becomes a wash of that
+     same stop — so the glyph and the surface under it are one colour, which a
+     hand-picked dark hex never quite manages. */
+  --hs-attention:        var(--warn-lift);
+  --hs-attention-tint:   rgba(212, 160, 23, 0.10);
+  --hs-attention-border: rgba(212, 160, 23, 0.22);
 
-  --hs-positive:          var(--emerald-400);
-  --hs-positive-text:     var(--emerald-400);
-  --hs-positive-tint:     rgba(52, 211, 153, 0.12);
-  --hs-positive-surface:  rgba(52, 211, 153, 0.14);
+  --hs-negative:         var(--bad-lift);
+  --hs-negative-tint:    rgba(217, 112, 112, 0.10);
+  --hs-negative-border:  rgba(217, 112, 112, 0.22);
 
-  --hs-negative:          var(--red-400);
-  --hs-negative-text:     var(--red-400);
-  --hs-negative-tint:     rgba(248, 113, 113, 0.12);
-  --hs-negative-surface:  rgba(248, 113, 113, 0.14);
+  --hs-info:             var(--info-lift);
+  --hs-info-tint:        rgba(106, 155, 204, 0.10);
+  --hs-info-border:      rgba(106, 155, 204, 0.22);
 
-  --hs-accent:            var(--brass-dark);
-  --hs-accent-tint:       rgba(201, 169, 110, 0.12);
+  --hs-positive:         var(--good-lift);
+  --hs-positive-tint:    rgba(93, 184, 114, 0.10);
+  --hs-positive-border:  rgba(93, 184, 114, 0.22);
 
-  --hs-chart-1: var(--indigo-400);
-  --hs-chart-2: var(--indigo-300);
-  --hs-chart-3: #5B54E8;
-  --hs-chart-4: var(--brass-dark);
-  --hs-chart-5: var(--graphite-400);
-  --hs-chart-hero-fill: rgba(124, 134, 241, 0.10);
+  --hs-attention-text:    var(--hs-attention);
+  --hs-attention-surface: var(--hs-attention-tint);
+  --hs-negative-text:     var(--hs-negative);
+  --hs-negative-surface:  var(--hs-negative-tint);
+  --hs-positive-text:     var(--hs-positive);
+  --hs-positive-surface:  var(--hs-positive-tint);
+  --hs-teal:              var(--hs-info);
+  --hs-teal-tint:         var(--hs-info-tint);
+  --hs-pink:              var(--hs-brand-text);
+  --hs-pink-tint:         var(--hs-brand-tint);
+  --hs-accent:            var(--hs-brand-text);
+  --hs-accent-tint:       var(--hs-brand-tint);
 
-  /* Dark elevation = lighter surface + border, not shadow */
+  --hs-series-1: var(--violet-500);
+  --hs-series-2: var(--cloud-dark);
+  --hs-series-3: var(--violet-300);
+
+  --hs-ramp-1: var(--violet-700);
+  --hs-ramp-2: var(--violet-600);
+  --hs-ramp-3: var(--violet-500);
+  --hs-ramp-4: var(--violet-400);
+  --hs-ramp-5: var(--violet-300);
+
+  --hs-chart-track:     var(--shade-raised);
+  --hs-chart-hero-fill: rgba(139, 92, 246, 0.12);
+
   --hs-e0: none;
-  --hs-e1: 0 1px 2px rgba(0,0,0,.40);
-  --hs-e2: 0 4px 12px rgba(0,0,0,.48);
-  --hs-e3: 0 16px 40px rgba(0,0,0,.60);
+  --hs-e1: none;
+  --hs-e2: none;
+  --hs-e3: 0 8px 28px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.45);
 }
 
 /* ---------- 4. TYPOGRAPHY ---------- */
 :root {
-  /* The `--font-*` references are next/font handles set on <html> in app/layout.tsx. next/font
-     downloads and self-hosts the files at build time, which is what §4.1's "all self-hosted — CSP
-     forbids external font CDNs" requires; the quoted names after each are the fallback for anyone
-     who has the face installed locally, and the generics close the stack. */
-  --hs-font-display: var(--font-newsreader), "Newsreader", Georgia, serif;
+  /* Geist for UI, JetBrains Mono for every numeral. Both self-hosted through
+     next/font — the CSP forbids external font origins. Anthropic Sans / Serif /
+     Mono are deliberately absent: they are Anthropic's brand faces, not ours. */
+  --hs-font-display: var(--font-geist), "Geist", system-ui, sans-serif;
   --hs-font-ui:      var(--font-geist), "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --hs-font-mono:    var(--font-jetbrains-mono), "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --hs-font-urdu:    var(--font-noto-naskh), "Noto Naskh Arabic", var(--hs-font-ui);
 
-  /* size / line-height */
-  --hs-type-hero:        3rem;     --hs-lh-hero:        3.25rem;  /* 48/52 */
-  --hs-type-display:     1.875rem; --hs-lh-display:     2.25rem;  /* 30/36 */
-  --hs-type-h1:          1.5rem;   --hs-lh-h1:          2rem;     /* 24/32 */
-  --hs-type-h2:          1.25rem;  --hs-lh-h2:          1.75rem;  /* 20/28 */
-  --hs-type-h3:          1rem;     --hs-lh-h3:          1.5rem;   /* 16/24 */
-  --hs-type-body:        0.875rem; --hs-lh-body:        1.25rem;  /* 14/20 */
-  --hs-type-body-sm:     0.8125rem;--hs-lh-body-sm:     1.125rem; /* 13/18 */
-  --hs-type-caption:     0.75rem;  --hs-lh-caption:     1rem;     /* 12/16 */
-  --hs-type-eyebrow:     0.6875rem;--hs-lh-eyebrow:     1rem;     /* 11/16 */
-  --hs-type-mono:        0.8125rem;--hs-lh-mono:        1.25rem;  /* 13/20 */
-  --hs-type-mono-sm:     0.75rem;  --hs-lh-mono-sm:     1rem;     /* 12/16 */
+  /*
+   * The handoff bundle's scale: 9–9.5 eyebrow · 10.5–11 meta and badges ·
+   * 12–12.5 nav, table body, buttons · 13.5 form inputs · 15–18 titles ·
+   * 25–34 KPI values. Names are v1's so old screens keep compiling.
+   *
+   * `figure` is 23px, not the range's 25: the Dashboard's KPI strip is six
+   * across inside 1180px, and `PKR 84,32,000` at 25px overflows a 180px card.
+   * `figure-lg` is the 28px stop for the four-across strips on other screens.
+   */
+  --hs-type-figure-lg:   1.75rem;    --hs-lh-figure-lg: 1.1;    /* 28 */
+  --hs-type-figure:      1.4375rem;  --hs-lh-figure:    1.15;   /* 23 */
+  --hs-type-hero:        1.4375rem;  --hs-lh-hero:      1.15;   /* alias */
+  --hs-type-display:     1.125rem;   --hs-lh-display:   1.25;   /* 18 page title */
+  --hs-type-h1:          1.125rem;   --hs-lh-h1:        1.25;   /* 18 */
+  --hs-type-h2:          1rem;       --hs-lh-h2:        1.25;   /* 16 */
+  --hs-type-h3:          0.9375rem;  --hs-lh-h3:        1.3;    /* 15 card title */
+  --hs-type-input:       0.84375rem; --hs-lh-input:     1.3;    /* 13.5 form fields */
+  --hs-type-body:        0.78125rem; --hs-lh-body:      1.35;   /* 12.5 default */
+  --hs-type-body-sm:     0.75rem;    --hs-lh-body-sm:   1.35;   /* 12 */
+  --hs-type-caption:     0.6875rem;  --hs-lh-caption:   1.35;   /* 11 meta, badges */
+  --hs-type-meta:        0.65625rem; --hs-lh-meta:      1.35;   /* 10.5 */
+  --hs-type-eyebrow:     0.59375rem; --hs-lh-eyebrow:   1.35;   /* 9.5 uppercase */
+  --hs-type-mono:        0.78125rem; --hs-lh-mono:      1.35;   /* 12.5 */
+  --hs-type-mono-sm:     0.6875rem;  --hs-lh-mono-sm:   1.35;   /* 11 */
 
-  --hs-weight-regular: 400;
-  --hs-weight-medium:  500;  /* hero figure only */
-  --hs-weight-semibold:600;
+  /* 400 / 500 / 600 / 700 only. */
+  --hs-weight-regular:  400;
+  --hs-weight-medium:   500;
+  --hs-weight-semibold: 600;
+  --hs-weight-bold:     700;
 
   --hs-tracking-tight:  -0.02em;
   --hs-tracking-snug:   -0.01em;
   --hs-tracking-normal:  0;
-  --hs-tracking-wide:    0.08em;  /* eyebrows only */
+  --hs-tracking-wide:    0.03em;   /* the HOSTYLLO wordmark */
+  --hs-tracking-eyebrow: 0.08em;   /* uppercase eyebrows and table headers */
+  --hs-tracking-wider:   0.12em;   /* sidebar nav group labels */
+}
+
+/*
+ * Table geometry.
+ *
+ * `12px 16px` is the bundle's own stated cell padding and it is the single most
+ * repeated measurement across the ledger screens — it belongs in a token rather
+ * than being retyped in every table. Row height is deliberately NOT fixed: a
+ * Students row carries a 28px avatar over two lines of text and lands near 56px,
+ * a Payments row is single-line and lands near 42px. Pinning a height would
+ * either clip the composite cells or pad the simple ones.
+ */
+:root {
+  --hs-cell-pad-y: 0.75rem;   /* 12 */
+  --hs-cell-pad-x: 1rem;      /* 16 */
 }
 
 /* ---------- 5. SPACE / RADIUS / LAYOUT ---------- */
 :root {
-  --hs-space-1: 0.25rem;  /*  4 */
-  --hs-space-2: 0.5rem;   /*  8 */
-  --hs-space-3: 0.75rem;  /* 12 */
-  --hs-space-4: 1rem;     /* 16 */
-  --hs-space-5: 1.25rem;  /* 20 */
-  --hs-space-6: 1.5rem;   /* 24 */
-  --hs-space-8: 2rem;     /* 32 */
-  --hs-space-10:2.5rem;   /* 40 */
-  --hs-space-12:3rem;     /* 48 */
-  --hs-space-16:4rem;     /* 64 */
+  /* The bundle's ladder: 2 4 6 8 9 10 13 16 20 28. */
+  --hs-space-0-5: 0.125rem; /*  2 */
+  --hs-space-1:   0.25rem;  /*  4 */
+  --hs-space-1-5: 0.375rem; /*  6 */
+  --hs-space-2:   0.5rem;   /*  8 */
+  --hs-space-2-5: 0.5625rem;/*  9 */
+  --hs-space-3:   0.625rem; /* 10 */
+  --hs-space-3-5: 0.8125rem;/* 13 — card padding */
+  --hs-space-4:   1rem;     /* 16 — grid gap */
+  --hs-space-5:   1.25rem;  /* 20 */
+  --hs-space-7:   1.75rem;  /* 28 */
+  /* v1 names still referenced by unredesigned screens */
+  --hs-space-6:  1.5rem;
+  --hs-space-8:  2rem;
+  --hs-space-10: 2.5rem;
+  --hs-space-12: 3rem;
+  --hs-space-16: 4rem;
 
+  /* 4 badge · 6 nav/button/input · 8 input, small card · 12 card, modal.
+     Nothing larger — v2's 14px cards are gone. */
+  --hs-radius-pill: 4px;
   --hs-radius-sm:   4px;
   --hs-radius-md:   6px;
   --hs-radius-lg:   8px;
   --hs-radius-xl:   12px;
-  --hs-radius-full: 999px;
+  --hs-radius-full: 9999px;
 
-  --hs-sidebar-w:            264px;
-  --hs-sidebar-w-collapsed:  72px;
-  --hs-topbar-h:             56px;
-  --hs-content-max:          1440px;
-  --hs-row-h-comfortable:    52px;
-  --hs-row-h-compact:        40px;
-  /* Resolved row height. The app shell re-points this via [data-density] (base.css) so a table
-     never takes a density prop; Comfortable is the default, ledger pages opt into Compact. */
-  --hs-row-h:                var(--hs-row-h-comfortable);
-  --hs-control-h:            36px;
-  --hs-control-h-sm:         32px;
-  --hs-control-h-touch:      44px;
-  --hs-threshold-w:          2px;   /* the signature bar */
+  --hs-sidebar-w:           203px;
+  --hs-sidebar-w-collapsed: 64px;
+  --hs-topbar-h:            56px;
+  --hs-control-h:           38px;   /* header controls */
+  --hs-control-h-sm:        30px;   /* in-card controls */
+  --hs-control-h-input:     40px;   /* form fields */
+  --hs-control-h-touch:     44px;
+  --hs-nav-item-h:          33px;
+
+  /*
+   * Designed desktop-first at 1440–1560px, but the layout REFLOWS below that — it does not
+   * scroll sideways. `--hs-content-min` was 1180px, which with a 216px sidebar overflowed every
+   * viewport under ~1420px and clipped content off a normal 1366px laptop screen. Rows now use
+   * responsive grids that drop columns instead. Nothing should reintroduce a fixed floor here.
+   */
+  --hs-content-max: none;
+
+  --hs-row-h-comfortable: 44px;
+  --hs-row-h-compact:     33px;
+  --hs-row-h:             var(--hs-row-h-compact);
+  --hs-threshold-w:       2px;
 }
 
 /* ---------- 6. MOTION ---------- */
 :root {
+  /* The Claude system's set: fast / base / slow, two easings. */
   --hs-dur-instant:    90ms;
-  --hs-dur-fast:      140ms;
-  --hs-dur-base:      200ms;
+  --hs-dur-fast:      120ms;
+  --hs-dur-base:      180ms;
   --hs-dur-slow:      280ms;
   --hs-dur-deliberate:400ms;
-  --hs-dur-count:     560ms;   /* hero figure count-up, once per session */
+  --hs-dur-count:     560ms;
 
-  --hs-ease-standard: cubic-bezier(.2, 0, 0, 1);
-  --hs-ease-out:      cubic-bezier(0, 0, .2, 1);
+  --hs-ease-standard: cubic-bezier(.4, 0, .2, 1);
+  --hs-ease-out:      cubic-bezier(.22, .61, .36, 1);
   --hs-ease-in:       cubic-bezier(.4, 0, 1, 1);
-  --hs-ease-emphasis: cubic-bezier(.2, 0, 0, 1.2); /* threshold bar + hero only */
+  /* Modal entry, per the bundle: opacity 0→1 with translateY(8px)→0. */
+  --hs-ease-emphasis: cubic-bezier(.2, .7, .3, 1);
 
   --hs-stagger: 40ms;
 }
@@ -313,25 +458,42 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Tabular figures everywhere a number can align or update */
-.hs-num, table, [data-numeric], input[type="number"] {
+/*
+ * Numerals are mono, everywhere, always — the bundle is unambiguous about it.
+ * `.hs-num` is the workhorse: it swaps the face as well as turning on tabular
+ * figures, so a column of rupees aligns on the decimal and a 1 cannot be read
+ * as an l. Sizes step down one notch because JetBrains Mono's x-height runs
+ * larger than Geist's at the same nominal size.
+ */
+.hs-num {
+  font-family: var(--hs-font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
 
-.hs-ledger {                    /* Tier 2: table numerics, IDs, receipts, CNIC */
+table, [data-numeric], input[type="number"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.hs-ledger {
   font-family: var(--hs-font-mono);
-  font-size: var(--hs-type-mono);
-  line-height: var(--hs-lh-mono);
   font-variant-numeric: tabular-nums;
   text-align: end;
 }
 
-.hs-figure {                    /* Tier 1: the one hero figure per screen */
-  font-family: var(--hs-font-ui);
-  font-size: var(--hs-type-hero);
-  line-height: var(--hs-lh-hero);
-  font-weight: var(--hs-weight-medium);
+.hs-code {
+  font-family: var(--hs-font-mono);
+  font-size: var(--hs-type-mono);
+  line-height: var(--hs-lh-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.hs-figure {
+  font-family: var(--hs-font-mono);
+  font-size: var(--hs-type-figure);
+  line-height: var(--hs-lh-figure);
+  font-weight: var(--hs-weight-bold);
   letter-spacing: var(--hs-tracking-tight);
   font-variant-numeric: tabular-nums;
 }
@@ -340,12 +502,22 @@ body {
   font-size: var(--hs-type-eyebrow);
   line-height: var(--hs-lh-eyebrow);
   font-weight: var(--hs-weight-semibold);
-  letter-spacing: var(--hs-tracking-wide);
+  letter-spacing: var(--hs-tracking-eyebrow);
   text-transform: uppercase;
   color: var(--hs-text-tertiary);
 }
 
-/* Signature: the Threshold Rule — leading-edge bar, mirrors in RTL */
+/* Inline prose links keep their underline permanently — one of the Claude
+   system's rules that costs nothing and is almost always got wrong. */
+.hs-link {
+  color: var(--hs-brand-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+
+/* Retained for table rows. The sidebar no longer uses it: the bundle marks the
+   active nav item with an accent-tinted fill instead. */
 .hs-threshold {
   position: relative;
   padding-inline-start: var(--hs-space-4);
@@ -377,27 +549,36 @@ body {
   animation: hs-pulse 1.4s var(--hs-ease-standard) infinite;
 }
 
+.hs-scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.hs-scroll::-webkit-scrollbar-thumb {
+  background: var(--hs-hairline-strong);
+  border-radius: var(--hs-radius-sm);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.hs-scroll::-webkit-scrollbar-track { background: transparent; }
+
 /* ---------- 8. TAILWIND v4 MAPPING ---------- */
-/* For Tailwind v3, mirror these under theme.extend instead.
-   `inline` matters: it emits `var(--hs-…)` into the utility rather than copying the value at build
-   time, so a single class follows the theme switch instead of freezing the light-mode colour.
-   Every entry here is a *reference* to a §2/§3 token — this block introduces no new values. */
+/* `inline` matters: it emits `var(--hs-…)` into the utility rather than copying
+   the value at build time, so a class follows the theme switch instead of
+   freezing the light-mode colour. Every entry is a reference to a §2/§3 token —
+   this block introduces no new values. */
 @theme inline {
-  /* Surfaces */
-  --color-canvas:         var(--hs-canvas);
-  --color-surface:        var(--hs-surface);
-  --color-surface-raised: var(--hs-surface-raised);
-  --color-surface-sunken: var(--hs-surface-sunken);
-  --color-surface-inverse:var(--hs-surface-inverse);
-  --color-surface-hover:  var(--hs-surface-hover);
-  --color-surface-active: var(--hs-surface-active);
-  --color-overlay:        var(--hs-overlay);
+  --color-canvas:          var(--hs-canvas);
+  --color-surface:         var(--hs-surface);
+  --color-surface-raised:  var(--hs-surface-raised);
+  --color-surface-sunken:  var(--hs-surface-sunken);
+  --color-surface-deep:    var(--hs-surface-deep);
+  --color-surface-hover:   var(--hs-surface-hover);
+  --color-surface-active:  var(--hs-surface-active);
+  --color-surface-feature: var(--hs-surface-feature);
+  --color-surface-inverse: var(--hs-surface-inverse);
+  --color-overlay:         var(--hs-overlay);
 
-  /* Hairlines — `border-hairline` is the default structure of the whole UI (§2 Law 3) */
-  --color-hairline:       var(--hs-hairline);
-  --color-hairline-strong:var(--hs-hairline-strong);
+  --color-hairline:        var(--hs-hairline);
+  --color-hairline-soft:   var(--hs-hairline-soft);
+  --color-hairline-strong: var(--hs-hairline-strong);
 
-  /* Text — three levels of grey speech (§3.2) */
   --color-fg:            var(--hs-text-primary);
   --color-fg-secondary:  var(--hs-text-secondary);
   --color-fg-tertiary:   var(--hs-text-tertiary);
@@ -405,50 +586,74 @@ body {
   --color-fg-inverse:    var(--hs-text-inverse);
   --color-fg-on-brand:   var(--hs-text-on-brand);
 
-  /* Brand — "you can act on this" */
   --color-brand:            var(--hs-brand);
   --color-brand-hover:      var(--hs-brand-hover);
   --color-brand-active:     var(--hs-brand-active);
   --color-brand-text:       var(--hs-brand-text);
   --color-brand-tint:       var(--hs-brand-tint);
   --color-brand-tint-strong:var(--hs-brand-tint-strong);
+  --color-brand-border:     var(--hs-brand-border);
 
-  /* Attention — "a human must act". Never used for information. */
   --color-attention:        var(--hs-attention);
-  --color-attention-text:   var(--hs-attention-text);
   --color-attention-tint:   var(--hs-attention-tint);
+  --color-attention-border: var(--hs-attention-border);
+  --color-negative:         var(--hs-negative);
+  --color-negative-tint:    var(--hs-negative-tint);
+  --color-negative-border:  var(--hs-negative-border);
+  --color-info:             var(--hs-info);
+  --color-info-tint:        var(--hs-info-tint);
+  --color-info-border:      var(--hs-info-border);
+  --color-positive:         var(--hs-positive);
+  --color-positive-tint:    var(--hs-positive-tint);
+  --color-positive-border:  var(--hs-positive-border);
+
+  /* aliases still referenced by unredesigned screens */
+  --color-attention-text:   var(--hs-attention-text);
   --color-attention-surface:var(--hs-attention-surface);
+  --color-negative-text:    var(--hs-negative-text);
+  --color-negative-surface: var(--hs-negative-surface);
+  --color-positive-text:    var(--hs-positive-text);
+  --color-positive-surface: var(--hs-positive-surface);
+  --color-teal:             var(--hs-teal);
+  --color-teal-tint:        var(--hs-teal-tint);
+  --color-pink:             var(--hs-pink);
+  --color-pink-tint:        var(--hs-pink-tint);
+  --color-accent:           var(--hs-accent);
+  --color-accent-tint:      var(--hs-accent-tint);
 
-  /* Positive — money confirmed. Never a background for a zero. */
-  --color-positive:        var(--hs-positive);
-  --color-positive-text:   var(--hs-positive-text);
-  --color-positive-tint:   var(--hs-positive-tint);
-  --color-positive-surface:var(--hs-positive-surface);
-
-  /* Negative — destructive / failed */
-  --color-negative:        var(--hs-negative);
-  --color-negative-text:   var(--hs-negative-text);
-  --color-negative-tint:   var(--hs-negative-tint);
-  --color-negative-surface:var(--hs-negative-surface);
-
-  /* Editorial accent — brass. Non-interactive: eyebrows, ledger rules, empty-state marks. */
-  --color-accent:      var(--hs-accent);
-  --color-accent-tint: var(--hs-accent-tint);
-
-  /* Charts */
+  --color-series-1: var(--hs-series-1);
+  --color-series-2: var(--hs-series-2);
+  --color-series-3: var(--hs-series-3);
+  --color-ramp-1: var(--hs-ramp-1);
+  --color-ramp-2: var(--hs-ramp-2);
+  --color-ramp-3: var(--hs-ramp-3);
+  --color-ramp-4: var(--hs-ramp-4);
+  --color-ramp-5: var(--hs-ramp-5);
   --color-chart-1: var(--hs-chart-1);
   --color-chart-2: var(--hs-chart-2);
   --color-chart-3: var(--hs-chart-3);
   --color-chart-4: var(--hs-chart-4);
   --color-chart-5: var(--hs-chart-5);
+  --color-chart-6: var(--hs-chart-6);
+  --color-chart-7: var(--hs-chart-7);
+  --color-chart-8: var(--hs-chart-8);
+  --color-chart-9: var(--hs-chart-9);
+  --color-chart-grid:    var(--hs-chart-grid);
+  --color-chart-axis:    var(--hs-chart-axis);
+  --color-chart-track:   var(--hs-chart-track);
+  --color-chart-compare: var(--hs-chart-compare);
+  --color-chart-neutral: var(--hs-chart-neutral);
+  --color-chart-hero:    var(--hs-chart-hero-fill);
 
   --font-display: var(--hs-font-display);
   --font-sans:    var(--hs-font-ui);
   --font-mono:    var(--hs-font-mono);
   --font-urdu:    var(--hs-font-urdu);
 
-  /* Type scale (§4.2). Paired line-heights so `text-body` sets both and no component
-     ever needs a raw px font-size. */
+  --text-figure-lg:   var(--hs-type-figure-lg);
+  --text-figure-lg--line-height: var(--hs-lh-figure-lg);
+  --text-figure:      var(--hs-type-figure);
+  --text-figure--line-height: var(--hs-lh-figure);
   --text-hero:        var(--hs-type-hero);
   --text-hero--line-height: var(--hs-lh-hero);
   --text-display:     var(--hs-type-display);
@@ -459,12 +664,16 @@ body {
   --text-h2--line-height: var(--hs-lh-h2);
   --text-h3:          var(--hs-type-h3);
   --text-h3--line-height: var(--hs-lh-h3);
+  --text-input:       var(--hs-type-input);
+  --text-input--line-height: var(--hs-lh-input);
   --text-body:        var(--hs-type-body);
   --text-body--line-height: var(--hs-lh-body);
   --text-body-sm:     var(--hs-type-body-sm);
   --text-body-sm--line-height: var(--hs-lh-body-sm);
   --text-caption:     var(--hs-type-caption);
   --text-caption--line-height: var(--hs-lh-caption);
+  --text-meta:        var(--hs-type-meta);
+  --text-meta--line-height: var(--hs-lh-meta);
   --text-eyebrow:     var(--hs-type-eyebrow);
   --text-eyebrow--line-height: var(--hs-lh-eyebrow);
   --text-mono:        var(--hs-type-mono);
@@ -472,23 +681,25 @@ body {
   --text-mono-sm:     var(--hs-type-mono-sm);
   --text-mono-sm--line-height: var(--hs-lh-mono-sm);
 
-  --tracking-tight:  var(--hs-tracking-tight);
-  --tracking-snug:   var(--hs-tracking-snug);
-  --tracking-wide:   var(--hs-tracking-wide);
+  --tracking-tight:   var(--hs-tracking-tight);
+  --tracking-snug:    var(--hs-tracking-snug);
+  --tracking-wide:    var(--hs-tracking-wide);
+  --tracking-eyebrow: var(--hs-tracking-eyebrow);
+  --tracking-wider:   var(--hs-tracking-wider);
 
-  --radius-sm: var(--hs-radius-sm);
-  --radius-md: var(--hs-radius-md);
-  --radius-lg: var(--hs-radius-lg);
-  --radius-xl: var(--hs-radius-xl);
+  --radius-pill: var(--hs-radius-pill);
+  --radius-sm:   var(--hs-radius-sm);
+  --radius-md:   var(--hs-radius-md);
+  --radius-lg:   var(--hs-radius-lg);
+  --radius-xl:   var(--hs-radius-xl);
 
+  /* e1/e2 resolve to `none`. They stay mapped so `shadow-e1` in an
+     unredesigned component compiles to nothing visible rather than to a
+     Tailwind default shadow. */
   --shadow-e1: var(--hs-e1);
   --shadow-e2: var(--hs-e2);
   --shadow-e3: var(--hs-e3);
 
-  /* §9 easings. `--ease-*` is a real Tailwind namespace, so these become `ease-standard` etc.
-     The matching durations are NOT here: Tailwind v4 has no `--duration-*` theme namespace, so
-     declaring them would compile silently to nothing. They are defined as explicit `@utility`
-     rules in base.css instead — verified generated, not assumed. */
   --ease-standard: var(--hs-ease-standard);
   --ease-out:      var(--hs-ease-out);
   --ease-in:       var(--hs-ease-in);

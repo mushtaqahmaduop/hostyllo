@@ -2,3 +2,29 @@
 
 ## Session 1 — June 2026
 - LESSON: Run pnpm install only after workspace config files exist → prevents duplicate node_modules
+
+## Session 17 — 2026-08-06
+- LESSON: **A test that asserts a value is PRESENT does not assert it is VALID.**
+  `queues.test.ts` checked that every `.add()` in dispatch.ts passed a `jobId`, and passed. Every
+  jobId was there; one of the three was rejected by BullMQ at runtime (`auto-cancel:<day>` — a
+  custom ID may contain ':' only if it splits into exactly three parts). The nightly sweep would
+  have failed every night. When a test asserts the shape of a call, ask what the callee does with
+  the value, and test that instead.
+- LESSON: **Pure logic buried in a module with side effects cannot be unit-tested, so it doesn't
+  get tested.** The jobId templates lived in `lib/queues.ts`, which constructs four `Queue`s on
+  import and therefore wants Redis — which is exactly why the original test was restricted to
+  static source regexes. Moving the helpers to a side-effect-free `lib/job-ids.ts` made the real
+  test possible. If a test file resorts to reading source with a regex, the design is telling you
+  something.
+- LESSON: **Schedules mean a bug ships and waits.** The three dispatch crons fire at 00:00 on the
+  1st, 00:30 and 02:00 Asia/Karachi. Enabling `WORKERS_ENABLED` proves nothing for up to 21 hours,
+  so the failure would have surfaced overnight with nobody watching. Fire the job by hand
+  immediately after enabling — write the same job the scheduler writes. Do not wait for the cron.
+- LESSON: **Read a Supabase database only after the project reports `ACTIVE_HEALTHY`.** Queried
+  during `COMING_UP`, the connection succeeds and `information_schema` returns zero rows — a fully
+  populated schema looks empty. That false reading nearly produced a "staging was never migrated"
+  conclusion and a destructive re-migration of a live database.
+- LESSON: **Check the live object, not the migration that created it.** Migration 010 creates
+  `hostyllo_app` NOLOGIN and says the founder sets the credential out of band, so reasoning from
+  the file said staging had no RLS enforcement. `pg_roles` said `rolcanlogin = true`. The file
+  records an intent at one moment; the database records the present.

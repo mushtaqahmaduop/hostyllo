@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { bullmqRedis } from '../lib/bullmq-redis.js';
 import { pool } from '../lib/db.js';
+import { withTransaction } from '../lib/tx.js';
 import { moveToDLQ } from './dlq.js';
 
 // ─── Job Types ────────────────────────────────────────────────────────────────
@@ -26,47 +27,40 @@ export interface BillingSyncJob {
 async function activatePlan(data: BillingSyncJob): Promise<void> {
   const { hostelId, plan = 'starter', billingPeriodDays = 30, triggeredBy } = data;
 
-  const periodEnd = `NOW() + INTERVAL '${billingPeriodDays} days'`;
-
-  await pool.query('BEGIN');
-  try {
+  await withTransaction(async (client) => {
     // 1. Update subscriptions
-    await pool.query(
+    await client.query(
       `UPDATE public.subscriptions
           SET status               = 'active',
               plan                 = $2,
               current_period_start = NOW(),
-              current_period_end   = ${periodEnd},
+              current_period_end   = NOW() + ($3 || ' days')::INTERVAL,
               updated_at           = NOW()
         WHERE hostel_id = $1`,
-      [hostelId, plan]
+      [hostelId, plan, billingPeriodDays]
     );
 
-    // 2. Update hostels
-    await pool.query(
+    // 2. Update hostels — keyed by `id`; this table has no `hostel_id` column (migration 001:12)
+    await client.query(
       `UPDATE public.hostels
           SET plan        = $2,
               plan_status = 'active',
               updated_at  = NOW()
-        WHERE hostel_id = $1`,
+        WHERE id = $1`,
       [hostelId, plan]
     );
 
     // 3. Immutable audit entry
-    await pool.query(
+    await client.query(
       `INSERT INTO public.audit_log
          (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, $2, 'plan_activated', 'subscription', $1,
                jsonb_build_object('plan', $3, 'billing_period_days', $4))`,
       [hostelId, triggeredBy ?? null, plan, billingPeriodDays]
     );
+  });
 
-    await pool.query('COMMIT');
-    console.log(`[billing-sync] Hostel ${hostelId} activated on plan=${plan}`);
-  } catch (err) {
-    await pool.query('ROLLBACK');
-    throw err;
-  }
+  console.log(`[billing-sync] Hostel ${hostelId} activated on plan=${plan}`);
 }
 
 async function expireTrial(data: BillingSyncJob): Promise<void> {
@@ -77,81 +71,83 @@ async function expireTrial(data: BillingSyncJob): Promise<void> {
     `SELECT status FROM public.subscriptions WHERE hostel_id = $1`,
     [hostelId]
   );
-  if (!rows[0] || rows[0].status !== 'trialing') {
-    console.log(`[billing-sync] Hostel ${hostelId} is not trialing — skipping trial_expired`);
+  // The schema value is 'trial' (migration 006:10). This guard compared against 'trialing', which
+  // no row can ever hold, so trial expiry short-circuited to "not trialing — skipping" every time.
+  if (!rows[0] || rows[0].status !== 'trial') {
+    console.log(`[billing-sync] Hostel ${hostelId} is not on trial — skipping trial_expired`);
     return;
   }
 
-  await pool.query('BEGIN');
-  try {
-    await pool.query(
+  /*
+   * Terminal state is 'suspended', not 'expired'. Neither CHECK constraint permits 'expired'
+   * (subscriptions: trial|active|past_due|suspended|cancelled — 006:10; hostels: trial|active|
+   * suspended|cancelled — 001:20), so both writes raised 23514 and the job always failed.
+   *
+   * 'suspended' is also the semantically correct landing state: an expired trial keeps its data
+   * and loses write access, which is exactly what suspension means here — and it is the state
+   * `purgePii` looks for on day 31. Mapping to 'cancelled' would strand the data forever.
+   */
+  await withTransaction(async (client) => {
+    await client.query(
       `UPDATE public.subscriptions
-          SET status     = 'expired',
+          SET status     = 'suspended',
               updated_at = NOW()
         WHERE hostel_id  = $1`,
       [hostelId]
     );
 
-    await pool.query(
+    await client.query(
       `UPDATE public.hostels
-          SET plan_status = 'expired',
+          SET plan_status = 'suspended',
               updated_at  = NOW()
-        WHERE hostel_id   = $1`,
+        WHERE id          = $1`,
       [hostelId]
     );
 
-    await pool.query(
+    await client.query(
       `INSERT INTO public.audit_log
          (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, NULL, 'trial_expired', 'subscription', $1,
                jsonb_build_object('expired_at', NOW()))`,
       [hostelId]
     );
+  });
 
-    await pool.query('COMMIT');
-    console.log(`[billing-sync] Hostel ${hostelId} trial expired`);
-  } catch (err) {
-    await pool.query('ROLLBACK');
-    throw err;
-  }
+  console.log(`[billing-sync] Hostel ${hostelId} trial expired → suspended`);
 }
 
 async function suspendTenant(data: BillingSyncJob): Promise<void> {
   const { hostelId, triggeredBy } = data;
 
-  await pool.query('BEGIN');
-  try {
-    await pool.query(
+  // `subscriptions` has no `suspended_at` column (migration 006:6-17) — writing it raised 42703.
+  // The timestamp lives in the audit entry below, which is the immutable record anyway.
+  await withTransaction(async (client) => {
+    await client.query(
       `UPDATE public.subscriptions
-          SET status       = 'suspended',
-              suspended_at = NOW(),
-              updated_at   = NOW()
-        WHERE hostel_id    = $1`,
+          SET status     = 'suspended',
+              updated_at = NOW()
+        WHERE hostel_id  = $1`,
       [hostelId]
     );
 
-    await pool.query(
+    await client.query(
       `UPDATE public.hostels
           SET plan_status = 'suspended',
               updated_at  = NOW()
-        WHERE hostel_id   = $1`,
+        WHERE id          = $1`,
       [hostelId]
     );
 
-    await pool.query(
+    await client.query(
       `INSERT INTO public.audit_log
          (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, $2, 'tenant_suspended', 'subscription', $1,
                jsonb_build_object('suspended_at', NOW()))`,
       [hostelId, triggeredBy ?? null]
     );
+  });
 
-    await pool.query('COMMIT');
-    console.log(`[billing-sync] Hostel ${hostelId} suspended`);
-  } catch (err) {
-    await pool.query('ROLLBACK');
-    throw err;
-  }
+  console.log(`[billing-sync] Hostel ${hostelId} suspended`);
 }
 
 async function reactivateTenant(data: BillingSyncJob): Promise<void> {
@@ -167,13 +163,12 @@ async function reactivateTenant(data: BillingSyncJob): Promise<void> {
     return;
   }
 
-  await pool.query('BEGIN');
-  try {
-    await pool.query(
+  await withTransaction(async (client) => {
+    // `suspended_at = NULL` dropped — the column does not exist (migration 006:6-17).
+    await client.query(
       `UPDATE public.subscriptions
           SET status               = 'active',
               plan                 = $2,
-              suspended_at         = NULL,
               current_period_start = NOW(),
               current_period_end   = NOW() + ($3 || ' days')::INTERVAL,
               updated_at           = NOW()
@@ -181,29 +176,25 @@ async function reactivateTenant(data: BillingSyncJob): Promise<void> {
       [hostelId, plan, billingPeriodDays]
     );
 
-    await pool.query(
+    await client.query(
       `UPDATE public.hostels
           SET plan        = $2,
               plan_status = 'active',
               updated_at  = NOW()
-        WHERE hostel_id   = $1`,
+        WHERE id          = $1`,
       [hostelId, plan]
     );
 
-    await pool.query(
+    await client.query(
       `INSERT INTO public.audit_log
          (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, $2, 'tenant_reactivated', 'subscription', $1,
                jsonb_build_object('plan', $3))`,
       [hostelId, triggeredBy ?? null, plan]
     );
+  });
 
-    await pool.query('COMMIT');
-    console.log(`[billing-sync] Hostel ${hostelId} reactivated on plan=${plan}`);
-  } catch (err) {
-    await pool.query('ROLLBACK');
-    throw err;
-  }
+  console.log(`[billing-sync] Hostel ${hostelId} reactivated on plan=${plan}`);
 }
 
 async function purgePii(data: BillingSyncJob): Promise<void> {
@@ -211,7 +202,7 @@ async function purgePii(data: BillingSyncJob): Promise<void> {
 
   // Safety guard — only purge if suspended (Day 31 check)
   const { rows } = await pool.query(
-    `SELECT plan_status FROM public.hostels WHERE hostel_id = $1`,
+    `SELECT plan_status FROM public.hostels WHERE id = $1`,
     [hostelId]
   );
   if (!rows[0] || rows[0].plan_status !== 'suspended') {
@@ -219,10 +210,17 @@ async function purgePii(data: BillingSyncJob): Promise<void> {
     return;
   }
 
-  await pool.query('BEGIN');
-  try {
+  /*
+   * ⚠️ INCOMPLETE — this clears CNIC only.
+   *
+   * Every version of the tenant-lifecycle spec also requires name, phone, email, emergency contact
+   * and photo to be cleared on the day-31 purge. Until that is implemented this handler satisfies
+   * neither the spec nor PDPA, so `workers/dispatch.ts` deliberately does NOT schedule it — it
+   * runs only when enqueued by hand. Finish the purge before scheduling it.
+   */
+  await withTransaction(async (client) => {
     // Anonymise CNIC — set to NULL (encrypted column; no plaintext ever stored)
-    const { rowCount } = await pool.query(
+    const { rowCount } = await client.query(
       `UPDATE public.students
           SET cnic_encrypted = NULL,
               updated_at     = NOW()
@@ -231,15 +229,17 @@ async function purgePii(data: BillingSyncJob): Promise<void> {
       [hostelId]
     );
 
-    await pool.query(
+    // 'archived' is not a legal plan_status (001:20 allows trial|active|suspended|cancelled).
+    // 'cancelled' is the terminal state.
+    await client.query(
       `UPDATE public.hostels
-          SET plan_status = 'archived',
+          SET plan_status = 'cancelled',
               updated_at  = NOW()
-        WHERE hostel_id   = $1`,
+        WHERE id          = $1`,
       [hostelId]
     );
 
-    await pool.query(
+    await client.query(
       `INSERT INTO public.audit_log
          (hostel_id, user_id, action, entity_type, entity_id, new_data)
        VALUES ($1, NULL, 'pii_purged', 'hostel', $1,
@@ -247,12 +247,8 @@ async function purgePii(data: BillingSyncJob): Promise<void> {
       [hostelId, rowCount ?? 0]
     );
 
-    await pool.query('COMMIT');
     console.log(`[billing-sync] Hostel ${hostelId} PII purged — ${rowCount} students anonymised`);
-  } catch (err) {
-    await pool.query('ROLLBACK');
-    throw err;
-  }
+  });
 }
 
 // ─── Dispatch ────────────────────────────────────────────────────────────────

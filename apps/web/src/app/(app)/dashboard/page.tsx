@@ -1,167 +1,93 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { api, ApiError } from '@/lib/api';
-import { canOperate } from '@/lib/session';
-import { PageHeader } from '@/components/patterns/page-header';
-import { HeroPanel } from '@/components/patterns/hero-panel';
-import { StatStrip, StatItem } from '@/components/patterns/stat-strip';
-import { NeedsAttention, type AttentionItem } from '@/components/patterns/needs-attention';
-import { Money, Num, Pct } from '@/components/patterns/money';
+import { ApiError } from '@/lib/api';
+import { sessionUser } from '@/lib/session';
+import { getDashboardView } from '@/lib/dashboard/presenter';
 import { ErrorState } from '@/components/patterns/states';
-import { Button } from '@/components/ui-kit/button';
+import { BedOccupancyCard, MethodCard, RoomTypeCard } from '@/components/dashboard/donuts';
+import { KpiStrip } from '@/components/dashboard/kpi-strip';
+import { MonthlyOverview } from '@/components/dashboard/monthly-overview';
+import { NeedsAttention } from '@/components/dashboard/needs-attention';
+import { PendingPayments } from '@/components/dashboard/pending-payments';
+import { QuickActions } from '@/components/dashboard/quick-actions';
+import { RevenueExpenses } from '@/components/dashboard/revenue-expenses';
+import { SeatAvailability } from '@/components/dashboard/seat-availability';
+import { TodayGlance } from '@/components/dashboard/today-glance';
 
 export const metadata = { title: 'Dashboard' };
 
-/** Shapes come from GET /dashboard/stats and /dashboard/alerts (API spec, Module 6). */
-type Stats = {
-  month: string;
-  activeStudents: number | string;
-  occupiedBeds: number | string;
-  totalBeds: number | string;
-  occupancyPct: number | string;
-  revenuePkr: number | string;
-  pendingPkr: number | string;
-  expensesPkr: number | string;
-  netFundPkr: number | string;
-};
-
-type Alerts = {
-  pendingPaymentsCount: number;
-  pendingVoidRequests: number;
-  openMaintenance: number;
-  unresolvedComplaints: number;
-  occupancyBelowThreshold: boolean;
-  activeNotices: unknown[];
-};
-
 /**
- * The dashboard — docs/15_UI_SPEC_v1.md §2.
+ * The dashboard — four rows.
  *
- * "A hostel manager opens HOSTYLLO to answer four questions in under five seconds: Did money come
- * in? Who owes me? Is any room empty? What breaks today?"
+ *   1  six KPIs with real sparklines
+ *   2  monthly overview · seat availability · today at a glance
+ *   3  room types · payment methods · bed occupancy · quick actions
+ *   4  revenue vs expenses · pending payments · needs attention
  *
- * So: one hero figure (money collected), a hairline strip of the three supporting answers, and the
- * Needs-Attention panel beside it. Not six equal cards — §1's kill list names "a card per metric,
- * six across" for fragmenting the eye, and the previous version of this screen was exactly that.
+ * ── The layout reflows; it does not scroll sideways ──────────────────────────────────────────
+ * Every row here used to declare `min-w-[var(--hs-content-min)]` — a hard 1180px floor. With
+ * the sidebar taking ~240px, that overflowed any viewport under about 1420px: on an ordinary
+ * 1366px laptop the first KPI card and the left edge of the overview chart were clipped off the
+ * screen, and the whole page scrolled horizontally as one block.
  *
- * There is deliberately no greeting. §16.5: "the hero is the money figure, not a greeting."
+ * The floor is gone. Each row is now a responsive grid that drops to fewer columns as space
+ * runs out, so the same content reflows instead of being cut. The ratio-based column widths
+ * that carried the design's proportions are kept at the widest breakpoint, where there is room
+ * to honour them.
+ *
+ * The page fetches nothing itself. `getDashboardView` owns every figure, which is what stops
+ * the KPI strip and the cards below it from disagreeing about the same number. It also owns
+ * provenance: a section marked `empty` renders an empty state, and no widget on this page can
+ * draw a number the API did not produce.
  */
 export default async function DashboardPage() {
-  let stats: Stats;
-  let alerts: Alerts;
+  const { name } = await sessionUser();
 
+  let view;
   try {
-    // Fetched together: both are small aggregates and the page is useless with only one.
-    [stats, alerts] = await Promise.all([
-      api<Stats>('/dashboard/stats'),
-      api<Alerts>('/dashboard/alerts'),
-    ]);
+    view = await getDashboardView(name ?? 'there');
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/login');
     return (
-      <>
-        <PageHeader title="Dashboard" />
-        <ErrorState
-          title="Couldn't load the dashboard"
-          body="Check your connection and try again."
-          detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
-          retryHref="/dashboard"
-        />
-      </>
+      <ErrorState
+        title="Couldn't load the dashboard"
+        body="Check your connection and try again."
+        detail={error instanceof ApiError ? `${error.status} · ${error.message}` : String(error)}
+        retryHref="/dashboard"
+      />
     );
   }
 
-  const mayWrite = await canOperate();
-
-  /*
-   * Maintenance and complaints have APIs but no screens yet, so those rows carry no href — §10's
-   * insistence that a state be honest applies to affordances too. They join the links when the
-   * screens land.
-   */
-  const attention: AttentionItem[] = [
-    {
-      count: alerts.pendingPaymentsCount,
-      singular: 'payment is unpaid',
-      plural: 'payments are unpaid',
-      amount: stats.pendingPkr,
-      href: '/payments?status=pending',
-    },
-    {
-      count: alerts.pendingVoidRequests,
-      singular: 'void request awaits approval',
-      plural: 'void requests await approval',
-      href: '/payments',
-    },
-    {
-      count: alerts.openMaintenance,
-      singular: 'maintenance request is open',
-      plural: 'maintenance requests are open',
-    },
-    {
-      count: alerts.unresolvedComplaints,
-      singular: 'complaint is unresolved',
-      plural: 'complaints are unresolved',
-    },
-  ];
-
   return (
-    <>
-      <PageHeader
-        eyebrow={stats.month}
-        title="Dashboard"
-        attention={attention.some((a) => a.count > 0)}
-        actions={
-          mayWrite ? (
-            <>
-              {/* §7.5: one primary per view. Recording a payment is the thing a warden opens this
-                  app to do; adding a student is the weekly job. */}
-              <Button asChild variant="secondary">
-                <Link href="/students/new">Add student</Link>
-              </Button>
-              <Button asChild variant="primary">
-                <Link href="/payments/new">Record payment</Link>
-              </Button>
-            </>
-          ) : undefined
-        }
-      />
+    <div className="flex flex-col gap-4">
+      {/* ROW 1 · six KPIs */}
+      <KpiStrip kpis={view.kpis.data} />
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <HeroPanel
-          className="lg:col-span-2"
-          eyebrow={`Collected · ${stats.month}`}
-          value={stats.revenuePkr}
-          definition="Collected = sum of amount paid on every non-voided payment row dated in this month."
-        >
-          <StatStrip>
-            <StatItem
-              label="Occupancy"
-              hint={`${Number(stats.occupiedBeds ?? 0)} of ${Number(stats.totalBeds ?? 0)} beds`}
-            >
-              {/* §3.2's sharpest rule: a zero here renders tertiary, never green. An empty hostel
-                  is not a success, and the reference dashboards that paint it green are lying. */}
-              <Pct value={stats.occupancyPct} />
-            </StatItem>
-            <StatItem label="Active students">
-              <Num value={stats.activeStudents} />
-            </StatItem>
-            <StatItem label="Expenses">
-              <Money value={stats.expensesPkr} />
-            </StatItem>
-            <StatItem
-              label="Net fund"
-              // Amber, not red: a negative net fund is a thing to act on this week, not a failed
-              // transaction. Red is reserved for destructive and failed (§3.1).
-              attention={Number(stats.netFundPkr ?? 0) < 0}
-            >
-              <Money value={stats.netFundPkr} />
-            </StatItem>
-          </StatStrip>
-        </HeroPanel>
-
-        <NeedsAttention items={attention} />
+      {/* ROW 2 · overview · seats · today */}
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.42fr)_minmax(0,.94fr)]">
+        <MonthlyOverview series={view.series} />
+        <SeatAvailability seatMap={view.seatMap} />
+        <TodayGlance glance={view.glance} />
       </div>
-    </>
+
+      {/* ROW 3 · four square cards */}
+      <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <RoomTypeCard types={view.roomTypes} />
+        <MethodCard methods={view.methods} />
+        <BedOccupancyCard beds={view.beds} />
+        <QuickActions />
+      </div>
+
+      {/* ROW 4 · bars · pending · needs attention */}
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.34fr)_minmax(0,1.16fr)]">
+        <RevenueExpenses series={view.series} />
+        <PendingPayments
+          pending={view.pending}
+          duesTotal={view.totals.dues}
+          dueCount={view.totals.dueStudents}
+        />
+        <NeedsAttention attention={view.attention} />
+      </div>
+    </div>
   );
 }

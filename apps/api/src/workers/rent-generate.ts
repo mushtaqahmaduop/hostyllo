@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { bullmqRedis } from '../lib/bullmq-redis.js';
 import { pool } from '../lib/db.js';
+import { withTransaction } from '../lib/tx.js';
 import { moveToDLQ } from './dlq.js';
 
 interface RentGenerateJob {
@@ -12,7 +13,7 @@ async function generateMonthlyRent(hostelId: string, monthLabel: string): Promis
   const monthDate = `${monthLabel}-01`;
 
   const { rows: students } = await pool.query(
-    `SELECT s.id, s.hostel_id, s.monthly_fee, s.admission_fee, s.room_id
+    `SELECT s.id, s.hostel_id, s.monthly_fee, s.admission_fee, s.mess_fee, s.room_id
      FROM public.students s
      WHERE s.hostel_id = $1
        AND s.status = 'active'
@@ -48,22 +49,62 @@ async function generateMonthlyRent(hostelId: string, monthLabel: string): Promis
       [hostelId]
     );
     const receiptNumber = receiptResult.rows[0].receipt_number;
-    const totalDue = student.monthly_fee;
 
-    // Explicit conflict target (uq_payments_student_month, migration 008)
-    // as a race-condition backstop for the pre-check above
-    const result = await pool.query(
-      `INSERT INTO public.payments
-         (hostel_id, student_id, room_id, month, rent, admission_fee,
-          concession, total_due, paid, unpaid, status, receipt_number)
-       VALUES
-         ($1, $2, $3, $4, $5, 0, 0, $5, 0, $5, 'pending', $6)
-       ON CONFLICT (hostel_id, student_id, month) WHERE status != 'void' AND deleted_at IS NULL DO NOTHING
-       RETURNING id`,
-      [student.hostel_id, student.id, student.room_id, monthDate, totalDue, receiptNumber]
-    );
+    /*
+     * Mess is billed as a `payment_extra_charges` row, NOT folded into `rent`.
+     *
+     * Three reasons, in order of how much they cost to get wrong:
+     *   1. The canonical formula is `rent + admission_fee + Σ(extras) - concession`
+     *      (packages/db/src/paymentService.ts). `PATCH /payments/:id` recalculates from the
+     *      payment's REAL extra-charge rows (routes/payments.ts:576). A payment whose `total_due`
+     *      included mess but had no extras row would have the mess silently deleted by the first
+     *      owner edit — the total would drop and nothing would say why.
+     *   2. `rent` is what the receipt prints as rent. Folding mess in overstates it every month.
+     *   3. The redesigned Students screen shows rent and mess broken out beneath the combined
+     *      figure, so the two have to stay separately addressable.
+     *
+     * NULL vs 0 is preserved, because migration 014 makes them different facts: NULL means mess is
+     * not included and gets no line at all; 0.00 means included and zero-rated, and gets a line
+     * reading zero. Collapsing them would erase the distinction the column exists to record.
+     *
+     * The insert and its mess line share one transaction. Written separately, a crash between them
+     * leaves a payment whose `total_due` includes a charge with no row to justify it — which is
+     * defect (1) above, arrived at by a different route.
+     *
+     * All money arithmetic is done by Postgres on NUMERIC, never in JS. `8000.00 + 0.10` in a
+     * double is not 8000.10, and INVARIANT-4 exists because money must not round-trip a float.
+     */
+    const messFee: number | null = student.mess_fee ?? null;
 
-    if (result.rowCount && result.rowCount > 0) created++;
+    const result = await withTransaction(async (client) => {
+      // Explicit conflict target (uq_payments_student_month, migration 008)
+      // as a race-condition backstop for the pre-check above
+      const inserted = await client.query<{ id: string }>(
+        `INSERT INTO public.payments
+           (hostel_id, student_id, room_id, month, rent, admission_fee,
+            concession, total_due, paid, unpaid, status, receipt_number)
+         VALUES
+           ($1, $2, $3, $4, $5, 0, 0,
+            $5::numeric + COALESCE($7::numeric, 0), 0,
+            $5::numeric + COALESCE($7::numeric, 0), 'pending', $6)
+         ON CONFLICT (hostel_id, student_id, month) WHERE status != 'void' AND deleted_at IS NULL DO NOTHING
+         RETURNING id`,
+        [student.hostel_id, student.id, student.room_id, monthDate,
+         student.monthly_fee, receiptNumber, messFee]
+      );
+
+      if (inserted.rowCount && messFee !== null) {
+        await client.query(
+          `INSERT INTO public.payment_extra_charges (hostel_id, payment_id, label, amount)
+           VALUES ($1, $2, 'Mess', $3::numeric)`,
+          [student.hostel_id, inserted.rows[0].id, messFee]
+        );
+      }
+
+      return inserted.rowCount ?? 0;
+    });
+
+    if (result > 0) created++;
     else skipped++;
   }
 
@@ -83,4 +124,4 @@ worker.on('failed', (job, err) => { console.error(`[rent-generate] Job ${job?.id
 worker.on('completed', (job) => { console.log(`[rent-generate] Job ${job.id} completed`); });
 worker.on('error', (err) => { console.error('[rent-generate] Worker error:', err); });
 
-export { worker as rentGenerateWorker };
+export { worker as rentGenerateWorker, generateMonthlyRent };
