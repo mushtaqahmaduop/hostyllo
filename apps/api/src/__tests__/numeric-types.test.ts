@@ -77,15 +77,31 @@ describe.skipIf(!HAS_DB)('numeric response types', () => {
     expect(res.statusCode, res.body).toBe(200);
 
     const d = res.json().data;
+    // Every field `Stats` in apps/web/src/lib/dashboard/presenter.ts declares as a number, so the
+    // list here is the frontend's own contract rather than a sample of it. The pre-port names
+    // (`netFundPkr`, `totalBeds`, `occupiedBeds`) are gone: f493f78 derived the block from
+    // HOSTIX dashboard.js, which nets transfers out of profit and separates seats from beds.
     for (const field of [
       'revenuePkr',
       'pendingPkr',
+      'pendingCount',
+      'paidCount',
       'expensesPkr',
-      'netFundPkr',
+      'transfersPkr',
+      'totalExpectedPkr',
+      'netProfitPkr',
       'activeStudents',
-      'totalBeds',
-      'occupiedBeds',
+      'seatedStudents',
+      'totalRooms',
+      'occupiedRooms',
+      'vacantRooms',
+      'totalSeats',
+      'filledSeats',
+      'availableSeats',
+      'seatsFreeInOccupiedRooms',
       'occupancyPct',
+      'bedsTotal',
+      'bedsOccupied',
     ]) {
       expect(typeof d[field], `${field} must be a number, got ${JSON.stringify(d[field])}`).toBe(
         'number',
