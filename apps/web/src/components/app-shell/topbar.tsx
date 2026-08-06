@@ -49,7 +49,7 @@ export function Topbar({
   const title = current?.label ?? 'Hostyllo';
 
   return (
-    <header className="flex min-w-[var(--hs-content-min)] shrink-0 items-center gap-[10px] border-b border-hairline bg-surface px-5 py-[11px]">
+    <header className="flex shrink-0 items-center gap-[10px] border-b border-hairline bg-surface px-5 py-[11px]">
       <button
         type="button"
         onClick={onToggleNav}

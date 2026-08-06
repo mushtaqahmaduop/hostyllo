@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
-import type { BedSegment, MethodSlice, RoomTypeSlice } from '@/lib/dashboard/contract';
+import type { BedSegment, MethodSlice, RoomTypeSlice, Sourced } from '@/lib/dashboard/contract';
 import { formatAmount } from '@/lib/format';
 import { Card, CardTitle } from './card';
+import { EmptyCard } from './empty';
 import { RAMP, toneColor } from './tone';
 
 /**
@@ -75,9 +76,20 @@ function Donut({
 }
 
 /** Occupancy by room type — magnitudes of one thing, so one violet ramp. */
-export function RoomTypeCard({ types }: { types: RoomTypeSlice[] }) {
+export function RoomTypeCard({ types: sourced }: { types: Sourced<RoomTypeSlice[]> }) {
+  if (sourced.from === 'empty') {
+    return (
+      <EmptyCard
+        title="Room Types"
+        body="No rooms yet. Each room type appears here with its own occupancy once rooms exist."
+        actionHref="/rooms"
+        actionLabel="Add rooms"
+      />
+    );
+  }
+  const types = sourced.data;
   const rooms = types.reduce((sum, t) => sum + t.rooms, 0);
-  const full = types.reduce((sum, t) => sum + t.roomsFull, 0);
+  const full = types.reduce((sum, t) => sum + t.roomsOccupied, 0);
 
   return (
     <Card>
@@ -138,7 +150,16 @@ export function RoomTypeCard({ types }: { types: RoomTypeSlice[] }) {
  * The ramp is ordered largest share first, so the darkest stop is the biggest
  * slice and the donut reads without consulting the legend.
  */
-export function MethodCard({ methods }: { methods: MethodSlice[] }) {
+export function MethodCard({ methods: sourced }: { methods: Sourced<MethodSlice[]> }) {
+  if (sourced.from === 'empty') {
+    return (
+      <EmptyCard
+        title="Payment Methods"
+        body="No payments collected this month, so there is no split to show yet."
+      />
+    );
+  }
+  const methods = sourced.data;
   const total = methods.reduce((sum, m) => sum + m.amount, 0);
   const ordered = [...methods].sort((a, b) => b.amount - a.amount);
 
@@ -184,7 +205,16 @@ export function MethodCard({ methods }: { methods: MethodSlice[] }) {
 }
 
 /** Bed occupancy — occupied / vacant / under maintenance. */
-export function BedOccupancyCard({ segments }: { segments: BedSegment[] }) {
+export function BedOccupancyCard({ beds }: { beds: Sourced<BedSegment[]> }) {
+  if (beds.from === 'empty') {
+    return (
+      <EmptyCard
+        title="Bed Occupancy"
+        body="No individual beds are modelled yet. Seat totals on the left are derived from room capacity."
+      />
+    );
+  }
+  const segments = beds.data;
   const total = segments.reduce((sum, s) => sum + s.value, 0);
   const occupied = segments.find((s) => s.label === 'Occupied')?.value ?? 0;
 

@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { Info } from 'lucide-react';
 
 import { ApiError } from '@/lib/api';
 import { sessionUser } from '@/lib/session';
@@ -8,32 +7,38 @@ import { ErrorState } from '@/components/patterns/states';
 import { BedOccupancyCard, MethodCard, RoomTypeCard } from '@/components/dashboard/donuts';
 import { KpiStrip } from '@/components/dashboard/kpi-strip';
 import { MonthlyOverview } from '@/components/dashboard/monthly-overview';
+import { NeedsAttention } from '@/components/dashboard/needs-attention';
 import { PendingPayments } from '@/components/dashboard/pending-payments';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { RevenueExpenses } from '@/components/dashboard/revenue-expenses';
 import { SeatAvailability } from '@/components/dashboard/seat-availability';
 import { TodayGlance } from '@/components/dashboard/today-glance';
-import { UpcomingReminders } from '@/components/dashboard/upcoming-reminders';
 
 export const metadata = { title: 'Dashboard' };
 
 /**
- * The dashboard — the owner's redesign, four rows.
+ * The dashboard — four rows.
  *
- *   1  six KPIs with sparklines
+ *   1  six KPIs with real sparklines
  *   2  monthly overview · seat availability · today at a glance
  *   3  room types · payment methods · bed occupancy · quick actions
- *   4  revenue vs expenses · pending payments · upcoming reminders
+ *   4  revenue vs expenses · pending payments · needs attention
  *
- * Every row declares `min-w-[var(--hs-content-min)]` — 1180px — so they all
- * scroll together as one object below that width. Set on the rows rather than on
- * the scroll container because a `min-width` on the container would also stop
- * the header above from tracking the same horizontal scroll, and a header that
- * slides out of register with the content it labels is worse than no header.
+ * ── The layout reflows; it does not scroll sideways ──────────────────────────────────────────
+ * Every row here used to declare `min-w-[var(--hs-content-min)]` — a hard 1180px floor. With
+ * the sidebar taking ~240px, that overflowed any viewport under about 1420px: on an ordinary
+ * 1366px laptop the first KPI card and the left edge of the overview chart were clipped off the
+ * screen, and the whole page scrolled horizontally as one block.
  *
- * The page fetches nothing itself. `getDashboardView` owns every figure, which
- * is what stops the KPI strip and the cards below it from disagreeing about the
- * same number.
+ * The floor is gone. Each row is now a responsive grid that drops to fewer columns as space
+ * runs out, so the same content reflows instead of being cut. The ratio-based column widths
+ * that carried the design's proportions are kept at the widest breakpoint, where there is room
+ * to honour them.
+ *
+ * The page fetches nothing itself. `getDashboardView` owns every figure, which is what stops
+ * the KPI strip and the cards below it from disagreeing about the same number. It also owns
+ * provenance: a section marked `empty` renders an empty state, and no widget on this page can
+ * draw a number the API did not produce.
  */
 export default async function DashboardPage() {
   const { name } = await sessionUser();
@@ -55,62 +60,34 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {view.hasUnverifiedData && <UnverifiedNotice />}
-
       {/* ROW 1 · six KPIs */}
       <KpiStrip kpis={view.kpis.data} />
 
       {/* ROW 2 · overview · seats · today */}
-      <div className="grid min-w-[var(--hs-content-min)] grid-cols-[minmax(0,2fr)_minmax(0,1.42fr)_minmax(0,.94fr)] items-stretch gap-4">
-        <MonthlyOverview series={view.series.data} />
-        <SeatAvailability seatMap={view.seatMap.data} />
-        <TodayGlance items={view.glance.data} />
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.42fr)_minmax(0,.94fr)]">
+        <MonthlyOverview series={view.series} />
+        <SeatAvailability seatMap={view.seatMap} />
+        <TodayGlance glance={view.glance} />
       </div>
 
       {/* ROW 3 · four square cards */}
-      <div className="grid min-w-[var(--hs-content-min)] grid-cols-4 items-stretch gap-4">
-        <RoomTypeCard types={view.roomTypes.data} />
-        <MethodCard methods={view.methods.data} />
-        <BedOccupancyCard segments={view.beds.data} />
+      <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <RoomTypeCard types={view.roomTypes} />
+        <MethodCard methods={view.methods} />
+        <BedOccupancyCard beds={view.beds} />
         <QuickActions />
       </div>
 
-      {/* ROW 4 · bars · pending · reminders */}
-      <div className="grid min-w-[var(--hs-content-min)] grid-cols-[minmax(0,1fr)_minmax(0,1.34fr)_minmax(0,1.16fr)] items-stretch gap-4">
-        <RevenueExpenses series={view.series.data} />
+      {/* ROW 4 · bars · pending · needs attention */}
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.34fr)_minmax(0,1.16fr)]">
+        <RevenueExpenses series={view.series} />
         <PendingPayments
-          rows={view.pending.data}
+          pending={view.pending}
           duesTotal={view.totals.dues}
           dueCount={view.totals.dueStudents}
         />
-        <UpcomingReminders reminders={view.reminders.data} />
+        <NeedsAttention attention={view.attention} />
       </div>
     </div>
-  );
-}
-
-/**
- * One line, stated once, at the top.
- *
- * Six of the eleven widgets are drawing figures no endpoint produces yet. A
- * manager reconciling cash has to be able to tell those apart from the four that
- * are real, and the honest place to say so is before they read anything — not in
- * a footnote under a chart they have already believed.
- *
- * It disappears on its own: `hasUnverifiedData` is computed from the sections'
- * own provenance, so the last endpoint to land removes this banner without
- * anyone remembering to.
- */
-function UnverifiedNotice() {
-  return (
-    <p className="flex min-w-[var(--hs-content-min)] items-center gap-2 rounded-md border border-attention-border bg-attention-tint px-3 py-2 text-body-sm text-fg">
-      <Info className="size-4 shrink-0 text-attention" aria-hidden />
-      <span>
-        <strong className="font-semibold">Some figures are illustrative.</strong> Revenue, expenses,
-        dues, students, beds and the pending list are live. The month series is projected from those
-        totals; the seat map, room-type split, payment-method split, today&rsquo;s counters and
-        reminders have no data source yet.
-      </span>
-    </p>
   );
 }

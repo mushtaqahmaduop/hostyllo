@@ -41,7 +41,7 @@ const ICONS: Record<string, LucideIcon> = {
  */
 export function KpiStrip({ kpis }: { kpis: Kpi[] }) {
   return (
-    <div className="grid min-w-[var(--hs-content-min)] grid-cols-6 gap-4">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
       {kpis.map((kpi) => (
         <KpiCard key={kpi.id} kpi={kpi} />
       ))}

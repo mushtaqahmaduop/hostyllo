@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { CircleCheckBig } from 'lucide-react';
 
-import type { PendingPayment } from '@/lib/dashboard/contract';
+import type { PendingPayment, Sourced } from '@/lib/dashboard/contract';
 import { formatAmount, formatDate } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import { Card, CardLink, CardTitle } from './card';
@@ -44,14 +44,18 @@ const PILL: Record<PendingPayment['status'], string> = {
   Overdue: 'bg-attention-tint text-attention',
 };
 export function PendingPayments({
-  rows,
+  pending,
   duesTotal,
   dueCount,
 }: {
-  rows: PendingPayment[];
+  pending: Sourced<PendingPayment[]>;
   duesTotal: number;
   dueCount: number;
 }) {
+  // No EmptyCard here on purpose: this card already owns a better empty state below, which
+  // names the outstanding total and the count rather than just saying there is nothing.
+  const rows = pending.data;
+
   return (
     <Card>
       <CardTitle action={<CardLink href="/payments?status=pending">View all</CardLink>}>

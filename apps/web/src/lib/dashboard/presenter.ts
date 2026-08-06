@@ -3,71 +3,101 @@ import 'server-only';
 import { api } from '@/lib/api';
 import { formatAmount } from '@/lib/format';
 import type {
+  AttentionItem,
   BedSegment,
   DashboardView,
   GlanceItem,
   Kpi,
   MethodSlice,
+  MonthPoint,
   MonthlySeries,
   PendingPayment,
   Provenance,
-  Reminder,
   RoomTypeSlice,
   SeatMap,
   SeatRoom,
   Sourced,
+  Tone,
 } from './contract';
 
 /**
  * Builds the dashboard's view model.
  *
- * This is the only place in the app that knows which figures are real. Widgets
- * read `DashboardView` and render; they never fetch, never compute a total and
- * never decide a colour from a raw number.
+ * Widgets read `DashboardView` and render; they never fetch, never compute a total and never
+ * decide a colour from a raw number.
  *
- * ── What is live today ───────────────────────────────────────────────────────
- *   GET /dashboard/stats           revenue, expenses, net fund, dues, students,
- *                                  occupied + total beds, occupancy %
- *   GET /dashboard/stats?month=…   the same for last month, which is what makes
- *                                  the month-over-month deltas real rather than
- *                                  decorative
- *   GET /dashboard/alerts          unpaid count, void requests. Its maintenance
- *                                  and complaint counts are hardcoded zeros in
- *                                  apps/api/src/routes/dashboard.ts, so they are
- *                                  treated as absent, not as "none open".
- *   GET /payments?status=…         the Pending Payments rows, with real students,
- *                                  rooms, amounts and statuses
+ * ── Every figure on this screen is now real ──────────────────────────────────────────────────
+ *   GET /dashboard/stats            KPIs — revenue, expenses, transfers, profit, dues,
+ *                                   students, rooms, seats, occupancy
+ *   GET /dashboard/stats?month=…    the same for last month, which is what makes the
+ *                                   month-over-month deltas real rather than decorative
+ *   GET /dashboard/trend            the twelve-month series AND every KPI sparkline
+ *   GET /dashboard/seat-map         one tile per real room
+ *   GET /dashboard/room-types       the room-type split
+ *   GET /dashboard/payment-methods  the method split
+ *   GET /dashboard/today            today's counters
+ *   GET /dashboard/alerts           unresolved maintenance, complaints, pending cancellations,
+ *                                   active notices, uncollected total
+ *   GET /payments?status=…          the Pending Payments rows
  *
- * Everything else — the month series, the seat map, the room-type and payment-
- * method splits, today's counters and the reminder list — has no endpoint. It is
- * marked `derived` where it is computed from live figures and `sample` where it
- * is not, and the page shows a marker whenever any of it is on screen.
+ * This file previously synthesised six of those from two endpoints — a month series projected
+ * from one month's total, a fourteen-point sparkline curve fitted to a single value, an
+ * invented seat map and a hardcoded room-type table. All of it is deleted. Where a tenant has
+ * no data, the section is `empty` and the widget renders an empty state.
  *
- * Two calls, not twelve. A real twelve-month series would mean twelve round
- * trips through that CTE on every dashboard load, eleven of which would also
- * recount students and beds for no reason. Two anchors give honest deltas; the
- * shape between them is projected and labelled as such. It becomes live the day
- * a `GET /dashboard/series` lands, and nothing above this file changes.
+ * Nine calls, not two. They are one `Promise.all`, so the cost is one round trip's latency, and
+ * a dashboard that takes an extra 40ms to tell the truth is a better dashboard.
  */
 
 type Stats = {
   month: string;
-  activeStudents: number | string;
-  occupiedBeds: number | string;
-  totalBeds: number | string;
-  occupancyPct: number | string;
-  revenuePkr: number | string;
-  pendingPkr: number | string;
-  expensesPkr: number | string;
-  netFundPkr: number | string;
+  activeStudents: number;
+  seatedStudents: number;
+  totalRooms: number;
+  occupiedRooms: number;
+  vacantRooms: number;
+  totalSeats: number;
+  filledSeats: number;
+  availableSeats: number;
+  seatsFreeInOccupiedRooms: number;
+  occupancyPct: number;
+  bedsTotal: number;
+  bedsOccupied: number;
+  revenuePkr: number;
+  pendingPkr: number;
+  pendingCount: number;
+  paidCount: number;
+  expensesPkr: number;
+  transfersPkr: number;
+  totalExpectedPkr: number;
+  netProfitPkr: number;
 };
 
 type Alerts = {
   pendingPaymentsCount: number;
+  uncollectedPkr: number;
   pendingVoidRequests: number;
   openMaintenance: number;
   unresolvedComplaints: number;
+  pendingCancellations: { id: string; studentName: string; vacateDate: string | null }[];
+  occupancyPct: number;
   occupancyBelowThreshold: boolean;
+  vacantSeats: number;
+  activeNotices: { id: string; title: string }[];
+};
+
+type TrendResponse = { year: number; months: MonthPoint[] };
+type SeatMapResponse = { rooms: (SeatRoom & { number?: string })[] };
+type RoomTypesResponse = { types: RoomTypeSlice[] };
+type MethodsResponse = { month: string; methods: MethodSlice[] };
+type TodayResponse = {
+  checkIns: number;
+  checkOuts: number;
+  newAdmissions: number;
+  paymentsReceivedPkr: number;
+  complaintsRaised: number;
+  maintenanceRequests: number;
+  pendingApprovals: number;
 };
 
 type PaymentRow = {
@@ -78,12 +108,11 @@ type PaymentRow = {
   unpaidPkr: number | string;
   status: string;
 };
-
 type PaymentList = { payments: PaymentRow[]; total: number };
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** API numerics arrive as strings on several endpoints; `null` must not become 0. */
+/** API numerics may arrive as strings; `null` must not become 0. */
 function num(value: number | string | null | undefined, fallback = 0): number {
   if (value === null || value === undefined || value === '') return fallback;
   const n = Number(value);
@@ -94,7 +123,7 @@ function pkr(value: number): string {
   return `PKR ${formatAmount(value)}`;
 }
 
-/** `2026-07-01` → `2026-06`, the query string `/dashboard/stats` expects. */
+/** `2026-07` → `2026-06`, the query string `/dashboard/stats` expects. */
 function previousMonthKey(monthIso: string): string {
   const d = new Date(`${monthIso.slice(0, 7)}-01T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() - 1);
@@ -103,9 +132,8 @@ function previousMonthKey(monthIso: string): string {
 
 /**
  * Month-over-month movement as the KPI note wants it: `"14.8% vs Jun 2026"`.
- *
- * Returns null when there is no comparable baseline, and the caller then renders
- * its fallback note instead of a naked percentage against nothing.
+ * Returns null when there is no comparable baseline; the caller renders its fallback instead of
+ * a naked percentage against nothing.
  */
 function delta(current: number, previous: number, baseline: string) {
   if (!Number.isFinite(previous) || previous === 0) return null;
@@ -117,394 +145,248 @@ function delta(current: number, previous: number, baseline: string) {
 }
 
 /**
- * A fourteen-point curve ending on the real current value.
+ * A real sparkline: this metric's own settled months, oldest first.
  *
- * Sparklines exist to say "this has been climbing" or "this fell off a cliff",
- * and with two anchors that is exactly what can be said honestly: interpolate
- * between last month and this month, with a small deterministic wobble so the
- * line reads as a series rather than a ruler. Deterministic matters — a random
- * wobble would redraw on every render and make the card look alive when nothing
- * changed.
+ * Only months that have actually happened contribute. A future month billed ahead is real money
+ * but it is not history, and including it would bend the trailing edge of every sparkline
+ * upward for reasons the reader cannot see. Returns [] when there is no history at all, and the
+ * card then draws nothing rather than a flat line implying a steady zero.
  */
-function sparkFrom(current: number, previous: number, seed: number): number[] {
-  const from = Number.isFinite(previous) && previous > 0 ? previous : current * 0.82;
-  return Array.from({ length: 14 }, (_, i) => {
-    const t = i / 13;
-    const base = from + (current - from) * t;
-    const wobble = Math.sin(i * 0.82 + seed) * 0.035 + Math.sin(i * 2.1 + seed * 2) * 0.018;
-    return Math.max(0, base * (1 + wobble * (1 - t * 0.7)));
-  });
+function sparkFrom(months: MonthPoint[], pick: (m: MonthPoint) => number | null): number[] {
+  const points = months.filter((m) => m.isPast).map((m) => pick(m)).filter((v): v is number => v !== null);
+  return points.some((v) => v !== 0) ? points : [];
 }
 
-/**
- * Twelve months ending on the current one.
- *
- * The last two points are the two real months; earlier points extend the same
- * trend backwards. Marked `derived` for exactly that reason.
- */
-function buildSeries(
-  collection: number,
-  expenses: number,
-  previousCollection: number,
-  monthIso: string,
-): MonthlySeries {
-  const end = new Date(`${monthIso.slice(0, 7)}-01T00:00:00Z`);
-  const labels: string[] = [];
-  for (let i = 11; i >= 0; i -= 1) {
-    const d = new Date(end);
-    d.setUTCMonth(d.getUTCMonth() - i);
-    labels.push(MONTH_LABELS[d.getUTCMonth()]);
+function kpi(
+  id: string,
+  label: string,
+  value: string,
+  tone: Tone,
+  spark: number[],
+  current: number,
+  previous: number,
+  baseline: string,
+  opts: { fallback: string; fallbackTone: Tone; goodDirection: 'up' | 'down' },
+): Kpi {
+  const d = baseline ? delta(current, previous, baseline) : null;
+  if (!d) {
+    return { id, label, value, tone, note: opts.fallback, direction: 'none', noteTone: opts.fallbackTone, spark };
   }
-
-  // One month's observed growth, damped and applied backwards. Clamped so a
-  // freak month (a hostel's first month of billing) cannot produce a curve that
-  // decays to zero or explodes off the top of the chart.
-  const observed = previousCollection > 0 ? collection / previousCollection : 1.06;
-  const growth = Math.min(1.25, Math.max(1.01, observed));
-
-  const collectionSeries: number[] = [];
-  for (let i = 11; i >= 0; i -= 1) collectionSeries.push(collection / growth ** i);
-
+  // Direction and colour are separate decisions: expenses rising draws an up arrow, in the
+  // colour that says it is not good news.
+  const isGood = d.direction === opts.goodDirection;
   return {
-    labels,
-    collection: collectionSeries.map((v) => Math.round(v)),
-    // Expenses track collection loosely: mostly fixed cost, partly variable.
-    expenses: collectionSeries.map((v) => Math.round(expenses * (0.45 + 0.55 * (v / collection)))),
-    profit: collectionSeries.map((v) =>
-      Math.round(v - expenses * (0.45 + 0.55 * (v / collection))),
-    ),
+    id, label, value, tone,
+    note: d.note,
+    direction: d.direction,
+    noteTone: isGood ? 'positive' : 'attention',
+    spark,
   };
 }
 
-/**
- * A block seat map: four floors of eight rooms, numbered 101…408.
- *
- * Derived, not sampled, when bed counts are live: the *number* of occupied and
- * maintenance rooms comes from the real occupancy ratio, so the density of the
- * grid is true even though which specific room is which is not. That is the
- * honest half of the widget, and it is the half a manager reads at a glance.
- */
-function buildSeatMap(occupiedBeds: number, totalBeds: number): SeatMap {
-  type SeatState = SeatRoom['state'];
-  const cells = 32;
-  const ratio = totalBeds > 0 ? occupiedBeds / totalBeds : 0;
-  const occupied = Math.round(cells * ratio);
-  const maintenance = totalBeds > 0 ? Math.min(2, cells - occupied) : 0;
-
-  // Spread the occupied rooms evenly rather than filling from the front, so the
-  // grid reads like a real block instead of a progress bar.
-  const states: SeatState[] = Array.from({ length: cells }, () => 'free');
-  for (let i = 0; i < occupied; i += 1) {
-    states[Math.floor((i * cells) / Math.max(1, occupied))] = 'occupied';
-  }
-  for (let i = 0; i < maintenance; i += 1) {
-    const at = states.lastIndexOf('free');
-    if (at >= 0) states[at] = 'maintenance';
-  }
-
-  const rooms: SeatRoom[] = states.map((state, i) => ({
-    no: (Math.floor(i / 8) + 1) * 100 + (i % 8) + 1,
-    state,
-  }));
-
-  return {
-    blockLabel: 'Block A',
-    floors: [0, 1, 2, 3].map((f) => rooms.slice(f * 8, f * 8 + 8)),
-    totals: {
-      total: totalBeds,
-      free: Math.max(0, totalBeds - occupiedBeds),
-      filled: occupiedBeds,
-    },
-  };
+function sourced<T>(data: T, isEmpty: boolean, from: Provenance = 'live'): Sourced<T> {
+  return { data, from: isEmpty ? 'empty' : from };
 }
 
 export async function getDashboardView(userName: string): Promise<DashboardView> {
-  // Fetched together: the page is useless with only some of them, and serialising
-  // four small aggregates would add three round trips to first paint.
   const nowMonth = new Date().toISOString().slice(0, 7);
-  const [stats, alerts, unpaid, partial] = await Promise.all([
-    api<Stats>('/dashboard/stats'),
-    api<Alerts>('/dashboard/alerts'),
-    api<PaymentList>('/payments?status=pending&limit=5'),
-    api<PaymentList>('/payments?status=partial&limit=5'),
-  ]);
+  const year = new Date().getFullYear();
 
-  const previous = await api<Stats>(`/dashboard/stats?month=${previousMonthKey(stats.month ?? nowMonth)}`).catch(
-    () => null,
-  );
+  // One round trip's latency for the whole screen. Each is a small aggregate; the page is
+  // useless with only some of them.
+  const [stats, alerts, trend, seatMapRes, roomTypesRes, methodsRes, today, unpaid, partial] =
+    await Promise.all([
+      api<Stats>('/dashboard/stats'),
+      api<Alerts>('/dashboard/alerts'),
+      api<TrendResponse>(`/dashboard/trend?year=${year}`),
+      api<SeatMapResponse>('/dashboard/seat-map'),
+      api<RoomTypesResponse>('/dashboard/room-types'),
+      api<MethodsResponse>('/dashboard/payment-methods'),
+      api<TodayResponse>('/dashboard/today'),
+      api<PaymentList>('/payments?status=pending&limit=5'),
+      api<PaymentList>('/payments?status=partial&limit=5'),
+    ]);
+
+  const previous = await api<Stats>(
+    `/dashboard/stats?month=${previousMonthKey(stats.month ?? nowMonth)}`,
+  ).catch(() => null);
 
   const collection = num(stats.revenuePkr);
   const expenses = num(stats.expensesPkr);
-  const profit = num(stats.netFundPkr);
+  const transfers = num(stats.transfersPkr);
+  const profit = num(stats.netProfitPkr);
   const dues = num(stats.pendingPkr);
   const students = num(stats.activeStudents);
-  const occupiedBeds = num(stats.occupiedBeds);
-  const totalBeds = num(stats.totalBeds);
 
-  const prevCollection = previous ? num(previous.revenuePkr) : 0;
-  const prevExpenses = previous ? num(previous.expensesPkr) : 0;
-  const prevProfit = previous ? num(previous.netFundPkr) : 0;
-  const prevDues = previous ? num(previous.pendingPkr) : 0;
-  const prevStudents = previous ? num(previous.activeStudents) : 0;
+  const prev = {
+    collection: previous ? num(previous.revenuePkr) : 0,
+    expenses: previous ? num(previous.expensesPkr) : 0,
+    profit: previous ? num(previous.netProfitPkr) : 0,
+    dues: previous ? num(previous.pendingPkr) : 0,
+    students: previous ? num(previous.activeStudents) : 0,
+  };
 
   const baseline = previous
     ? `${MONTH_LABELS[new Date(`${previous.month.slice(0, 7)}-01T00:00:00Z`).getUTCMonth()]} ${previous.month.slice(0, 4)}`
     : '';
 
-  // The deltas are live only when the previous month actually came back.
-  const kpiFrom: Provenance = previous ? 'live' : 'derived';
+  const months = trend.months ?? [];
+  const sparkRevenue = sparkFrom(months, (m) => m.revenuePkr);
+  const sparkExpenses = sparkFrom(months, (m) => m.expensesPkr);
+  const sparkDues = sparkFrom(months, (m) => m.pendingPkr);
+  const sparkProfit = sparkFrom(months, (m) =>
+    m.revenuePkr === null ? null : m.revenuePkr - (m.expensesPkr ?? 0) - (m.transfersPkr ?? 0),
+  );
 
   const kpis: Kpi[] = [
-    kpi('students', 'Total Students', String(students), 'brand', 0.4, students, prevStudents, baseline, {
-      fallback: `${Math.max(0, students - prevStudents)} this month`,
-      fallbackTone: 'positive',
-      goodDirection: 'up',
+    // Students have no monthly history endpoint, so this card carries no sparkline rather than
+    // a synthesised one. It gains one when a students-over-time series exists.
+    kpi('students', 'Total Students', String(students), 'brand', [], students, prev.students, baseline, {
+      fallback: `${students} active`, fallbackTone: 'neutral', goodDirection: 'up',
     }),
-    kpi('revenue', 'Total Revenue', pkr(collection), 'info', 1.5, collection, prevCollection, baseline, {
-      fallback: 'this month',
-      fallbackTone: 'neutral',
-      goodDirection: 'up',
+    kpi('revenue', 'Total Revenue', pkr(collection), 'info', sparkRevenue, collection, prev.collection, baseline, {
+      fallback: 'collected this month', fallbackTone: 'neutral', goodDirection: 'up',
     }),
-    kpi('expenses', 'Expenses & Transfers', pkr(expenses), 'positive', 2.6, expenses, prevExpenses, baseline, {
-      fallback: 'this month',
-      fallbackTone: 'neutral',
-      // Expenses climbing is not good news, so the note colours the other way.
-      goodDirection: 'down',
+    kpi('expenses', 'Expenses & Transfers', pkr(expenses + transfers), 'positive', sparkExpenses,
+      expenses + transfers, prev.expenses, baseline, {
+        fallback: 'this month', fallbackTone: 'neutral', goodDirection: 'down',
+      }),
+    kpi('fund', 'Available Fund', pkr(profit), 'attention', sparkProfit, profit, prev.profit, baseline, {
+      fallback: 'revenue less expenses and transfers', fallbackTone: 'neutral', goodDirection: 'up',
     }),
-    kpi('fund', 'Available Fund', pkr(profit), 'attention', 3.7, profit, prevProfit, baseline, {
-      fallback: 'revenue less expenses',
-      fallbackTone: 'neutral',
-      goodDirection: 'up',
+    kpi('dues', 'Outstanding Dues', pkr(dues), 'attention', sparkDues, dues, prev.dues, baseline, {
+      fallback: `${num(stats.pendingCount)} unpaid`, fallbackTone: 'attention', goodDirection: 'down',
     }),
-    kpi('dues', 'Outstanding Dues', pkr(dues), 'negative', 4.8, dues, prevDues, baseline, {
-      fallback: `across ${alerts.pendingPaymentsCount} payments`,
-      fallbackTone: 'negative',
-      goodDirection: 'down',
-    }),
-    {
-      id: 'maintenance',
-      label: 'Open Maintenance',
-      // The endpoint returns a hardcoded 0, so this is a placeholder, not a count.
-      value: '—',
-      tone: 'neutral',
-      note: 'no maintenance feed yet',
-      direction: 'none',
-      noteTone: 'neutral',
-      spark: sparkFrom(1, 1, 5.9),
-    },
+    kpi('maintenance', 'Open Maintenance', String(num(alerts.openMaintenance)), 'neutral', [],
+      0, 0, '', {
+        fallback: num(alerts.openMaintenance) === 0 ? 'nothing open' : 'awaiting action',
+        fallbackTone: num(alerts.openMaintenance) === 0 ? 'neutral' : 'attention',
+        goodDirection: 'down',
+      }),
   ];
 
-  const series = buildSeries(collection, expenses, prevCollection, stats.month ?? nowMonth);
-  const seatMap = buildSeatMap(occupiedBeds, totalBeds);
-
-  // Pending rows are real. Merged from the two statuses that mean "money is
-  // still owed", oldest month first — the row a warden should chase is the one
-  // that has been outstanding longest, not the one entered most recently.
-  const pendingRows = [...(unpaid.payments ?? []), ...(partial.payments ?? [])]
-    .sort((a, b) => a.paymentMonth.localeCompare(b.paymentMonth))
-    .slice(0, 5);
-
-  // A row is Overdue, not merely Unpaid, once its month has closed — that is the
-  // only status here that earns a coloured pill, so it is worth deriving rather
-  // than lumping in with the rest.
-  const thisMonth = (stats.month ?? nowMonth).slice(0, 7);
-  const pending: PendingPayment[] = pendingRows.map((row) => ({
-    id: row.paymentId,
-    name: row.studentName,
-    room: row.roomNumber ? `(${row.roomNumber})` : '',
-    dueDate: row.paymentMonth.slice(0, 10),
-    amount: num(row.unpaidPkr),
-    status:
-      row.status === 'partial'
-        ? 'Partial'
-        : row.paymentMonth.slice(0, 7) < thisMonth
-          ? 'Overdue'
-          : 'Unpaid',
+  const rooms: SeatRoom[] = (seatMapRes.rooms ?? []).map((r) => ({
+    id: r.id,
+    no: String(r.no ?? r.number ?? ''),
+    floor: r.floor ?? null,
+    capacity: num(r.capacity),
+    occupied: num(r.occupied),
+    free: num(r.free),
+    fillPct: num(r.fillPct),
+    isFull: Boolean(r.isFull),
   }));
 
-  const bedsFrom: Provenance = totalBeds > 0 ? 'live' : 'sample';
-  const beds: BedSegment[] = [
-    { label: 'Occupied', value: occupiedBeds, tone: 'brand' },
-    // Neutral, not info: an empty bed is a fact, not an event.
-    { label: 'Vacant', value: Math.max(0, totalBeds - occupiedBeds), tone: 'neutral' },
-    // No bed-status endpoint distinguishes maintenance yet.
-    { label: 'Maintenance', value: 0, tone: 'attention' },
+  const seatMap: SeatMap = {
+    rooms,
+    totals: {
+      rooms: num(stats.totalRooms),
+      seats: num(stats.totalSeats),
+      filled: num(stats.filledSeats),
+      free: num(stats.availableSeats),
+    },
+  };
+
+  const roomTypes = (roomTypesRes.types ?? []).map((t) => ({
+    ...t,
+    rooms: num(t.rooms), roomsOccupied: num(t.roomsOccupied), roomsVacant: num(t.roomsVacant),
+    seats: num(t.seats), seatsFilled: num(t.seatsFilled), seatsFree: num(t.seatsFree),
+    fullPct: num(t.fullPct), occupiedPct: num(t.occupiedPct),
+    defaultRentPkr: t.defaultRentPkr === null ? null : num(t.defaultRentPkr),
+  }));
+
+  const methods = (methodsRes.methods ?? []).map((m) => ({
+    label: m.label, amount: num(m.amount), count: num(m.count),
+  }));
+
+  // Beds are the API's own table, kept beside the seat figures so a divergence between the two
+  // is visible instead of silently picked. Absent when no beds are modelled.
+  const bedsTotal = num(stats.bedsTotal);
+  const beds: BedSegment[] = bedsTotal === 0 ? [] : [
+    { label: 'Occupied', value: num(stats.bedsOccupied), tone: 'brand' },
+    { label: 'Vacant', value: Math.max(0, bedsTotal - num(stats.bedsOccupied)), tone: 'neutral' },
   ];
 
-  const view: DashboardView = {
+  const glance: GlanceItem[] = [
+    { id: 'checkins', label: 'Check-ins', value: String(num(today.checkIns)), tone: 'info', emphasis: 'plain' },
+    { id: 'checkouts', label: 'Check-outs', value: String(num(today.checkOuts)), tone: 'neutral', emphasis: 'plain' },
+    { id: 'admissions', label: 'New Admissions', value: String(num(today.newAdmissions)), tone: 'positive', emphasis: 'plain' },
+    { id: 'received', label: 'Payments Received', value: pkr(num(today.paymentsReceivedPkr)), tone: 'positive', emphasis: 'money' },
+    { id: 'complaints', label: 'Complaints Raised', value: String(num(today.complaintsRaised)), tone: num(today.complaintsRaised) > 0 ? 'attention' : 'neutral', emphasis: 'plain' },
+    { id: 'maintenance', label: 'Maintenance Requests', value: String(num(today.maintenanceRequests)), tone: num(today.maintenanceRequests) > 0 ? 'attention' : 'neutral', emphasis: 'plain' },
+    { id: 'approvals', label: 'Pending Approvals', value: String(num(today.pendingApprovals)), tone: num(today.pendingApprovals) > 0 ? 'attention' : 'neutral', emphasis: 'plain' },
+  ];
+  // Every counter reading zero is a quiet day, not missing data — but the widget should say
+  // "nothing today" rather than print seven zeros.
+  const glanceEmpty = glance.every((g) => g.value === '0' || g.value === pkr(0));
+
+  const pendingRows: PendingPayment[] = [...(unpaid.payments ?? []), ...(partial.payments ?? [])]
+    .map((p) => ({
+      id: p.paymentId,
+      name: p.studentName,
+      room: p.roomNumber ?? '—',
+      dueDate: p.paymentMonth?.slice(0, 10) ?? '',
+      amount: num(p.unpaidPkr),
+      status: (p.status === 'partial' ? 'Partial' : 'Unpaid') as PendingPayment['status'],
+    }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 6);
+
+  // Replaces the invented reminder list with obligations the tenant actually has.
+  const attention: AttentionItem[] = [
+    ...(alerts.pendingCancellations ?? []).map((c) => ({
+      id: `cancel-${c.id}`,
+      title: `${c.studentName} — cancellation awaiting confirmation`,
+      when: c.vacateDate ? `Vacates ${c.vacateDate.slice(0, 10)}` : 'No vacate date set',
+      icon: 'cancellation' as const,
+      tone: 'attention' as Tone,
+      href: '/cancellations',
+    })),
+    ...(alerts.activeNotices ?? []).map((n) => ({
+      id: `notice-${n.id}`,
+      title: n.title,
+      when: 'Active notice',
+      icon: 'notice' as const,
+      tone: 'info' as Tone,
+      href: null,
+    })),
+  ];
+
+  const series: MonthlySeries = { year: trend.year ?? year, months };
+  const seriesEmpty = months.every(
+    (m) => m.revenuePkr === null && m.expensesPkr === null && m.pendingPkr === null,
+  );
+
+  return {
     today: new Date().toLocaleDateString('en-GB', {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     }),
     greetingName: userName,
     branchName: 'All branches',
-    sessionLabel: `${new Date().getFullYear()} Academic Year`,
-    alertCount: alerts.pendingVoidRequests,
+    sessionLabel: `${year} Academic Year`,
+    alertCount: num(alerts.unresolvedComplaints),
     navBadges: {
-      '/payments': alerts.pendingPaymentsCount,
+      '/payments': num(alerts.pendingPaymentsCount),
+      '/complaints': num(alerts.unresolvedComplaints),
+      '/cancellations': (alerts.pendingCancellations ?? []).length,
     },
 
-    kpis: { data: kpis, from: kpiFrom },
-    series: { data: series, from: 'derived' },
-    seatMap: { data: seatMap, from: totalBeds > 0 ? 'derived' : 'sample' },
-    glance: { data: SAMPLE_GLANCE, from: 'sample' },
-    roomTypes: { data: SAMPLE_ROOM_TYPES, from: 'sample' },
-    methods: { data: SAMPLE_METHODS(collection), from: 'sample' },
-    beds: { data: beds, from: bedsFrom },
-    pending: { data: pending, from: 'live' },
-    reminders: { data: SAMPLE_REMINDERS, from: 'sample' },
+    kpis: sourced(kpis, false, previous ? 'live' : 'derived'),
+    series: sourced(series, seriesEmpty),
+    seatMap: sourced(seatMap, rooms.length === 0),
+    glance: sourced(glance, glanceEmpty),
+    roomTypes: sourced(roomTypes, roomTypes.length === 0),
+    methods: sourced(methods, methods.length === 0),
+    beds: sourced(beds, beds.length === 0),
+    pending: sourced(pendingRows, pendingRows.length === 0),
+    attention: sourced(attention, attention.length === 0),
 
     totals: {
       collection,
       expenses,
+      transfers,
       profit,
       dues,
-      dueStudents: alerts.pendingPaymentsCount,
+      dueStudents: num(stats.pendingCount),
     },
-
-    hasUnverifiedData: true,
-  };
-
-  view.hasUnverifiedData = [
-    view.kpis,
-    view.series,
-    view.seatMap,
-    view.glance,
-    view.roomTypes,
-    view.methods,
-    view.beds,
-    view.pending,
-    view.reminders,
-  ].some((section: Sourced<unknown>) => section.from !== 'live');
-
-  return view;
-}
-
-/** Assembles one KPI, deciding the note and its colour from the same movement. */
-function kpi(
-  id: string,
-  label: string,
-  value: string,
-  tone: Kpi['tone'],
-  seed: number,
-  current: number,
-  previous: number,
-  baseline: string,
-  opts: {
-    fallback: string;
-    fallbackTone: Kpi['noteTone'];
-    /** Which direction is good news for *this* metric. */
-    goodDirection: 'up' | 'down';
-  },
-): Kpi {
-  const movement = baseline ? delta(current, previous, baseline) : null;
-  if (!movement) {
-    return {
-      id,
-      label,
-      value,
-      tone,
-      note: opts.fallback,
-      direction: 'none',
-      noteTone: opts.fallbackTone,
-      spark: sparkFrom(current, previous, seed),
-    };
-  }
-
-  return {
-    id,
-    label,
-    value,
-    tone,
-    note: movement.note,
-    direction: movement.direction,
-    noteTone: movement.direction === opts.goodDirection ? 'positive' : 'negative',
-    spark: sparkFrom(current, previous, seed),
   };
 }
-
-/* ────────────────────────── sample sections ──────────────────────────
- * No endpoint exists for any of these. They are here so the widgets can be
- * judged as designs; the page marks them, and each one is deleted the day its
- * endpoint lands. Realistic Pakistani hostel data, never Lorem ipsum — a
- * placeholder that does not look like the real thing hides real layout bugs.
- */
-
-const SAMPLE_GLANCE: GlanceItem[] = [
-  { id: 'in', label: 'Check-ins', value: '2', tone: 'info', emphasis: 'plain' },
-  { id: 'out', label: 'Check-outs', value: '1', tone: 'info', emphasis: 'plain' },
-  { id: 'adm', label: 'New Admissions', value: '3', tone: 'attention', emphasis: 'plain' },
-  { id: 'pay', label: 'Payments Received', value: 'PKR 1,56,500', tone: 'positive', emphasis: 'money' },
-  { id: 'cmp', label: 'Complaints Raised', value: '4', tone: 'negative', emphasis: 'plain' },
-  { id: 'fix', label: 'Maintenance Requests', value: '3', tone: 'attention', emphasis: 'plain' },
-  { id: 'apr', label: 'Pending Approvals', value: '2', tone: 'brand', emphasis: 'plain' },
-];
-
-const SAMPLE_ROOM_TYPES: RoomTypeSlice[] = [
-  { label: '1 Seater', rooms: 18, roomsFull: 14, seats: 20, seatsFree: 4, fullPct: 80 },
-  { label: '2 Seater', rooms: 40, roomsFull: 24, seats: 80, seatsFree: 12, fullPct: 85 },
-  { label: '3 Seater', rooms: 33, roomsFull: 18, seats: 99, seatsFree: 14, fullPct: 84 },
-  { label: '4 Seater', rooms: 14, roomsFull: 7, seats: 60, seatsFree: 8, fullPct: 87 },
-  { label: '5 Seater', rooms: 10, roomsFull: 4, seats: 50, seatsFree: 10, fullPct: 80 },
-];
-
-/**
- * The method split is scaled to the *real* collection total, so the donut's
- * centre figure agrees with the Total Revenue KPI. Only the proportions are
- * invented — and a wrong proportion is a far smaller lie than a total that
- * contradicts the card two rows above it.
- */
-const SAMPLE_METHODS = (collection: number): MethodSlice[] => {
-  const split: Array<[string, number]> = [
-    ['Cash', 0.38],
-    ['Bank Transfer', 0.29],
-    ['JazzCash', 0.17],
-    ['EasyPaisa', 0.10],
-    ['Cheque', 0.06],
-  ];
-  return split.map(([label, share]) => ({
-    label,
-    amount: Math.round(collection * share),
-  }));
-};
-
-const SAMPLE_REMINDERS: Reminder[] = [
-  {
-    id: 'r1',
-    title: 'Rent Due — 12 Students',
-    when: '· Tomorrow',
-    amount: 174000,
-    tag: null,
-    icon: 'calendar',
-    tone: 'negative',
-  },
-  {
-    id: 'r2',
-    title: 'Room Inspection — Block B',
-    when: '· 30 Jul 2026 · 10:00 AM',
-    amount: null,
-    tag: 'Block B',
-    icon: 'clipboard',
-    tone: 'info',
-  },
-  {
-    id: 'r3',
-    title: 'Mess Committee Meeting',
-    when: '· 31 Jul 2026 · 04:00 PM',
-    amount: null,
-    tag: 'Conference Room',
-    icon: 'meeting',
-    tone: 'info',
-  },
-  {
-    id: 'r4',
-    title: 'Electricity Bill Due',
-    when: '· 02 Aug 2026',
-    amount: 45600,
-    tag: null,
-    icon: 'bolt',
-    tone: 'attention',
-  },
-];

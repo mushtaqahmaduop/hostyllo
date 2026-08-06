@@ -1,6 +1,8 @@
-import type { MonthlySeries } from '@/lib/dashboard/contract';
+import type { MonthlySeries, Sourced } from '@/lib/dashboard/contract';
+import { flattenSeries, niceAxis } from '@/lib/dashboard/series';
 import { formatAmount } from '@/lib/format';
 import { Card, CardTitle } from './card';
+import { EmptyCard } from './empty';
 import { SERIES } from './tone';
 
 const BAR_AREA = 192;
@@ -17,17 +19,23 @@ const BAR_AREA = 192;
  * two independent range pickers on one screen showing the same two series is a
  * way to make a dashboard contradict itself.
  */
-export function RevenueExpenses({ series }: { series: MonthlySeries }) {
-  const months = Math.min(7, series.labels.length);
-  const from = series.labels.length - months;
+export function RevenueExpenses({ series }: { series: Sourced<MonthlySeries> }) {
+  const flat = flattenSeries(series.data, 7);
 
-  const labels = series.labels.slice(from);
-  const revenue = series.collection.slice(from);
-  const expenses = series.expenses.slice(from);
+  if (series.from === 'empty' || !flat.hasData) {
+    return (
+      <EmptyCard
+        title="Revenue vs Expenses"
+        body="Nothing to compare yet — this fills in once a month has collections or expenses against it."
+      />
+    );
+  }
 
+  const { labels, collection: revenue, expenses } = flat;
+
+  // Fits the data; see niceAxis. Previously pinned to a 10-million ceiling.
   const peak = Math.max(...revenue, ...expenses, 1);
-  const step = 2_000_000;
-  const top = Math.max(step * 5, Math.ceil((peak * 1.08) / (step * 5)) * step * 5);
+  const { top } = niceAxis(peak, 5);
 
   const height = (value: number) => `${Math.max(2, (value / top) * BAR_AREA).toFixed(0)}px`;
 

@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-import type { MonthlySeries, RangeKey } from '@/lib/dashboard/contract';
+import type { MonthlySeries, RangeKey, Sourced } from '@/lib/dashboard/contract';
+import { flattenSeries, niceAxis } from '@/lib/dashboard/series';
 import { formatAmount } from '@/lib/format';
 import { Card, CardTitle } from './card';
+import { EmptyCard } from './empty';
 import { SERIES } from './tone';
 
 const RANGES: Array<{ key: RangeKey; label: string; months: number }> = [
@@ -28,21 +30,30 @@ const H = 180;
  * other two, and stacking would draw it as a third quantity sitting on top of
  * them, which is the wrong mental model and adds up to double the real money.
  */
-export function MonthlyOverview({ series }: { series: MonthlySeries }) {
+export function MonthlyOverview({ series }: { series: Sourced<MonthlySeries> }) {
   const [range, setRange] = useState<RangeKey>('this-year');
   const active = RANGES.find((r) => r.key === range) ?? RANGES[0];
 
-  const from = Math.max(0, series.labels.length - active.months);
-  const labels = series.labels.slice(from);
-  const collection = series.collection.slice(from);
-  const expenses = series.expenses.slice(from);
-  const profit = series.profit.slice(from);
+  const flat = flattenSeries(series.data, active.months);
+  const { labels, collection, expenses, profit } = flat;
 
-  // The axis tops out at a round multiple above the tallest series, so the grid
-  // lines land on readable numbers instead of on the data's own maximum.
-  const peak = Math.max(...collection, ...expenses, 1);
-  const step = 2_000_000;
-  const top = Math.max(step * 6, Math.ceil((peak * 1.2) / (step * 6)) * step * 6);
+  // After the hooks, never before — an early return above `useState` would break the rules of
+  // hooks the moment the series went from empty to populated.
+  if (series.from === 'empty' || !flat.hasData) {
+    return (
+      <EmptyCard
+        title="Monthly Overview"
+        body="No collections or expenses have been recorded yet. This chart fills in as months are billed."
+        actionHref="/payments"
+        actionLabel="Go to payments"
+      />
+    );
+  }
+
+  // The axis fits the data. It used to be hardcoded to a 12-million ceiling, which drew every
+  // line flat along the bottom for any hostel not collecting millions a month.
+  const peak = Math.max(...collection, ...expenses, ...profit, 1);
+  const { top } = niceAxis(peak, 6);
 
   const path = (values: number[]) =>
     values

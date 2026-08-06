@@ -25,11 +25,13 @@ const STORAGE_KEY = 'hs:nav-hidden';
  * that reclaims the full width for a wide ledger — which is the reason an
  * operator reaches for that control in the first place.
  *
- * ── On the fixed width ──────────────────────────────────────────────────────
- * The content pane scrolls in both directions and its rows declare
- * `--hs-content-min` (1180px). Below that the dashboard slides sideways instead
- * of reflowing into a layout that was never designed. The bottom tab bar and the
- * existing simpler screens still carry small viewports.
+ * ── On width ────────────────────────────────────────────────────────────────
+ * The content pane reflows. It used to declare a hard `--hs-content-min` floor of 1180px, on
+ * the reasoning that sliding sideways was better than "reflowing into a layout that was never
+ * designed". That reasoning cost more than it saved: with this sidebar at 216px the floor
+ * overflowed every viewport under ~1420px, so an ordinary 1366px laptop clipped the first KPI
+ * card and the left edge of the overview chart, and the page scrolled horizontally as one
+ * block. A layout that reflows imperfectly beats one that hides content outright.
  */
 export function AppShell({
   name,

@@ -9,17 +9,18 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { GlanceItem } from '@/lib/dashboard/contract';
+import type { GlanceItem, Sourced } from '@/lib/dashboard/contract';
 import { Card, CardTitle } from './card';
+import { EmptyCard } from './empty';
 
 const ICONS: Record<string, LucideIcon> = {
-  in: LogIn,
-  out: LogOut,
-  adm: UserPlus,
-  pay: CreditCard,
-  cmp: MessageSquareWarning,
-  fix: Wrench,
-  apr: BadgeCheck,
+  checkins: LogIn,
+  checkouts: LogOut,
+  admissions: UserPlus,
+  received: CreditCard,
+  complaints: MessageSquareWarning,
+  maintenance: Wrench,
+  approvals: BadgeCheck,
 };
 
 /**
@@ -34,14 +35,29 @@ const ICONS: Record<string, LucideIcon> = {
  * rules' flattest statement, and PKR 1,56,500 collected today is not a verdict.
  * The `tone` on each item is carried in the contract for the day a row genuinely
  * needs to shout; today none of them does.
+ *
+ * ── These were fabricated ────────────────────────────────────────────────────────────────────
+ * Every counter here used to be a constant — 2 check-ins, 1 check-out, 3 admissions, 4
+ * complaints — on a tenant that had none of them. They now come from `GET /dashboard/today`,
+ * and when the whole day is genuinely quiet the widget says so rather than printing seven
+ * zeros, which reads as broken rather than calm.
  */
-export function TodayGlance({ items }: { items: GlanceItem[] }) {
+export function TodayGlance({ glance }: { glance: Sourced<GlanceItem[]> }) {
+  if (glance.from === 'empty') {
+    return (
+      <EmptyCard
+        title="Today at a Glance"
+        body="Nothing has happened today yet — no check-ins, admissions, payments or new requests."
+      />
+    );
+  }
+
   return (
     <Card>
       <CardTitle>Today at a Glance</CardTitle>
 
       <ul className="mt-[10px] flex flex-1 list-none flex-col justify-between p-0">
-        {items.map((item) => {
+        {glance.data.map((item) => {
           const Icon = ICONS[item.id] ?? BadgeCheck;
           return (
             <li key={item.id} className="flex items-center gap-[10px] py-[5px]">

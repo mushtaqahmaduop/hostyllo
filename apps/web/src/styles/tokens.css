@@ -395,10 +395,11 @@
   --hs-nav-item-h:          33px;
 
   /*
-   * Designed desktop-first at 1440–1560px. Below ~1180px content scrolls
-   * sideways rather than reflowing; tablet and mobile are not designed yet.
+   * Designed desktop-first at 1440–1560px, but the layout REFLOWS below that — it does not
+   * scroll sideways. `--hs-content-min` was 1180px, which with a 216px sidebar overflowed every
+   * viewport under ~1420px and clipped content off a normal 1366px laptop screen. Rows now use
+   * responsive grids that drop columns instead. Nothing should reintroduce a fixed floor here.
    */
-  --hs-content-min: 1180px;
   --hs-content-max: none;
 
   --hs-row-h-comfortable: 44px;
