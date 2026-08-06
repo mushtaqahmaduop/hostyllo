@@ -254,7 +254,12 @@ export async function dashboardRoutes(app: FastifyInstance) {
     const rooms = await withTenant(request.hostelId, async (db) => {
       const { rows } = await db.query(`
         SELECT
-          r.id, r.number, r.floor, r.type, r.color,
+          r.id,
+          -- Aliased to match the frontend contract, which calls this field no. The column name
+          -- reads as a quantity rather than an identifier: a room "number" is a label — "101",
+          -- "G-4" — not something you do arithmetic on.
+          r.number AS "no",
+          r.floor, r.type, r.color,
           r.capacity,
           COALESCE(o.occ, 0)                              AS occupied,
           GREATEST(r.capacity - COALESCE(o.occ, 0), 0)    AS free,

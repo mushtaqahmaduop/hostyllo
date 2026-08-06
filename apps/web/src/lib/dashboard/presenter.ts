@@ -87,7 +87,7 @@ type Alerts = {
 };
 
 type TrendResponse = { year: number; months: MonthPoint[] };
-type SeatMapResponse = { rooms: (SeatRoom & { number?: string })[] };
+type SeatMapResponse = { rooms: SeatRoom[] };
 type RoomTypesResponse = { types: RoomTypeSlice[] };
 type MethodsResponse = { month: string; methods: MethodSlice[] };
 type TodayResponse = {
@@ -267,7 +267,7 @@ export async function getDashboardView(userName: string): Promise<DashboardView>
 
   const rooms: SeatRoom[] = (seatMapRes.rooms ?? []).map((r) => ({
     id: r.id,
-    no: String(r.no ?? r.number ?? ''),
+    no: String(r.no ?? ''),
     floor: r.floor ?? null,
     capacity: num(r.capacity),
     occupied: num(r.occupied),
