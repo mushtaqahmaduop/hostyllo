@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { CAN_OPERATE, CAN_READ, OWNER_ONLY } from '../lib/roles.js';
 import { calculateUnpaid } from '@hostyllo/db';
 import { buildReceiptPdf } from '../lib/receipt-pdf.js';
+import { roomBlockSort, roomNumberSort } from '../lib/room-sort.js';
 
 /** `2026-07-01` (a DATE column) → `July 2026`. UTC so the 1st never slips to the previous month. */
 function formatMonthLabel(month: Date | string): string {
@@ -12,9 +13,56 @@ function formatMonthLabel(month: Date | string): string {
   return new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(d);
 }
 
+/**
+ * The ledger's sort keys, whitelisted because ORDER BY cannot be parameterised.
+ *
+ * Each entry is a list: a room sort needs two keys (block, then number) and
+ * every other sort needs one. The names are the derived aliases the list query
+ * projects, not raw columns — `rent_total` is rent + mess and `extra_total`
+ * excludes mess, because those are the two figures the screen prints.
+ *
+ * Default is `room` ascending: `Payments.dc.html` prints "Sorted by Room
+ * ascending" over the table, and `DESIGN_RULES.md` requires that to be
+ * numeric (#2 before #14).
+ */
+const PAYMENT_SORTABLE: Record<string, string[]> = {
+  student: ['"studentName"'],
+  room: ['room_block', 'room_num'],
+  month: ['"paymentMonth"'],
+  rent: ['"rentTotalPkr"'],
+  conc: ['"concessionPkr"'],
+  extra: ['"extraChargesPkr"'],
+  paid: ['"amountPaidPkr"'],
+  unpaid: ['"unpaidPkr"'],
+  method: ['"paymentMethod"'],
+  status: ['"derivedStatus"'],
+  created: ['"createdAt"'],
+};
+
+/** Days in scope for the average-per-day KPI: elapsed so far this month, whole month for a past one. */
+function daysElapsedIn(monthKey: string, todayIso: string): number {
+  const [y, m] = monthKey.split('-').map(Number);
+  if (todayIso.slice(0, 7) === monthKey) return Number(todayIso.slice(8, 10));
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
 export async function paymentsRoutes(app: FastifyInstance) {
 
-  // GET /payments
+  /*
+   * GET /payments — the ledger.
+   *
+   * Two status parameters, deliberately, because there are two questions:
+   *
+   *   `status`  the stored column, unchanged. `status=pending` still means every
+   *             row the database calls pending, including the late ones. The
+   *             dashboard's "needs attention" lists depend on that, and quietly
+   *             narrowing it would drop the most urgent rows off that screen.
+   *   `tab`     the ledger screen's five buckets, which are mutually exclusive:
+   *             a late row is `overdue` and *not* `pending`, so the tab counts
+   *             sum to the table. `counts` is always keyed to this.
+   *
+   * They compose with AND, so neither has to know about the other.
+   */
   app.get('/payments', {
     preHandler: [requireAuth, requireRole(CAN_READ)],
     schema: {
@@ -24,6 +72,10 @@ export async function paymentsRoutes(app: FastifyInstance) {
           month:     { type: 'string' },
           studentId: { type: 'string', format: 'uuid' },
           status:    { type: 'string', enum: ['paid', 'partial', 'pending', 'void'] },
+          tab:       { type: 'string', enum: ['all', 'paid', 'partial', 'pending', 'overdue', 'void'], default: 'all' },
+          q:         { type: 'string' },
+          sort:      { type: 'string', enum: Object.keys(PAYMENT_SORTABLE), default: 'room' },
+          dir:       { type: 'string', enum: ['asc', 'desc'], default: 'asc' },
           limit:     { type: 'integer', minimum: 1, maximum: 100, default: 25 },
           offset:    { type: 'integer', minimum: 0, default: 0 },
         },
@@ -31,50 +83,217 @@ export async function paymentsRoutes(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const { month, studentId, status, limit, offset } = request.query as Record<string, string | undefined>;
+    const { month, studentId, status, tab, q, sort, dir, limit, offset } =
+      request.query as Record<string, string | undefined>;
+    const take = Math.min(Number(limit ?? 25), 100);
+    const skip = Number(offset ?? 0);
 
     const result = await withTenant(request.hostelId, async (db) => {
-      const conditions = [`p.hostel_id = current_setting('app.hostel_id')::uuid`, `p.deleted_at IS NULL`];
-      const values: unknown[] = [];
-      let idx = 1;
+      /*
+       * "Today" in the hostel's own timezone, not the container's. Railway runs
+       * UTC, which is 5 hours behind Asia/Karachi — between 19:00 and midnight
+       * local, a UTC clock is still on yesterday, and on the 1st of a month that
+       * makes every unpaid row from the month just ended read as overdue a day
+       * early. Fetched as text so the value cannot be shifted again by the
+       * driver on the way back out.
+       */
+      const todayRow = await db.query(`
+        SELECT to_char((NOW() AT TIME ZONE COALESCE(h.timezone, 'Asia/Karachi'))::date, 'YYYY-MM-DD') AS today
+        FROM public.hostels h
+        WHERE h.id = current_setting('app.hostel_id')::uuid
+      `);
+      const today: string = todayRow.rows[0]?.today ?? new Date().toISOString().slice(0, 10);
 
-      if (month) { conditions.push(`date_trunc('month', p.month) = date_trunc('month', $${idx++}::date)`); values.push(month + '-01'); }
-      if (studentId) { conditions.push(`p.student_id = $${idx++}::uuid`); values.push(studentId); }
-      if (status) { conditions.push(`p.status = $${idx++}`); values.push(status); }
+      /*
+       * One projection, built more than once against different scopes: the rows
+       * and the tab counts share the searched scope, while the KPI strip is the
+       * month's figures and must not move when the operator types in the search
+       * box — the strip describes the month, the table describes the search.
+       *
+       * `mess` is kept separate from the other extras and kept NULLable. Mess is
+       * billed as a `payment_extra_charges` row labelled 'Mess' (rent-generate),
+       * so folding it into the Extra column would print a mess fee twice: once
+       * inside "Rent / Mo" as the design's `base + mess` breakdown, and again
+       * under Extra. NULL means no mess line at all; 0.00 means included and
+       * zero-rated, which is the distinction migration 014 exists to hold.
+       */
+      const scope = (values: unknown[], opts: { month?: string; studentId?: string; q?: string }) => {
+        values.push(today);
+        const overdueMonth = `$${values.length}::date`;
 
-      const where = conditions.join(' AND ');
+        const conditions = [`p.hostel_id = current_setting('app.hostel_id')::uuid`, `p.deleted_at IS NULL`];
+        if (opts.month) {
+          values.push(opts.month + '-01');
+          conditions.push(`date_trunc('month', p.month) = date_trunc('month', $${values.length}::date)`);
+        }
+        if (opts.studentId) {
+          values.push(opts.studentId);
+          conditions.push(`p.student_id = $${values.length}::uuid`);
+        }
+        if (opts.q) {
+          values.push(`%${opts.q}%`);
+          const n = `$${values.length}`;
+          // The four fields the search placeholder names, and only those.
+          conditions.push(`(
+            s.name ILIKE ${n} OR r.number ILIKE ${n}
+            OR p.receipt_number ILIKE ${n} OR p.payment_method ILIKE ${n}
+          )`);
+        }
 
-      const payments = await db.query(`
-        SELECT
-          p.id as "paymentId",
-          p.student_id as "studentId",
-          s.name as "studentName",
-          r.number as "roomNumber",
-          p.month as "paymentMonth",
-          p.rent as "rentPkr",
-          p.admission_fee as "admissionFeePkr",
-          p.concession as "concessionPkr",
-          p.total_due as "totalDuePkr",
-          p.paid as "amountPaidPkr",
-          p.unpaid as "unpaidPkr",
-          p.status,
-          p.payment_method as "paymentMethod",
-          p.payment_date as "paymentDate",
-          p.receipt_number as "receiptId",
-          p.created_at as "createdAt"
-        FROM public.payments p
-        JOIN public.students s ON s.id = p.student_id
-        LEFT JOIN public.rooms r ON r.id = p.room_id
-        WHERE ${where}
-        ORDER BY p.created_at DESC
-        LIMIT $${idx++} OFFSET $${idx++}
-      `, [...values, limit ?? 25, offset ?? 0]);
+        return `
+          SELECT
+            p.id as "paymentId",
+            p.student_id as "studentId",
+            s.name as "studentName",
+            r.number as "roomNumber",
+            r.type as "roomType",
+            r.capacity as "roomCapacity",
+            p.month as "paymentMonth",
+            -- The month a client should actually read. paymentMonth is the DATE, which the
+            -- driver turns into a JS Date at the server's local midnight — east of UTC that
+            -- serialises as the last day of the *previous* month, so a July row formatted in
+            -- UTC prints "June". monthKey is the same value as text and cannot shift.
+            to_char(p.month, 'YYYY-MM') as "monthKey",
+            p.rent as "rentPkr",
+            x.mess as "messPkr",
+            (p.rent + COALESCE(x.mess, 0)) as "rentTotalPkr",
+            p.admission_fee as "admissionFeePkr",
+            p.concession as "concessionPkr",
+            COALESCE(x.extra, 0) as "extraChargesPkr",
+            x.labels as "extraChargesLabel",
+            p.total_due as "totalDuePkr",
+            p.paid as "amountPaidPkr",
+            p.unpaid as "unpaidPkr",
+            p.status,
+            CASE
+              WHEN p.status IN ('pending', 'partial')
+               AND date_trunc('month', p.month) < date_trunc('month', ${overdueMonth})
+              THEN 'overdue' ELSE p.status
+            END as "derivedStatus",
+            p.payment_method as "paymentMethod",
+            p.payment_date as "paymentDate",
+            p.receipt_number as "receiptId",
+            p.created_at as "createdAt",
+            ${roomBlockSort('r')} as room_block,
+            ${roomNumberSort('r')} as room_num
+          FROM public.payments p
+          JOIN public.students s ON s.id = p.student_id
+          LEFT JOIN public.rooms r ON r.id = p.room_id
+          LEFT JOIN LATERAL (
+            SELECT
+              SUM(e.amount) FILTER (WHERE e.label = 'Mess') as mess,
+              SUM(e.amount) FILTER (WHERE e.label <> 'Mess') as extra,
+              string_agg(DISTINCT e.label, ', ') FILTER (WHERE e.label <> 'Mess') as labels
+            FROM public.payment_extra_charges e
+            WHERE e.payment_id = p.id
+          ) x ON TRUE
+          WHERE ${conditions.join(' AND ')}
+        `;
+      };
 
-      const count = await db.query(`
-        SELECT COUNT(*) as total FROM public.payments p WHERE ${where}
-      `, values);
+      const searchedValues: unknown[] = [];
+      const searched = scope(searchedValues, { month, studentId, q });
 
-      return { payments: payments.rows, total: parseInt(count.rows[0].total), limit: limit ?? 25, offset: offset ?? 0 };
+      /*
+       * The tab counts, taken from the searched scope but *before* the tab
+       * predicate — five separate requests would disagree with the table the
+       * moment a payment is recorded between them. Same reason as the roster.
+       */
+      const counts = await db.query(
+        `SELECT "derivedStatus" AS s, COUNT(*)::int AS n FROM (${searched}) t GROUP BY 1`,
+        searchedValues,
+      );
+
+      const rowValues = [...searchedValues];
+      let filtered = `SELECT * FROM (${searched}) t`;
+      if (tab && tab !== 'all') {
+        rowValues.push(tab);
+        filtered += ` WHERE t."derivedStatus" = $${rowValues.length}`;
+      }
+      if (status) {
+        rowValues.push(status);
+        filtered += `${tab && tab !== 'all' ? ' AND' : ' WHERE'} t.status = $${rowValues.length}`;
+      }
+
+      const totalRow = await db.query(`SELECT COUNT(*)::int AS total FROM (${filtered}) f`, rowValues);
+
+      // ORDER BY cannot be parameterised, so the keys come from the whitelist
+      // and the direction from the schema's two-value enum. Neither is client
+      // text by the time it reaches here. NULLS LAST per key so a room-less or
+      // unnumbered row sinks in both directions rather than flooding page one.
+      const keys = PAYMENT_SORTABLE[sort ?? 'room'] ?? PAYMENT_SORTABLE.room;
+      const direction = dir === 'desc' ? 'DESC' : 'ASC';
+      const orderBy = keys.map((k) => `${k} ${direction} NULLS LAST`).join(', ');
+      rowValues.push(take, skip);
+      const payments = await db.query(
+        `${filtered} ORDER BY ${orderBy}, "studentName" ASC
+         LIMIT $${rowValues.length - 1} OFFSET $${rowValues.length}`,
+        rowValues,
+      );
+
+      /*
+       * The KPI strip. Month-scoped by definition — "collected this month" and
+       * an average per day are not answerable over an unbounded ledger — so it
+       * is null without a month rather than summing every month ever recorded
+       * and labelling it July.
+       */
+      let summary = null;
+      if (month) {
+        const aggregate = `
+          SELECT
+            COALESCE(SUM(t."amountPaidPkr") FILTER (WHERE t."derivedStatus" <> 'void'), 0) as "collectedPkr",
+            COALESCE(SUM(t."unpaidPkr") FILTER (WHERE t."derivedStatus" IN ('partial', 'overdue')), 0) as "outstandingPkr",
+            COALESCE(SUM(t."unpaidPkr") FILTER (WHERE t."derivedStatus" = 'pending'), 0) as "pendingPkr",
+            COUNT(*) FILTER (WHERE t."derivedStatus" <> 'void')::int as "transactions"
+        `;
+
+        const monthValues: unknown[] = [];
+        const current = await db.query(
+          `${aggregate} FROM (${scope(monthValues, { month, studentId })}) t`,
+          monthValues,
+        );
+
+        // The previous month, read from the database rather than modelled from
+        // this one — a delta against a factor of the current figure is not a
+        // comparison, it is a decoration.
+        const [y, m] = month.split('-').map(Number);
+        const previousKey = `${m === 1 ? y - 1 : y}-${String(m === 1 ? 12 : m - 1).padStart(2, '0')}`;
+        const previousValues: unknown[] = [];
+        const previous = await db.query(
+          `${aggregate} FROM (${scope(previousValues, { month: previousKey, studentId })}) t`,
+          previousValues,
+        );
+
+        const days = daysElapsedIn(month, today);
+        summary = {
+          month,
+          ...current.rows[0],
+          daysElapsed: days,
+          avgPerDayPkr: days > 0 ? Number(current.rows[0].collectedPkr) / days : 0,
+          previous: {
+            month: previousKey,
+            ...previous.rows[0],
+            avgPerDayPkr:
+              Number(previous.rows[0].collectedPkr) / daysElapsedIn(previousKey, today),
+          },
+        };
+      }
+
+      const byTab: Record<string, number> = { paid: 0, partial: 0, pending: 0, overdue: 0, void: 0 };
+      for (const row of counts.rows) byTab[row.s] = row.n;
+
+      // room_block/room_num exist to sort by, not to be read — they are the
+      // regexp fragments, not anything a client should see or depend on.
+      const rows = payments.rows.map(({ room_block: _b, room_num: _n, ...row }) => row);
+
+      return {
+        payments: rows,
+        total: totalRow.rows[0].total,
+        counts: { ...byTab, all: Object.values(byTab).reduce((a, b) => a + b, 0) },
+        summary,
+        limit: take,
+        offset: skip,
+      };
     });
 
     return reply.send({ success: true, data: result });
@@ -427,7 +646,14 @@ export async function paymentsRoutes(app: FastifyInstance) {
     const data = await withTenant(request.hostelId, async (db) => {
       const payment = await db.query(`
         SELECT
-          p.receipt_number, p.month, p.payment_date, p.payment_method, p.status,
+          -- As text, not as the DATE. pg parses a DATE into a JS Date at the *server's* local
+          -- midnight, so on any host east of UTC 2026-07-01 arrives as 2026-06-30T19:00Z and
+          -- the label below — formatted in UTC precisely so the 1st cannot slip — prints the
+          -- month before. Railway runs UTC, which is why every receipt has been right so far;
+          -- the bug appears the day the API runs anywhere else, and it was visible immediately
+          -- on a developer machine in Asia/Karachi.
+          p.receipt_number, to_char(p.month, 'YYYY-MM-DD') AS month, p.payment_date,
+          p.payment_method, p.status,
           p.rent, p.admission_fee, p.concession, p.total_due, p.paid, p.unpaid,
           s.name AS student_name, s.father_name, s.phone AS student_phone,
           r.number AS room_number,
@@ -436,7 +662,17 @@ export async function paymentsRoutes(app: FastifyInstance) {
         FROM public.payments p
         JOIN public.students s ON s.id = p.student_id
         LEFT JOIN public.rooms r ON r.id = p.room_id
-        LEFT JOIN public.beds  b ON b.id = p.bed_id
+        -- Through the student, because the bed is theirs: payments has no bed_id and never has,
+        -- so this join read b.id = p.bed_id and threw 42703 on every single call — the receipt
+        -- endpoint has returned 500 since the day it was written. It went unnoticed because the
+        -- session that built it verified by calling buildReceiptPdf() directly with hand-made
+        -- data, which exercises the renderer and never runs this SQL.
+        --
+        -- The bed printed is therefore the student's bed *now*, not the bed they occupied when
+        -- the payment was taken. Nothing records the latter; a receipt reprinted after a room
+        -- shift will name the new bed. Honest and available beats accurate and imaginary, but it
+        -- is a real limitation and belongs in the open items, not in a silent join.
+        LEFT JOIN public.beds  b ON b.id = s.bed_id
         JOIN public.hostels h ON h.id = p.hostel_id
         WHERE p.id = $1
           AND p.hostel_id = current_setting('app.hostel_id')::uuid

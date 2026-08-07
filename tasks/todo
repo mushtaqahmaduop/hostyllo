@@ -4,6 +4,106 @@
 > paymentService, migration 001) is **all built** — see 09_BUILD_STATE_v15.md. Real remaining
 > Phase 1 backlog below, in priority order.
 
+## ★ SESSION 19 — THE PAYMENTS LEDGER, THEN ROOMS (2026-08-07)
+
+**Goal:** rebuild Payments and Rooms against their `.dc.html` designs, the way Students was —
+API first where the screen needs data the API cannot yet produce, then the screen.
+
+### What the code actually says (inspected, not taken from this file)
+- Students is **done**: roster + record + add + edit (`a2e5dc8`, `e43ded4`). Not in scope.
+- `payments/page.tsx` and `rooms/page.tsx` exist but predate the redesign — they use
+  `PageHeader` / `HeroPanel` / `StatStrip`, none of which appear in the handoff bundle. They are
+  being replaced, not adjusted.
+
+### The gaps between `GET /payments` and `Payments.dc.html` — API SLICE DONE (uncommitted)
+The list endpoint took `month`, `studentId`, `status`, `limit`, `offset` and sorted by
+`created_at DESC`. It now also has:
+- [x] `q` — search over student name, room number, receipt number, method. Counts follow the
+      search; the KPI strip deliberately does not (the strip describes the month, the table
+      describes the search).
+- [x] `sort` + `dir`, default **room ascending, numeric**, via `lib/room-sort.ts` — the same
+      helper `GET /students` now uses, so the two ledgers cannot order rooms differently.
+- [x] `counts` — the five tabs in the same response as the rows, computed before the tab
+      predicate. Verified against staging: they sum exactly to the row total.
+- [x] per-row extras, **split**: `messPkr` (nullable) rides inside `rentTotalPkr` the way the
+      design's `base + mess` breakdown reads it, and `extraChargesPkr` + `extraChargesLabel`
+      carry everything else. Folding mess into Extra bills it once and prints it twice.
+- [x] `summary` — collected / outstanding / pending / transactions / avg-per-day, plus the
+      **previous month read from the database**, so a delta is a comparison rather than a
+      decoration. Null without a month rather than a figure labelled with a month it is not.
+- [x] ⚠️ **Tracker correction:** this file previously said the list returned neither
+      `concessionPkr` nor `admissionFeePkr`. It returned both, and always had.
+
+#### `status` and `tab` are two parameters on purpose
+`status` stays the **stored** column: `status=pending` still returns late rows, which is what the
+dashboard's needs-attention lists read. `tab` is the screen's **exclusive** bucket, where a late
+row is `overdue` and not `pending`, so the tabs sum to the table. Collapsing them either
+double-counts the tabs or silently drops the most urgent rows off the dashboard.
+
+#### Verified — and how, because a green typecheck proves nothing here
+- [x] `tsc --noEmit` + `eslint src` clean.
+- [x] **The SQL was run against staging before the route was trusted**, by hand: numeric room
+      order, the mess split, and the overdue derivation each checked against real rows.
+- [x] **Then the route itself, booted locally against the staging database** — which is the only
+      step that exercises parameter numbering and the tab/status composition. All four shapes
+      correct on real data.
+- [x] `payments-ledger.test.ts` — 13 tests. ⚠️ **They skip locally** (no Postgres/Redis on this
+      machine, and no Docker). CI is the gate; nothing here has run green in a test runner yet.
+
+### 🐞 TWO DEFECTS FOUND BY RUNNING THE CODE, NOT BY READING IT
+- [x] **`GET /payments/:id/receipt` returned 500 to every caller, and does so in production.**
+      It joined `beds` on `p.bed_id`; `payments` has never had that column in any migration — the
+      bed belongs to the student (`hint: Perhaps you meant to reference the column "s.bed_id"`).
+      Same defect class as `pdf-receipts` and `auto-cancel`: SQL naming columns that do not exist.
+      It survived because session 12 verified by calling `buildReceiptPdf()` directly with
+      hand-made data — the renderer was proven and this SQL never ran once.
+      Fixed and proven by rendering: 200, `application/pdf`, and the inflated content stream reads
+      "July 2026" and "Room 101 · 101-A". Now covered by a test that asks the *endpoint* for bytes.
+      ⚠️ The bed printed is the student's bed **now**, not the bed occupied when the payment was
+      taken — nothing records the latter, so a receipt reprinted after a room shift names the new
+      bed. Real limitation, written down rather than hidden in a join.
+- [x] **A DATE column reads as the previous month on any host east of UTC.** `pg` parses a DATE
+      into a JS Date at the *server's local* midnight, so `2026-07-01` arrives as
+      `2026-06-30T19:00:00Z`. The receipt's month label is formatted in UTC precisely so the 1st
+      cannot slip — and that is exactly what made it print **June** for a July payment on a
+      developer machine in Asia/Karachi. Railway runs UTC, which is the only reason every receipt
+      has been right so far: latent, not live. Fixed at both sites by selecting the month as text
+      (`monthKey` on the list, `to_char` in the receipt query).
+      - [ ] **Decision owed: fix this at the driver instead.** `withTenant.ts` already ends the
+            NUMERIC/INT8 string class with `pg.types.setTypeParser`; DATE (oid 1082) is the same
+            argument, and `join_date`, `vacate_date` and every other DATE carry the same hazard.
+            Not done here because it changes the JSON shape of every screen at once — that is a
+            deliberate decision, not a side effect of a payments change.
+
+### ⚠️ `Overdue` has no column behind it
+The design's fifth status tab is **Overdue**. `payments.status` is
+`CHECK (status IN ('paid','partial','pending','void'))` — there is no overdue value, and
+**there is no `due_date` column**. HOSTIX carries a `dueDate`, but it is optional free text
+written by a date picker and defaulted to `''` (`payments.js:132`), so it is not a semantic the
+cloud schema can lean on.
+
+Overdue is therefore **derived, not stored**: a payment is overdue when it still owes money
+(`status IN ('pending','partial')`) and its billed `month` is earlier than the current month.
+That is defensible — rent is generated on the 1st, so an unpaid August row in September is late
+by definition — and it is honest, because nothing is invented. It is written down here because a
+derived status that later grows a column is exactly the kind of thing that drifts.
+
+### Next, in order
+- [ ] **The Payments screen itself** — `lib/payments/{contract,presenter}.ts`, the status tabs,
+      toolbar, table and KPI strip, on `Payments.dc.html`. The API now produces every figure it
+      needs; nothing on that screen has to be invented.
+- [ ] **Deploy order matters again, exactly as it did for Students.** The web app must not reach
+      production before this API slice does, or the ledger 400s on `tab`/`sort`/`q`
+      (`additionalProperties: false`).
+- [ ] Then Rooms, against `Rooms.dc.html`.
+- [ ] Still open from session 18: the untracked `charts/` + `reports.ts` + `docs/_audit-2026-07-30/`
+      (commit, finish or delete — and the audit folder turns CI red as-is).
+
+### Dropped from the design, with reasons
+- **"Send WhatsApp Reminders"** (rail quick action) — WhatsApp is Phase 2. Phase discipline.
+- **"Reconcile Bank Statement"** (rail quick action) — no such feature exists in any phase.
+- **Bulk "Send reminder"** in the selection bar — same reason as WhatsApp.
+
 ## ★ SESSION 18 — THE DASHBOARD STOPPED INVENTING, AND THE RELEASE SHIPPED (2026-08-06)
 
 ### The dashboard rebuild (`f493f78`, `f8f5ef6`, `7e96164`)

@@ -28,3 +28,28 @@
   `hostyllo_app` NOLOGIN and says the founder sets the credential out of band, so reasoning from
   the file said staging had no RLS enforcement. `pg_roles` said `rolcanlogin = true`. The file
   records an intent at one moment; the database records the present.
+
+## Session 19 — 2026-08-07/08
+- LESSON: **A test that exercises the renderer does not exercise the query that feeds it.**
+  `GET /payments/:id/receipt` had returned 500 to every caller since the day it was written — it
+  joined `beds` on `p.bed_id`, a column `payments` has never had. Session 12 verified it "by
+  rendering", but rendering meant calling `buildReceiptPdf()` directly with hand-made data, so the
+  SQL never ran. Four PDFs were inspected and the endpoint was still broken. When a handler is
+  query-then-render, a test that starts after the query proves only half of it — ask the endpoint
+  for bytes, not the renderer for a document.
+- LESSON: **The driver's timezone parses your dates, and UTC formatting cannot undo it.** `pg`
+  turns a DATE into a JS Date at the *server's local* midnight: `2026-07-01` becomes
+  `2026-06-30T19:00:00Z` in Asia/Karachi. The receipt's label formatted in UTC — a deliberate
+  choice, commented "so the 1st never slips" — therefore printed June for a July payment. Railway
+  runs UTC, so production never showed it and no test could. Return dates as text
+  (`to_char(..., 'YYYY-MM')`) when a client is going to format them, and treat "correct on the
+  deployment host" as an accident rather than a property.
+- LESSON: **Running the code found two defects that reading it did not.** Both were in the module
+  being edited, both were invisible to `tsc`, `eslint` and every existing test, and both surfaced
+  within minutes of booting the API against the staging database. The local `.env` points at
+  staging, so this costs one command — do it before trusting any new query.
+- LESSON: **A backtick inside a SQL comment ends the template literal.** Writing `` `monthKey` ``
+  in an SQL comment inside a `db.query(\`...\`)` produced a parse error two hundred lines away and
+  a `tsx` transform failure at boot. The repo's SQL comments do not quote identifiers with
+  backticks for exactly this reason. (Cost two restarts, the second because the edit went in
+  without a typecheck behind it — typecheck after every edit, not after every batch.)

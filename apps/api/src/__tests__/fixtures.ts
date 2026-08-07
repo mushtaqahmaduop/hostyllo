@@ -46,6 +46,7 @@ export const LOGIN_IP = {
   paymentNotes: '10.10.20.6',
   isolation:    '10.10.20.7',
   payments:     '10.10.20.8',
+  paymentsLedger: '10.10.20.9',
 } as const;
 
 /**
