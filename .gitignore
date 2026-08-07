@@ -4,6 +4,9 @@ dist
 .next
 .env
 .env.local
+# any .env variant (.env.prod-backup, .env.staging, …) — these hold live credentials
+.env.*
+!.env.example
 *.pem
 # TypeScript incremental build cache — a build artifact, never source.
 *.tsbuildinfo
