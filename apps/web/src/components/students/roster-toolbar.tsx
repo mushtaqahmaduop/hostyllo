@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Download, Search } from 'lucide-react';
 
 import { SORT_LABEL, type RosterView } from '@/lib/students/contract';
-import { StatusTabs } from './status-tabs';
+import { StatusTabs } from '@/components/patterns/status-tabs';
 
 /**
  * The roster toolbar: search, status tabs, export, and the line that says what
@@ -56,7 +56,7 @@ export function RosterToolbar({ view }: { view: RosterView }) {
           </button>
         </form>
 
-        <StatusTabs tabs={view.tabs} />
+        <StatusTabs tabs={view.tabs} label="Filter students by status" />
 
         {/*
          * Export is one button, not the redesign's CSV + PDF pair. CSV is real —

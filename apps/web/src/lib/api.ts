@@ -91,6 +91,24 @@ type RequestOptions = {
  * the refresh is thrown as `SESSION_EXPIRED`, which the layout turns into a redirect.
  */
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  return unwrap<T>(await apiRaw(path, options));
+}
+
+/**
+ * The same authenticated call, handed back as a `Response`.
+ *
+ * `api()` assumes an envelope and parses JSON, which is right for every endpoint
+ * that returns one — and wrong for `GET /payments/:id/receipt`, which streams a
+ * PDF. A route handler proxying that PDF needs the bytes and the content headers,
+ * not a parsed body, but it needs exactly the same token handling: the browser
+ * cannot call the API itself, and an access token expires every fifteen minutes,
+ * so a receipt click on a page left open over lunch must refresh rather than
+ * bounce the operator to the login screen.
+ *
+ * Sharing this with `api()` is the point. When the refresh-and-retry lived in one
+ * function, any second caller either duplicated it or quietly did without it.
+ */
+export async function apiRaw(path: string, options: RequestOptions = {}): Promise<Response> {
   const jar = await cookies();
   const accessToken = jar.get(ACCESS_COOKIE)?.value;
 
@@ -120,12 +138,12 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       // request and no path back into this branch. Server Components cannot set cookies, so the
       // rotated token is used for this request only; the next request refreshes again until a
       // route handler (which can write cookies) persists a new one.
-      return unwrap<T>(await send(fresh));
+      return send(fresh);
     }
     throw new ApiError(401, 'SESSION_EXPIRED', 'Your session has expired. Please sign in again.');
   }
 
-  return unwrap<T>(res);
+  return res;
 }
 
 async function unwrap<T>(res: Response): Promise<T> {
