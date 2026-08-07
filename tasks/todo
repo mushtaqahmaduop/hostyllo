@@ -165,7 +165,85 @@ ledger-table,top-due}.tsx` · the page and a geometry-matched `loading.tsx` ·
 - [ ] **The dashboard carries a second, local `delta()`** that omits the arrow glyph, while the
       ledger uses `formatDelta` from `lib/format`. Two implementations of one §4.3 rule; they
       should converge on the shared one.
-- [ ] Then Rooms, against `Rooms.dc.html`.
+### THE ROOMS BOARD — BUILT (uncommitted at time of writing)
+`apps/web/src/lib/rooms/{contract,presenter}.ts` · `apps/web/src/components/rooms/{room-card,
+rooms-toolbar,floor-panel}.tsx` · the page and a geometry-matched `loading.tsx`.
+
+#### The API slice it needed
+- [x] **`GET /rooms` ordered numerically** via the same `apps/api/src/lib/room-sort.ts` the roster
+      and the ledger use. It was `ORDER BY r.number` — a text sort — on the one screen whose whole
+      job is being scanned in room order. Third and last consumer of that helper.
+- [x] **`totalBeds` and `maintenanceBeds` added**, and `capacity` kept beside them. A student is
+      assigned to a *bed row*, so bed rows are who can be placed; `rooms.capacity` is the intent.
+      **They disagree in live data** — staging's room 102 is capacity 2 with one bed — so the card
+      states which number it is using rather than silently choosing.
+- [x] **Occupant `course` and `unpaid` added to the beds payload** — the two things the card prints
+      beside a name, fetched with the room instead of one request per bed.
+- [x] **Open maintenance per room** (`count`, highest-priority `title`, `priority`) from
+      `maintenance_requests.room_id`, which already exists. The design's maintenance note is real.
+- [x] **`apps/api/src/routes/students.ts` unpaid subquery aligned** — both now read
+      `status != 'void' AND deleted_at IS NULL`. No route soft-deletes a payment today (voiding
+      sets status), so the two are identical right now, which is exactly when to align them rather
+      than after the first soft-delete makes two screens disagree about what somebody owes.
+
+#### Deliberate deviations — each a rule from authority #1 or a data fact
+- **Reserved and Cleaning tabs dropped.** `beds.status` is a three-value CHECK and there is no
+  reservation or cleaning anywhere in the schema; both would be states nothing can set or clear.
+  Replaced with two that are real and actionable: **Full** (the answer to "not here") and
+  **Inactive** (`is_active = false`, which otherwise hides among the vacant rooms).
+- **Amenities dropped entirely** — no column, no join table, nothing. The design derives them from
+  capacity (four beds earns you a balcony), which is a decoration that reads as a fact, and a
+  warden would place a student on it.
+- **"Monthly Revenue" KPI dropped.** The design sums `rooms.monthly_fee` over rooms with any
+  occupant — neither money collected nor money billed. Both of those exist on other screens from
+  real rows; a third number under the same word would contradict them.
+- **No deltas, no sparklines.** Every card in the design carries "5 this month" / "18.6% vs last
+  month" and a sine wave. Nothing records rooms or beds over time, so each note states what the
+  figure is counted from instead.
+- **The occupancy donut dropped** — it restates the Occupancy Rate KPI four inches above it, and
+  §8 makes charts subordinate.
+- **"Recent activity" dropped** — needs a room-events table; bed assignment writes an `audit_log`
+  row, not a feed, so the timestamps would be invented.
+- **The QR-label button and the three filter dropdowns dropped** — no label rendering exists, and
+  floor/type are already reachable by typing them into the search.
+- **Vacant takes the accent pill**, the inverse of the ledger. On a board whose purpose is finding
+  space, the room with space is the actionable one.
+
+#### Verified against real staging data
+- [x] `tsc --noEmit` + `eslint src` clean (api + web) · `next build` green, 16 routes ·
+      17 utility classes audited against the **generated** CSS, all emitting real rules.
+- [x] **The new SQL run against staging before the route was trusted**, then the board rendered
+      end to end (local web → local API → staging DB) and read back out of the HTML:
+      2 rooms / 3 beds / 3 occupied / 100.0%, tabs `All 2 · Full 2` and the rest 0, occupants with
+      their real dues, numeric room order, and room 102 printing
+      "Capacity says 2 — 1 bed not created yet".
+      `tab=vacant` and a no-match search both render the filtered empty state; searching an
+      occupant's name finds their room; counts follow the search while the KPI strip stays on the
+      hostel totals, the same split the ledger uses.
+- [ ] ⚠️ **Four states are unexercised by real data: vacant, occupied, maintenance and inactive.**
+      Staging has two rooms, both full, no floors, no courses and no maintenance requests, so the
+      status derivation, the maintenance note, the floor breakdown and the vacancy shortlist have
+      only been proven by their zero/empty paths. Seeding staging (a vacant room, a bed under
+      maintenance, an inactive room, a floor label) would close this — the `dced0…` id prefix
+      convention from session 10 is how to make it removable. Not done: it writes to a shared
+      environment and was not asked for.
+- [ ] ⚠️ Not verified: contrast in both themes, keyboard-only pass, 1366×768 and 375px screenshots.
+- [ ] ⚠️ **The `GET /rooms` slice has no test.** The payments slice got 13; the numeric ordering,
+      the bed-versus-capacity counts, the per-occupant dues and the two maintenance subqueries got
+      none, and `apps/api` has the harness to hold them. Proven by hand against staging, which is
+      not the same thing as pinned.
+- [ ] **`apps/web` has no test harness at all** (no vitest, no test script). The roster, the ledger
+      and this board all derive figures in a presenter with no unit test behind any of them —
+      `derive()`, `capacityNote()` and the tab counts are pure functions begging for one. Adding
+      the harness is its own task, not a rider on a screen build.
+- [ ] **`GET /rooms` has no pagination**, so the board renders every room and computes counts from
+      the full set — which is what makes them exact. A hostel large enough for that to hurt needs
+      the endpoint paginated first, and then the counts move server-side like the roster's.
+
+#### Also done here
+- [x] **The KPI strip is now a shared pattern** (`apps/web/src/components/patterns/kpi-strip.tsx`),
+      taking its icons from the caller. Payments moved onto it. Same reasoning as `status-tabs.tsx`
+      and `pagination.tsx`: two screens wearing the same card must not drift.
 - [ ] Still open from session 18: the untracked `charts/` + `reports.ts` + `docs/_audit-2026-07-30/`
       (commit, finish or delete — and the audit folder turns CI red as-is).
 

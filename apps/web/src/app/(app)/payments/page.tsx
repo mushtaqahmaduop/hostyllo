@@ -1,11 +1,19 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowLeftRight,
+  BarChart3,
+  Clock,
+  CreditCard,
+  Plus,
+  type LucideIcon,
+} from 'lucide-react';
 
 import { ApiError } from '@/lib/api';
 import { canOperate } from '@/lib/session';
 import { getLedgerView } from '@/lib/payments/presenter';
-import { KpiStrip } from '@/components/payments/kpi-strip';
+import { KpiStrip } from '@/components/patterns/kpi-strip';
 import { LedgerTable } from '@/components/payments/ledger-table';
 import { LedgerToolbar } from '@/components/payments/ledger-toolbar';
 import { TopDue } from '@/components/payments/top-due';
@@ -14,6 +22,15 @@ import { EmptyState, FilteredEmptyState, ErrorState } from '@/components/pattern
 import { Alert, AlertDescription } from '@/components/ui-kit/alert';
 
 export const metadata = { title: 'Payments' };
+
+/** The strip is shared; the icons are what make it this screen's. */
+const KPI_ICONS: Record<string, LucideIcon> = {
+  collected: CreditCard,
+  outstanding: AlertCircle,
+  pending: Clock,
+  transactions: ArrowLeftRight,
+  average: BarChart3,
+};
 
 /**
  * The Payments ledger — the owner's redesign, `docs/design/handoff/designs/Payments.dc.html`.
@@ -111,7 +128,7 @@ export default async function PaymentsPage({
         )}
       </div>
 
-      <KpiStrip kpis={view.kpis} />
+      <KpiStrip kpis={view.kpis} icons={KPI_ICONS} />
 
       <div className="mt-3 flex min-h-0 flex-1 gap-[13px]">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
