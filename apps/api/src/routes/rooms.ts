@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { CAN_OPERATE, CAN_READ, CHAIN_LEVEL } from '../lib/roles.js';
+import { roomBlockSort, roomNumberSort } from '../lib/room-sort.js';
 
 export async function roomsRoutes(app: FastifyInstance) {
 
@@ -36,23 +37,71 @@ export async function roomsRoutes(app: FastifyInstance) {
           r.monthly_fee as "defaultRentPkr",
           r.is_active as "isActive",
           r.created_at as "createdAt",
+          -- Bed rows, not r.capacity. A student is assigned to a bed row, so the
+          -- number of beds that actually exist is the number of people who can be
+          -- placed here; capacity is the intent and the two can disagree. Both are
+          -- returned so the screen can say when they do.
+          COUNT(b.id) as "totalBeds",
           COUNT(b.id) FILTER (WHERE b.status = 'occupied') as "occupiedBeds",
           COUNT(b.id) FILTER (WHERE b.status = 'vacant') as "freeBeds",
+          COUNT(b.id) FILTER (WHERE b.status = 'maintenance') as "maintenanceBeds",
+          -- Open work against this room. The redesigned screen prints a note on a
+          -- room under maintenance; this is what is behind it, rather than a
+          -- decoration keyed to the room number.
+          (SELECT COUNT(*)::int
+             FROM public.maintenance_requests mr
+            WHERE mr.room_id = r.id
+              AND mr.status IN ('open', 'in_progress')
+              AND mr.deleted_at IS NULL) as "openMaintenance",
+          (SELECT mr.title
+             FROM public.maintenance_requests mr
+            WHERE mr.room_id = r.id
+              AND mr.status IN ('open', 'in_progress')
+              AND mr.deleted_at IS NULL
+            ORDER BY CASE mr.priority
+                       WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
+                       WHEN 'medium' THEN 2 ELSE 3 END, mr.created_at
+            LIMIT 1) as "maintenanceTitle",
+          (SELECT mr.priority
+             FROM public.maintenance_requests mr
+            WHERE mr.room_id = r.id
+              AND mr.status IN ('open', 'in_progress')
+              AND mr.deleted_at IS NULL
+            ORDER BY CASE mr.priority
+                       WHEN 'urgent' THEN 0 WHEN 'high' THEN 1
+                       WHEN 'medium' THEN 2 ELSE 3 END, mr.created_at
+            LIMIT 1) as "maintenancePriority",
           json_agg(
             json_build_object(
               'bedId', b.id,
               'label', b.label,
               'status', b.status,
               'studentName', s.name,
-              'studentId', s.id
+              'studentId', s.id,
+              -- The occupant's course and what they owe: the two things the room
+              -- card prints beside a name. Both already exist per student, and
+              -- fetching them here is what stops the screen either omitting them
+              -- or making a request per bed.
+              'studentCourse', s.course,
+              'studentUnpaidPkr', COALESCE(due.amount, 0)
             ) ORDER BY b.label
           ) as beds
         FROM public.rooms r
         LEFT JOIN public.beds b ON b.room_id = r.id
         LEFT JOIN public.students s ON s.bed_id = b.id AND s.deleted_at IS NULL AND s.status = 'active'
+        LEFT JOIN (
+          SELECT student_id, SUM(unpaid) as amount
+          FROM public.payments
+          WHERE status != 'void' AND deleted_at IS NULL
+          GROUP BY student_id
+        ) due ON due.student_id = s.id
         ${whereClause}
         GROUP BY r.id
-        ORDER BY r.number
+        -- Numerically, not lexically. This is the screen where it matters most:
+        -- ORDER BY r.number is a text sort, so a hostel numbering rooms 1..20 got
+        -- #10 before #2 on the one page whose entire job is to be scanned in room
+        -- order. Same helper the roster and the ledger use, so all three agree.
+        ORDER BY ${roomBlockSort('r')}, ${roomNumberSort('r')}, r.number
       `);
 
       const summary = await db.query(`

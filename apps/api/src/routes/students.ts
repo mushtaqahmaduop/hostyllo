@@ -106,7 +106,13 @@ export async function studentRoutes(app: FastifyInstance) {
         LEFT JOIN (
           SELECT student_id, SUM(unpaid) as amount
           FROM public.payments
-          WHERE status != 'void'
+          -- deleted_at IS NULL matches GET /rooms, which prints the same figure
+          -- beside the same student on the room card. No route soft-deletes a
+          -- payment today (voiding sets status instead), so the two expressions
+          -- are identical right now — which is exactly when to align them, rather
+          -- than after the first soft-delete makes two screens disagree about
+          -- what somebody owes.
+          WHERE status != 'void' AND deleted_at IS NULL
           GROUP BY student_id
         ) unpaid ON unpaid.student_id = s.id
         WHERE s.deleted_at IS NULL
