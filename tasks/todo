@@ -89,13 +89,82 @@ That is defensible — rent is generated on the 1st, so an unpaid August row in 
 by definition — and it is honest, because nothing is invented. It is written down here because a
 derived status that later grows a column is exactly the kind of thing that drifts.
 
+### THE PAYMENTS SCREEN — BUILT (uncommitted at time of writing)
+`lib/payments/{contract,presenter}.ts` · `components/payments/{kpi-strip,ledger-toolbar,
+ledger-table,top-due}.tsx` · the page and a geometry-matched `loading.tsx` ·
+`apps/web/src/app/(app)/payments/[id]/receipt/route.ts`.
+- [x] **The presenter owns every figure**, as on the roster: tab counts, KPI deltas, the mess
+      breakdown and the result line all come out of the one request that fetched the rows.
+- [x] **The screen is always scoped to a month** — a property, not a clearable default. "Collected"
+      and "average per day" are not answerable over an unbounded ledger.
+- [x] **`StatusTabs` moved to `components/patterns/`** and the roster now imports it from there.
+      Structural typing, so `RosterTab` and `LedgerTab` both satisfy it and neither screen knows
+      about the other. Same reasoning as the shared `pagination.tsx`.
+- [x] **`apiRaw()` added to `apps/web/src/lib/api.ts`** — same token handling as `api()`, returns
+      the `Response`.
+      The receipt is a PDF, not an envelope, and the browser cannot call the API directly; a
+      receipt click on a page left open over lunch must refresh the token, not bounce to /login.
+
+#### Deliberate deviations — each one a rule from authority #1 or a data fact
+- **No sparklines on the KPI cards.** The design generates each from
+  `Math.sin(i * .8 + seed)`. There is no per-metric monthly series behind these five figures, and
+  the delta already states the movement in words. The dashboard's cards *do* carry sparklines
+  because `/dashboard/trend` returns real months.
+- **No ageing panel (0–30 / 31–60 / 61–90 / 90+).** Needs a per-payment age. Rent is billed
+  monthly and there is no `due_date`, so the only age available is "how many months back" —
+  day-bucketing that invents a precision the data does not have.
+- **No trend chart or methods donut in the rail.** Both exist on the dashboard from real
+  endpoints; month-scoped versions do not exist, and a second copy fed by different figures is how
+  two screens start disagreeing about the same month.
+- **No activity feed** — it would restate the rows already on screen, and its timestamps need a
+  payment-events table nothing writes.
+- **No quick actions.** All four are dead: WhatsApp is Phase 2; Generate Month Report, Record Bulk
+  Collection and Reconcile Bank Statement have no endpoint in any phase.
+- **No bulk selection bar.** No bulk endpoint behind Mark as Paid / Send Reminder / Print
+  Receipts, so the checkbox column would cost a column on every row to deliver nothing.
+- **Eight of the design's filter dropdowns are absent.** Every one needs a query parameter the API
+  does not have; they would either do nothing or silently filter the page instead of the month.
+  Month + search + tabs are the three that are real. "Clear Filters" went with them — with two
+  controls, the tab labelled All *is* the clear.
+- **A sixth tab, Void, added to the design's five.** The sketch's sample ledger contains no voided
+  rows so it never needed one; real ledgers keep voids forever for the audit trail, and without
+  the tab the one cohort an owner hunts for during a dispute is unreachable.
+- **`ID: PAY-2026-0142` under the student's name is not real** — the payment id is a UUID nobody
+  quotes and `receipt_number` only exists once a receipt is issued. The row shows the receipt
+  number when there is one and says so when there is not.
+- **Partial rows keep a grey pill**, as the design has them. Pending is amber and Overdue red
+  because both demand a call; a partial carries its figure in the Unpaid column and turns red the
+  moment it is late.
+
+#### Verified against real staging data, not just compiled
+- [x] `tsc --noEmit` + `eslint src` clean · `next build` green, **16 routes**.
+- [x] **19 new utility classes audited against the *generated* CSS** (the session-11 lesson) —
+      every one emits a real rule, including `hover:bg-brand-hover`.
+- [x] **Rendered end to end**: local web app → local API → staging database, logged in as the demo
+      owner, HTML inspected. July: collected 11,000 / outstanding 14,500 / avg 355 across 31 days,
+      tabs `All 3 · Paid 1 · Overdue 2` summing to the table, rooms in numeric order.
+      September proves all three mess states in one screen — `8,000 + 1,500 mess`,
+      `8,000 + 0 mess`, and `Mess not included`. `tab=overdue` narrows to 2 and the result line
+      says "2 of 2 payments · 3 this month"; a search narrows the counts but leaves the KPI strip
+      on the month's figures, which is the intended split. Both empty states render their own copy.
+      The receipt proxy returns a real PDF (200, `application/pdf`, `%PDF`), and an unknown id 404s.
+- [x] The roster re-checked after the shared-component move: 200, tabs and counts intact.
+- [ ] ⚠️ **Not verified: contrast in both themes, a keyboard-only pass, 1366×768 and 375px
+      screenshots.** Same gap the roster still carries.
+- [ ] ⚠️ **Not seen by a human against production data.** Everything above is HTML inspection.
+
 ### Next, in order
-- [ ] **The Payments screen itself** — `lib/payments/{contract,presenter}.ts`, the status tabs,
-      toolbar, table and KPI strip, on `Payments.dc.html`. The API now produces every figure it
-      needs; nothing on that screen has to be invented.
 - [ ] **Deploy order matters again, exactly as it did for Students.** The web app must not reach
-      production before this API slice does, or the ledger 400s on `tab`/`sort`/`q`
-      (`additionalProperties: false`).
+      production before the API slice does, or the ledger 400s on `tab`/`sort`/`q`
+      (`additionalProperties: false`). The API slice is on `Develop`; both ship together at the
+      next `main` release.
+- [ ] **CSV export for the ledger.** The design has the button;
+      `apps/web/src/app/(app)/students/export/route.ts` is the pattern (pages the API 100 at a
+      time, neutralises formula injection, UTF-8 BOM). Not built —
+      the button is absent rather than dead.
+- [ ] **The dashboard carries a second, local `delta()`** that omits the arrow glyph, while the
+      ledger uses `formatDelta` from `lib/format`. Two implementations of one §4.3 rule; they
+      should converge on the shared one.
 - [ ] Then Rooms, against `Rooms.dc.html`.
 - [ ] Still open from session 18: the untracked `charts/` + `reports.ts` + `docs/_audit-2026-07-30/`
       (commit, finish or delete — and the audit folder turns CI red as-is).
