@@ -3,6 +3,7 @@ import { withTenant } from '../lib/db.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { CAN_OPERATE, CAN_READ, OWNER_ONLY, SENSITIVE_READ } from '../lib/roles.js';
 import { encryptField, decryptField, isEncrypted } from '../lib/crypto.js';
+import { roomSortKeys } from '../lib/room-sort.js';
 
 interface PreviewRow {
   row: number;
@@ -31,16 +32,22 @@ const STUDENT_STATUSES = ['active', 'vacating', 'vacated', 'blacklisted'] as con
  *
  * `room` sorts on the room *number*, numerically — the redesigned screen states
  * "Sorted by Room ascending" and a hostel manager means #2 before #14, not
- * lexical order where #14 wins. NULLS LAST on every key so students without a
- * room or a fee sink to the bottom in both directions rather than flooding the
- * first page of an ascending sort.
+ * lexical order where #14 wins. That took two keys and a helper to actually
+ * deliver: `rooms.number` is TEXT, so the `ORDER BY r.number` this entry used to
+ * hold was a lexical sort that put #14 first — the comment above described the
+ * intent and the SQL did the opposite. See `lib/room-sort.ts`.
+ *
+ * Each key is a list, because a room sort needs two of them (block, then
+ * number) and every other sort needs one. NULLS LAST is applied per key by the
+ * caller so students without a room or a fee sink to the bottom in both
+ * directions rather than flooding the first page of an ascending sort.
  */
-const SORTABLE: Record<string, string> = {
-  name: 's.name',
-  room: 'r.number',
-  rent: '(s.monthly_fee + COALESCE(s.mess_fee, 0))',
-  status: 's.status',
-  join_date: 's.join_date',
+const SORTABLE: Record<string, string[]> = {
+  name: ['s.name'],
+  room: roomSortKeys('r'),
+  rent: ['(s.monthly_fee + COALESCE(s.mess_fee, 0))'],
+  status: ['s.status'],
+  join_date: ['s.join_date'],
 };
 
 const idParam = {
@@ -164,9 +171,10 @@ export async function studentRoutes(app: FastifyInstance) {
       // ORDER BY cannot be parameterised, so the column comes from the SORTABLE
       // whitelist and the direction from the schema's two-value enum. Neither is
       // client text by the time it reaches here.
-      const column = SORTABLE[sort] ?? SORTABLE.room;
+      const columns = SORTABLE[sort] ?? SORTABLE.room;
       const direction = dir === 'desc' ? 'DESC' : 'ASC';
-      query += ` ORDER BY ${column} ${direction} NULLS LAST, s.name ASC
+      const orderBy = columns.map((c) => `${c} ${direction} NULLS LAST`).join(', ');
+      query += ` ORDER BY ${orderBy}, s.name ASC
                  LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       params.push(Math.min(Number(limit), 100), Number(offset));
 
