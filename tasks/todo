@@ -11,7 +11,8 @@ API first where the screen needs data the API cannot yet produce, then the scree
 
 ### What the code actually says (inspected, not taken from this file)
 - Students is **done**: roster + record + add + edit (`a2e5dc8`, `e43ded4`). Not in scope.
-- `payments/page.tsx` and `rooms/page.tsx` exist but predate the redesign — they use
+- `apps/web/src/app/(app)/payments/page.tsx` and `apps/web/src/app/(app)/rooms/page.tsx` exist
+  but predate the redesign — they use
   `PageHeader` / `HeroPanel` / `StatStrip`, none of which appear in the handoff bundle. They are
   being replaced, not adjusted.
 
